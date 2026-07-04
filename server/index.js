@@ -1,6 +1,7 @@
 // Point d'entrée du serveur : attend la base, applique les migrations,
 // insère les données d'exemple si nécessaire, puis démarre l'API.
 
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createPool, waitForDb } from './db.js';
 import { runMigrations } from '../db/migrate.js';
@@ -37,3 +38,18 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 await app.listen({ port: PORT, host: '0.0.0.0' });
+
+// Bannière de démarrage : nom en ASCII art et version lue dans package.json
+const { version } = JSON.parse(
+  await readFile(new URL('../package.json', import.meta.url), 'utf8')
+);
+const banner = `
+  ____  _           ____  _
+ / ___|(_)_ __ ___ / ___|| |_ ___ _ __  ___
+ \\___ \\| | '_ \` _ \\\\___ \\| __/ _ \\ '_ \\/ __|
+  ___) | | | | | | |___) | ||  __/ |_) \\__ \\
+ |____/|_|_| |_| |_|____/ \\__\\___| .__/|___/
+                                 |_|  v${version}`;
+app.log.info(banner);
+app.log.info(`Serveur disponible sur http://0.0.0.0:${PORT}`);
+app.log.info(`Environnement : ${process.env.NODE_ENV ?? 'development'}`);
