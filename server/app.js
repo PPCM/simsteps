@@ -4,6 +4,7 @@
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import fastifyRateLimit from '@fastify/rate-limit';
 import { registerWarehouseRoutes } from './routes/warehouses.js';
 import { registerScenarioRoutes } from './routes/scenarios.js';
 import { registerRunRoutes } from './routes/runs.js';
@@ -14,9 +15,21 @@ import { registerRunRoutes } from './routes/runs.js';
  *        pour que le frontend importe Three.js sans étape de build.
  *        simRoot : dossier sim/, servi sous /sim — le moteur est pur et
  *        s'exécute aussi dans le navigateur pour l'animation.
+ *        rateLimit : limitation de débit par IP (déni de service) ;
+ *        surchargable pour les tests.
  */
-export async function buildApp({ pool, webRoot, threeRoot, simRoot, logger = false }) {
+export async function buildApp({
+  pool,
+  webRoot,
+  threeRoot,
+  simRoot,
+  logger = false,
+  rateLimit = { max: 300, timeWindow: '1 minute' },
+}) {
   const app = Fastify({ logger });
+
+  // Limitation de débit globale (routes API et statiques)
+  await app.register(fastifyRateLimit, rateLimit);
 
   // Sonde de santé (docker compose healthcheck, probes Kubernetes)
   app.get('/health', async (request, reply) => {
