@@ -1,7 +1,11 @@
 // Panneau d'édition : rendu des champs de propriétés de l'élément
 // sélectionné, des propriétés globales et des erreurs de validation.
 // Module DOM simple, sans état : l'orchestrateur (main.js) fournit la
-// définition de travail et reçoit les changements via onChange.
+// définition de travail et reçoit les changements via onChange. Les
+// coordonnées sont affichées et saisies en bords (displayValue /
+// modelValue de model.js) : entières après accrochage à la grille.
+
+import { displayValue, modelValue } from './model.js';
 
 // Champs par type d'élément : [clé, libellé, type d'input]
 const AISLE_FIELDS = [
@@ -15,8 +19,8 @@ const AISLE_FIELDS = [
 const FACILITY_FIELDS = [
   ['id', 'Identifiant', 'text'],
   ['label', 'Libellé', 'text'],
-  ['x', 'x', 'number'],
-  ['y', 'y', 'number'],
+  ['x', 'x (bord gauche)', 'number'],
+  ['y', 'y (bord avant)', 'number'],
   ['width', 'Largeur', 'number'],
   ['depth', 'Profondeur', 'number'],
 ];
@@ -39,8 +43,9 @@ const TYPE_LABELS = {
 };
 
 // Construit une grille de champs ; onChange reçoit { clé: valeur } au
-// changement d'un champ (les nombres invalides sont ignorés)
-function renderFields(container, fields, values, onChange) {
+// changement d'un champ (les nombres invalides sont ignorés). `kind`
+// active la conversion bord ↔ modèle sur les coordonnées.
+function renderFields(container, fields, values, onChange, kind = null) {
   const grid = document.createElement('div');
   grid.className = 'props-grid';
   for (const [key, labelText, type] of fields) {
@@ -52,11 +57,11 @@ function renderFields(container, fields, values, onChange) {
     const input = document.createElement('input');
     input.type = type;
     if (type === 'number') input.step = 'any';
-    input.value = values[key] ?? '';
+    input.value = (kind ? displayValue(kind, values, key) : values[key]) ?? '';
     input.addEventListener('change', () => {
       const value = type === 'number' ? Number(input.value) : input.value;
       if (type === 'number' && Number.isNaN(value)) return;
-      onChange({ [key]: value });
+      onChange({ [key]: kind ? modelValue(kind, values, key, value) : value });
     });
     label.append(head, input);
     grid.append(label);
@@ -86,12 +91,12 @@ export function renderSelection(container, def, selection, onChange) {
   container.append(title);
   if (selection.type === 'aisle') {
     const aisle = def.aisles.find((a) => a.id === selection.id);
-    if (aisle) renderFields(container, AISLE_FIELDS, aisle, onChange);
+    if (aisle) renderFields(container, AISLE_FIELDS, aisle, onChange, 'aisle');
   } else {
     const facility = selection.type === 'workshop'
       ? def.workshops.find((w) => w.id === selection.id)
       : asList(def[selection.type]).find((z) => z.id === selection.id);
-    if (facility) renderFields(container, FACILITY_FIELDS, facility, onChange);
+    if (facility) renderFields(container, FACILITY_FIELDS, facility, onChange, selection.type);
   }
 }
 

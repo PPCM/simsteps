@@ -56,17 +56,13 @@ test('sélection au clic et glisser contraint d’une allée', async ({ page, re
 
   const [id, , , yStartAfter, yEndAfter] = await selectionFields(page);
   expect(id).toBe(aisleId);
-  // Longueur conservée et allée maintenue entre les couloirs
+  // Longueur conservée, allée entre les couloirs, position au mètre entier
   expect(Number(yEndAfter) - Number(yStartAfter)).toBe(length);
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
   const y = Number(yStartAfter);
   expect(y).toBeGreaterThan(definition.corridors.frontY);
-  expect(y + length).toBeLessThan(definition.corridors.backY);
-  // Position accrochée : bord avant des racks (yStart − 0.9) sur une
-  // ligne de la grille, ou butée entière contre un couloir
-  const frontEdge = y - 0.9;
-  const aligned = Math.abs(frontEdge - Math.round(frontEdge)) < 1e-9;
-  expect(aligned || Number.isInteger(y)).toBe(true);
+  expect(Number(yEndAfter)).toBeLessThan(definition.corridors.backY);
+  expect(Number.isInteger(y)).toBe(true);
   await expect(page.locator('#editErrors li')).toHaveCount(0);
 
   await page.locator('#editCancel').click();

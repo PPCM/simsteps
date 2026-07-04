@@ -24,6 +24,8 @@ import {
   duplicateDefinition,
   minimalDefinition,
   normalizeDefinition,
+  displayValue,
+  modelValue,
 } from '../../../web/public/js/editor/model.js';
 
 const def = JSON.parse(
@@ -36,15 +38,14 @@ test('snapToGrid arrondit au mètre', () => {
   assert.equal(snapToGrid(-0.6), -1);
 });
 
-test('moveAisle aligne les bords sur la grille et conserve la longueur', () => {
+test('moveAisle aligne le flanc de rack en x, les baies au mètre en y', () => {
   const next = moveAisle(def, 'A1', { x: 8.4, yStart: 7.6 });
   const aisle = next.aisles.find((a) => a.id === 'A1');
   // Flanc extérieur du rack gauche (x − 2.1) sur une ligne de la grille
   assert.equal(aisle.x, 8.1);
   assert.equal(aisle.x - 2.1, 6);
-  // Débord avant des racks (yStart − 0.9) sur une ligne de la grille
-  assert.equal(aisle.yStart, 7.9);
-  assert.equal(Math.round((aisle.yStart - 0.9) * 1000) / 1000, 7);
+  // Début de baies au mètre entier (champ affiché tel quel)
+  assert.equal(aisle.yStart, 8);
   assert.equal(aisle.yEnd - aisle.yStart, 35 - 7);
 });
 
@@ -220,6 +221,9 @@ test('addShipping / addReceiving ajoutent une zone avec identifiant unique', () 
   assert.ok(added.label.startsWith('Expédition'));
   assert.equal(added.width, 4.8);
   assert.ok(added.x >= added.width / 2);
+  // Placement bord-aligné dès l'ajout : coordonnées affichées entières
+  assert.ok(Number.isInteger(displayValue('shipping', added, 'x')));
+  assert.ok(Number.isInteger(displayValue('shipping', added, 'y')));
   const more = addReceiving(next);
   assert.equal(more.receiving.length, 2);
   assert.equal(more.receiving[1].id, 'REC1');
@@ -270,4 +274,33 @@ test('validateDefinition exige au moins une zone de chaque type et borne les emp
 test('la définition minimale normalisée reste valide', () => {
   assert.deepEqual(validateDefinition(minimalDefinition(), buildWarehouse), []);
   assert.deepEqual(validateDefinition(normalizeDefinition(def), buildWarehouse), []);
+});
+
+test('displayValue / modelValue convertissent bords ↔ modèle', () => {
+  const norm = normalizeDefinition(def);
+  const aisle = norm.aisles[0]; // yStart 7, yEnd 35 : affichés tels quels
+  assert.equal(displayValue('aisle', aisle, 'yStart'), 7);
+  assert.equal(displayValue('aisle', aisle, 'yEnd'), 35);
+  assert.equal(modelValue('aisle', aisle, 'yStart', 8), 8);
+  const zone = norm.shipping[0]; // centre (28, 2), emprise 4.8 × 3
+  assert.equal(displayValue('shipping', zone, 'x'), 25.6);
+  assert.equal(displayValue('shipping', zone, 'y'), 0.5);
+  assert.equal(modelValue('shipping', zone, 'x', 26), 28.4);
+  assert.equal(modelValue('shipping', zone, 'y', 1), 2.5);
+  // Les autres clés passent inchangées
+  assert.equal(displayValue('aisle', aisle, 'bays'), 17);
+  assert.equal(modelValue('shipping', zone, 'width', 6), 6);
+});
+
+test('après accrochage du drag, les coordonnées affichées sont entières', () => {
+  const norm = normalizeDefinition(def);
+  const moved = moveFacility(norm, 'shipping', 'EXP', { x: 10.6, y: 10.2 });
+  const zone = moved.shipping.find((z) => z.id === 'EXP');
+  assert.ok(Number.isInteger(displayValue('shipping', zone, 'x')));
+  assert.ok(Number.isInteger(displayValue('shipping', zone, 'y')));
+  // Allée raccourcie pour ne pas buter contre le couloir arrière
+  const short = updateAisle(norm, 'A1', { yStart: 7, yEnd: 15 });
+  const dragged = moveAisle(short, 'A1', { yStart: 12.4 }).aisles[0];
+  assert.equal(displayValue('aisle', dragged, 'yStart'), 12);
+  assert.equal(displayValue('aisle', dragged, 'yEnd'), 20);
 });

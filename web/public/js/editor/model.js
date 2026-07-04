@@ -11,8 +11,6 @@ const DEFAULT_ZONE_WIDTH = 4.8;
 const DEFAULT_ZONE_DEPTH = 3;
 // Marge entre le bout d'une allée et son couloir (débouché praticable)
 const CORRIDOR_MARGIN = 1;
-// Dépassement des racks au-delà des baies en bout d'allée (layout.js)
-const RACK_MARGIN = 0.9;
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 // Zones d'expédition/réception : objet unique (format historique) ou liste
@@ -56,6 +54,35 @@ export function snapEdge(center, half) {
   return Math.round(center - half) + half;
 }
 
+// Arrondi au millimètre : élimine le bruit flottant des conversions
+const mm = (v) => Math.round(v * 1000) / 1000;
+
+/**
+ * Valeur affichée dans le panneau pour un champ : les coordonnées des
+ * zones sont exprimées en bords (gauche/avant), entiers après
+ * accrochage, alors que le modèle stocke les centres. Les allées
+ * affichent directement leur étendue de baies (entière).
+ */
+export function displayValue(kind, element, key) {
+  if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving') {
+    if (key === 'x') return mm(element.x - zoneHalfWidth(element));
+    if (key === 'y') return mm(element.y - zoneHalfDepth(element));
+  }
+  return element[key];
+}
+
+/**
+ * Conversion inverse de displayValue : valeur de modèle correspondant
+ * à une saisie du panneau (bord → centre pour les zones).
+ */
+export function modelValue(kind, element, key, value) {
+  if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving') {
+    if (key === 'x') return mm(value + zoneHalfWidth(element));
+    if (key === 'y') return mm(value + zoneHalfDepth(element));
+  }
+  return value;
+}
+
 /** Borne l'axe x d'une allée pour que ses racks restent dans le sol. */
 export function clampAisleX(def, x, aisle) {
   const half = aisleHalfWidth(aisle);
@@ -79,11 +106,11 @@ export function moveAisle(def, aisleId, { x, yStart }) {
   const aisle = next.aisles.find((a) => a.id === aisleId);
   if (!aisle) throw new Error(`Allée inconnue : ${aisleId}`);
   const length = aisle.yEnd - aisle.yStart;
-  // Bord aligné sur la grille : flanc extérieur du rack gauche en x,
-  // débord avant des racks en y
+  // En x, flanc extérieur du rack gauche aligné sur la grille ; en y,
+  // début de baies au mètre entier (les champs Début/Fin restent entiers)
   if (x !== undefined) aisle.x = clampAisleX(next, snapEdge(x, aisleHalfWidth(aisle)), aisle);
   if (yStart !== undefined) {
-    aisle.yStart = clampAisleY(next, snapEdge(yStart, RACK_MARGIN), length);
+    aisle.yStart = clampAisleY(next, snapToGrid(yStart), length);
     aisle.yEnd = aisle.yStart + length;
   }
   return next;
@@ -181,7 +208,11 @@ export function addWorkshop(def) {
   const width = last?.width ?? DEFAULT_ZONE_WIDTH;
   const depth = last?.depth ?? DEFAULT_ZONE_DEPTH;
   const x = clamp(snapEdge((last?.x ?? 4) + 6, width / 2), width / 2, next.dimensions.width - width / 2);
-  next.workshops.push({ id, label: `Atelier ${n}`, x, y: last?.y ?? next.corridors.frontY - 2, width, depth });
+  const y = clamp(
+    snapEdge(last?.y ?? next.corridors.frontY - 2, depth / 2),
+    depth / 2, next.dimensions.depth - depth / 2
+  );
+  next.workshops.push({ id, label: `Atelier ${n}`, x, y, width, depth });
   return next;
 }
 
@@ -201,7 +232,10 @@ function addZone(def, kind) {
   const width = last?.width ?? DEFAULT_ZONE_WIDTH;
   const depth = last?.depth ?? DEFAULT_ZONE_DEPTH;
   const x = clamp(snapEdge((last?.x ?? 4) + width + 2, width / 2), width / 2, next.dimensions.width - width / 2);
-  const y = last?.y ?? next.corridors.frontY - 2;
+  const y = clamp(
+    snapEdge(last?.y ?? next.corridors.frontY - 2, depth / 2),
+    depth / 2, next.dimensions.depth - depth / 2
+  );
   list.push({ id, label: `${label} ${id.slice(prefix.length)}`, x, y, width, depth });
   next[kind] = list;
   return next;

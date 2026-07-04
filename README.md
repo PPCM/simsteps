@@ -125,8 +125,9 @@ Le détail des sections :
   un élément dans la scène (allée, atelier, expédition, réception) le
   sélectionne, glisser le déplace par pas d'un mètre — le bord
   gauche/avant de l'élément s'aligne sur le carroyage au sol, un élément
-  de dimensions entières remplit donc des carreaux entiers — dans les
-  limites du plan et des couloirs ; la fenêtre expose les propriétés de la sélection
+  de dimensions entières remplit donc des carreaux entiers, et les
+  champs x/y des zones expriment ces bords (valeurs entières après
+  accrochage) — dans les limites du plan et des couloirs ; la fenêtre expose les propriétés de la sélection
   (baies, zone, identifiants, largeur/profondeur — chaque élément est
   redimensionnable), les propriétés globales (dimensions, couloirs), et
   l'ajout/la suppression d'allées, d'ateliers et de zones d'expédition
