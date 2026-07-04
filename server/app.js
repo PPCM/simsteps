@@ -25,7 +25,9 @@ export async function buildApp({
   threeRoot,
   simRoot,
   logger = false,
-  rateLimit = { max: 300, timeWindow: '1 minute' },
+  // Un chargement de page ≈ 30 requêtes (modules ES, Three.js, API) :
+  // 1000/min laisse ~30 chargements par minute et par IP
+  rateLimit = { max: 1000, timeWindow: '1 minute' },
 }) {
   const app = Fastify({ logger });
 
