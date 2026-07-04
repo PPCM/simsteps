@@ -11,6 +11,8 @@ const DEFAULT_ZONE_WIDTH = 4.8;
 const DEFAULT_ZONE_DEPTH = 3;
 // Marge entre le bout d'une allée et son couloir (débouché praticable)
 const CORRIDOR_MARGIN = 1;
+// Dépassement des racks au-delà des baies en bout d'allée (layout.js)
+const RACK_MARGIN = 0.9;
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 // Zones d'expédition/réception : objet unique (format historique) ou liste
@@ -45,6 +47,15 @@ export function snapToGrid(v) {
   return Math.round(v);
 }
 
+/**
+ * Accroche un centre pour que le bord (centre − demi-emprise) tombe sur
+ * une ligne de la grille : un élément de dimension entière remplit
+ * alors des carreaux entiers. Le pas reste de 1 m.
+ */
+export function snapEdge(center, half) {
+  return Math.round(center - half) + half;
+}
+
 /** Borne l'axe x d'une allée pour que ses racks restent dans le sol. */
 export function clampAisleX(def, x, aisle) {
   const half = aisleHalfWidth(aisle);
@@ -68,9 +79,11 @@ export function moveAisle(def, aisleId, { x, yStart }) {
   const aisle = next.aisles.find((a) => a.id === aisleId);
   if (!aisle) throw new Error(`Allée inconnue : ${aisleId}`);
   const length = aisle.yEnd - aisle.yStart;
-  if (x !== undefined) aisle.x = clampAisleX(next, snapToGrid(x), aisle);
+  // Bord aligné sur la grille : flanc extérieur du rack gauche en x,
+  // débord avant des racks en y
+  if (x !== undefined) aisle.x = clampAisleX(next, snapEdge(x, aisleHalfWidth(aisle)), aisle);
   if (yStart !== undefined) {
-    aisle.yStart = clampAisleY(next, snapToGrid(yStart), length);
+    aisle.yStart = clampAisleY(next, snapEdge(yStart, RACK_MARGIN), length);
     aisle.yEnd = aisle.yStart + length;
   }
   return next;
@@ -101,11 +114,12 @@ export function moveFacility(def, kind, id, { x, y }) {
   const facility = facilityOf(next, kind, id);
   const hw = zoneHalfWidth(facility);
   const hd = zoneHalfDepth(facility);
+  // Bords gauche/avant alignés sur la grille
   if (x !== undefined) {
-    facility.x = clamp(snapToGrid(x), hw, next.dimensions.width - hw);
+    facility.x = clamp(snapEdge(x, hw), hw, next.dimensions.width - hw);
   }
   if (y !== undefined) {
-    facility.y = clamp(snapToGrid(y), hd, next.dimensions.depth - hd);
+    facility.y = clamp(snapEdge(y, hd), hd, next.dimensions.depth - hd);
   }
   return next;
 }
@@ -166,7 +180,7 @@ export function addWorkshop(def) {
   const last = next.workshops[next.workshops.length - 1];
   const width = last?.width ?? DEFAULT_ZONE_WIDTH;
   const depth = last?.depth ?? DEFAULT_ZONE_DEPTH;
-  const x = clamp(snapToGrid((last?.x ?? 4) + 6), width / 2, next.dimensions.width - width / 2);
+  const x = clamp(snapEdge((last?.x ?? 4) + 6, width / 2), width / 2, next.dimensions.width - width / 2);
   next.workshops.push({ id, label: `Atelier ${n}`, x, y: last?.y ?? next.corridors.frontY - 2, width, depth });
   return next;
 }
@@ -186,7 +200,7 @@ function addZone(def, kind) {
   const id = nextId(prefix, list.map((z) => z.id));
   const width = last?.width ?? DEFAULT_ZONE_WIDTH;
   const depth = last?.depth ?? DEFAULT_ZONE_DEPTH;
-  const x = clamp(snapToGrid((last?.x ?? 4) + width + 2), width / 2, next.dimensions.width - width / 2);
+  const x = clamp(snapEdge((last?.x ?? 4) + width + 2, width / 2), width / 2, next.dimensions.width - width / 2);
   const y = last?.y ?? next.corridors.frontY - 2;
   list.push({ id, label: `${label} ${id.slice(prefix.length)}`, x, y, width, depth });
   next[kind] = list;

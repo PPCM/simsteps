@@ -123,8 +123,10 @@ Le détail des sections :
   fenêtre d'édition dédiée en bas de l'écran (flottante et rétractable
   comme les autres), aux propriétés disposées horizontalement : cliquer
   un élément dans la scène (allée, atelier, expédition, réception) le
-  sélectionne, glisser le déplace au mètre près dans les limites du plan
-  et des couloirs ; la fenêtre expose les propriétés de la sélection
+  sélectionne, glisser le déplace par pas d'un mètre — le bord
+  gauche/avant de l'élément s'aligne sur le carroyage au sol, un élément
+  de dimensions entières remplit donc des carreaux entiers — dans les
+  limites du plan et des couloirs ; la fenêtre expose les propriétés de la sélection
   (baies, zone, identifiants, largeur/profondeur — chaque élément est
   redimensionnable), les propriétés globales (dimensions, couloirs), et
   l'ajout/la suppression d'allées, d'ateliers et de zones d'expédition

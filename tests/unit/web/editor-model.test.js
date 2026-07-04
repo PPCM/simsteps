@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { buildWarehouse } from '../../../sim/warehouse.js';
 import {
   snapToGrid,
+  snapEdge,
   moveAisle,
   moveFacility,
   addAisle,
@@ -35,11 +36,15 @@ test('snapToGrid arrondit au mètre', () => {
   assert.equal(snapToGrid(-0.6), -1);
 });
 
-test('moveAisle accroche à la grille et conserve la longueur', () => {
+test('moveAisle aligne les bords sur la grille et conserve la longueur', () => {
   const next = moveAisle(def, 'A1', { x: 8.4, yStart: 7.6 });
   const aisle = next.aisles.find((a) => a.id === 'A1');
-  assert.equal(aisle.x, 8);
-  assert.equal(aisle.yStart, 8);
+  // Flanc extérieur du rack gauche (x − 2.1) sur une ligne de la grille
+  assert.equal(aisle.x, 8.1);
+  assert.equal(aisle.x - 2.1, 6);
+  // Débord avant des racks (yStart − 0.9) sur une ligne de la grille
+  assert.equal(aisle.yStart, 7.9);
+  assert.equal(Math.round((aisle.yStart - 0.9) * 1000) / 1000, 7);
   assert.equal(aisle.yEnd - aisle.yStart, 35 - 7);
 });
 
@@ -71,8 +76,27 @@ test('moveFacility borne les trois types dans le sol', () => {
   const shipping = moveFacility(def, 'shipping', 'EXP', { x: 100 });
   assert.equal(shipping.shipping.x, def.dimensions.width - 2.4);
   const receiving = moveFacility(def, 'receiving', 'REC', { x: 10.6, y: 10.2 });
-  assert.equal(receiving.receiving.x, 11);
-  assert.equal(receiving.receiving.y, 10);
+  // Bords gauche/avant (centre − demi-emprise 2.4 / 1.5) sur la grille
+  assert.equal(receiving.receiving.x, 10.4);
+  assert.equal(receiving.receiving.y, 10.5);
+});
+
+test('snapEdge aligne le bord d’un élément sur la grille', () => {
+  assert.equal(snapEdge(10.6, 2.4), 10.4); // bord à 8
+  assert.equal(snapEdge(10.6, 2), 11); // bord à 9
+  assert.equal(snapEdge(5, 1.5), 5.5); // bord à 4
+});
+
+test('une zone de dimensions entières remplit des carreaux entiers après drag', () => {
+  const norm = normalizeDefinition(def);
+  const resized = updateFacility(norm, 'shipping', 'EXP', { width: 4, depth: 2 });
+  const moved = moveFacility(resized, 'shipping', 'EXP', { x: 10.6, y: 10.2 });
+  const zone = moved.shipping.find((z) => z.id === 'EXP');
+  // Bords sur des lignes entières : 9..13 en x, 9..11 en y
+  assert.equal(zone.x - 2, 9);
+  assert.equal(zone.x + 2, 13);
+  assert.equal(zone.y - 1, 9);
+  assert.equal(zone.y + 1, 11);
 });
 
 test('addAisle génère un id unique et deux racks, définition valide', () => {
