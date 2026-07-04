@@ -16,7 +16,7 @@ const COLORS = {
   grid: 0x262c35,
   rack: 0x3a4250,
   rackEdge: 0x161a20,
-  corridor: 0x58a6ff, // couloirs transversaux : bleu circulation
+  corridor: 0x8b95a3, // couloirs transversaux : gris de marquage au sol
 
   zones: {
     workshop: 0x3f8f78, // ateliers : vert d'eau
@@ -101,17 +101,27 @@ export function createWarehouseScene(canvas, definition) {
     grid.position.y = 0.02;
     group.add(grid);
 
-    // --- Couloirs transversaux : bandes translucides, non sélectionnables ---
+    // --- Couloirs transversaux : bandes translucides étiquetées, non sélectionnables ---
     for (const band of corridorBands(def)) {
       const strip = new THREE.Mesh(
         new THREE.PlaneGeometry(band.width, band.depth),
         new THREE.MeshStandardMaterial({
-          color: COLORS.corridor, transparent: true, opacity: 0.12, roughness: 1,
+          color: COLORS.corridor, transparent: true, opacity: 0.14, roughness: 1,
         })
       );
       strip.rotation.x = -Math.PI / 2;
       strip.position.set(band.x, 0.025, band.z);
       group.add(strip);
+
+      // Étiquettes posées là où rien ne se superpose dans la vue par
+      // défaut : couloir avant côté gauche (sous les ateliers), couloir
+      // arrière vers l'extrémité droite (à côté de la réception)
+      const label = makeTextSprite(band.label, { color: '#8b95a3', worldHeight: 1 });
+      const labelX = band.id === 'front'
+        ? Math.max(band.width - 8, band.width / 2)
+        : Math.max(band.width - 4, band.width / 2);
+      label.position.set(labelX, 0.7, band.z);
+      group.add(label);
     }
 
     // --- Allées : un sous-groupe par allée (racks + arêtes + étiquette) ---

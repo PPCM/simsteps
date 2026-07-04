@@ -133,19 +133,21 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
   for (let i = 0; i < 3; i++) expect(afterExit[i]).toBeCloseTo(before[i], 1);
 });
 
-test('changer la taille du sol recadre la caméra sur le nouveau terrain', async ({ page }) => {
+test('changer la taille du sol recadre la caméra sur le nouveau terrain', async ({ page, request, baseURL }) => {
   const before = await page.evaluate(() => window.simstepsDebug.camera.position.toArray());
 
-  // Profondeur 42 → 62 : le sol grandit vers la caméra, hors champ sans
+  // Profondeur + 20 m : le sol grandit vers la caméra, hors champ sans
   // recadrage — la caméra doit se replacer pour montrer tout le terrain
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  const newDepth = definition.dimensions.depth + 20;
   const depth = page.locator('#globalProps input').nth(2);
-  await depth.fill('62');
+  await depth.fill(String(newDepth));
   await depth.blur();
   await expect(page.locator('#editErrors li')).toHaveCount(0);
   const after = await page.evaluate(() => window.simstepsDebug.camera.position.toArray());
   expect(after).not.toEqual(before);
   const target = await page.evaluate(() => window.simstepsDebug.controls.target.toArray());
-  expect(target[2]).toBeCloseTo(31, 1); // centre du nouveau sol (profondeur 62)
+  expect(target[2]).toBeCloseTo(newDepth / 2, 1); // centre du nouveau sol
 
   await page.locator('#editCancel').click();
 });

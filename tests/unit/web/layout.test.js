@@ -120,7 +120,9 @@ test('corridorBands matérialise les couloirs avant et arrière sur toute la lar
   const front = bands.find((b) => b.id === 'front');
   const back = bands.find((b) => b.id === 'back');
   assert.equal(front.z, def.corridors.frontY);
+  assert.equal(front.label, 'Couloir avant');
   assert.equal(back.z, def.corridors.backY);
+  assert.equal(back.label, 'Couloir arrière');
   for (const band of bands) {
     assert.equal(band.width, def.dimensions.width);
     assert.equal(band.x, def.dimensions.width / 2);

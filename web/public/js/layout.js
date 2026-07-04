@@ -71,12 +71,15 @@ export function zonePatches(def) {
  * Bandes des couloirs transversaux (avant/arrière) : les allées
  * débouchent dessus et les opérateurs y circulent ; les matérialiser
  * au sol rend visible la borne de déplacement des allées.
- * @returns {Array<{id: 'front'|'back', x: number, z: number, width: number, depth: number}>}
+ * @returns {Array<{id: 'front'|'back', label: string, x: number, z: number, width: number, depth: number}>}
  */
 export function corridorBands(def) {
   const { width } = def.dimensions;
-  const band = (id, y) => ({ id, x: width / 2, z: y, width, depth: DEFAULT_AISLE_WIDTH });
-  return [band('front', def.corridors.frontY), band('back', def.corridors.backY)];
+  const band = (id, label, y) => ({ id, label, x: width / 2, z: y, width, depth: DEFAULT_AISLE_WIDTH });
+  return [
+    band('front', 'Couloir avant', def.corridors.frontY),
+    band('back', 'Couloir arrière', def.corridors.backY),
+  ];
 }
 
 /**
