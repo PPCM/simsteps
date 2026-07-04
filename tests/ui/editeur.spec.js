@@ -3,13 +3,16 @@
 // enregistrement et annulation. Tout se passe sur un entrepôt jetable.
 
 import { test, expect } from '@playwright/test';
-import { openApp, createTestWarehouse, cleanupTestData, selectInScene, selectionFields } from './helpers.js';
+import {
+  openApp, openConfigTab, createTestWarehouse, cleanupTestData, selectInScene, selectionFields,
+} from './helpers.js';
 
 let testWarehouse;
 
 test.beforeEach(async ({ page, request, baseURL }) => {
   testWarehouse = await createTestWarehouse(request, baseURL);
   await openApp(page);
+  await openConfigTab(page);
   await page.locator('#warehouse').selectOption(String(testWarehouse.id));
   await expect(page.locator('#status')).toContainText(testWarehouse.name);
   await page.locator('#warehouseEdit').click();
@@ -22,6 +25,7 @@ test.afterEach(async ({ request, baseURL }) => {
 
 test('le mode édition fige la simulation et neutralise le panneau', async ({ page }) => {
   await expect(page.locator('#editPanel')).toBeVisible();
+  await expect(page.locator('#editDot')).toBeVisible(); // point ambre sur l'onglet
   for (const id of ['#play', '#scenario', '#project', '#warehouse', '#saveRun', '#cmpRun']) {
     await expect(page.locator(id)).toBeDisabled();
   }
@@ -30,6 +34,7 @@ test('le mode édition fige la simulation et neutralise le panneau', async ({ pa
   // Annuler : sortie propre, la relecture repart
   await page.locator('#editCancel').click();
   await expect(page.locator('#editPanel')).toBeHidden();
+  await expect(page.locator('#editDot')).toBeHidden();
   await expect(page.locator('#status')).toContainText('opérateurs');
   await expect(page.locator('#play')).toBeEnabled();
 });

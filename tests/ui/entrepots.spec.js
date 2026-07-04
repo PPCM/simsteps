@@ -4,13 +4,14 @@
 // et est donc rattrapée par le nettoyage.
 
 import { test, expect } from '@playwright/test';
-import { openApp, createTestWarehouse, cleanupTestData } from './helpers.js';
+import { openApp, openConfigTab, createTestWarehouse, cleanupTestData } from './helpers.js';
 
 let testWarehouse;
 
 test.beforeEach(async ({ page, request, baseURL }) => {
   testWarehouse = await createTestWarehouse(request, baseURL);
   await openApp(page);
+  await openConfigTab(page); // la gestion des entrepôts vit dans l'onglet Configurer
   await page.locator('#warehouse').selectOption(String(testWarehouse.id));
   await expect(page.locator('#status')).toContainText(testWarehouse.name);
 });

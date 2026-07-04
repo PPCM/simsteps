@@ -17,15 +17,66 @@
     canvas#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
     .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
 
-    /* ---- Panneau latéral ---- */
-    aside {
-      position: fixed; top: 14px; left: 14px; bottom: 14px; width: 304px; z-index: 2;
+    /* ---- Fenêtres flottantes (déplaçables, rétractables) ---- */
+    .window {
+      position: fixed; z-index: 2; width: 304px;
+      max-height: calc(100vh - 28px);
       background: var(--surface); border: 1px solid var(--line);
-      backdrop-filter: blur(8px); overflow-y: auto;
+      backdrop-filter: blur(8px);
       display: flex; flex-direction: column;
     }
-    aside::-webkit-scrollbar { width: 8px; }
-    aside::-webkit-scrollbar-thumb { background: var(--line); }
+    .win-left { top: 14px; left: 14px; }
+    .win-right { top: 14px; right: 14px; width: 286px; }
+    .win-body { overflow-y: auto; }
+    .win-body::-webkit-scrollbar { width: 8px; }
+    .win-body::-webkit-scrollbar-thumb { background: var(--line); }
+    .window.collapsed .win-body { display: none; }
+
+    .win-title {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      border-bottom: 1px solid var(--line); flex: none;
+      cursor: grab; user-select: none; touch-action: none;
+    }
+    .win-title:active { cursor: grabbing; }
+    .window.collapsed .win-title { border-bottom: 0; }
+    .win-name {
+      margin: 0; font-size: 10.5px; font-weight: 600;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
+    }
+    .win-summary {
+      display: none; margin-left: auto; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--ink);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .window.collapsed .win-summary { display: flex; }
+    .win-toggle {
+      appearance: none; margin-left: auto; flex: none;
+      width: 22px; height: 22px; padding: 0; line-height: 1;
+      background: transparent; border: 1px solid var(--line);
+      color: var(--ink-2); font-size: 11px; cursor: pointer;
+    }
+    .window.collapsed .win-toggle { margin-left: 0; }
+    .win-toggle:hover { border-color: var(--accent); color: var(--accent); }
+    #playMini {
+      appearance: none; background: transparent; border: 1px solid var(--line);
+      color: var(--ink-2); padding: 2px 8px; cursor: pointer; font-size: 11px;
+    }
+    #playMini:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Onglets Piloter / Configurer */
+    .tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
+    .tabs button {
+      appearance: none; flex: 1; background: transparent; border: 0;
+      border-bottom: 2px solid transparent; padding: 9px 0;
+      color: var(--ink-2); font: 600 12.5px/1 system-ui, sans-serif; cursor: pointer;
+    }
+    .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+    .tabs .dot {
+      display: inline-block; width: 6px; height: 6px; margin-left: 6px;
+      border-radius: 50%; background: var(--accent); vertical-align: 1px;
+    }
+    .tabs .dot[hidden] { display: none; } /* display explicite : l'attribut hidden doit gagner */
 
     section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
     section:last-child { border-bottom: 0; }
@@ -36,10 +87,10 @@
 
     .wordmark {
       margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 19px; font-weight: 700; letter-spacing: .18em;
+      font-size: 16px; font-weight: 700; letter-spacing: .18em;
     }
     .wordmark span { color: var(--accent); }
-    #status { margin: 3px 0 0; color: var(--ink-2); font-size: 12px; }
+    #status { margin: 0; color: var(--ink-2); font-size: 12px; }
     #status.error { color: var(--danger); }
 
     /* Transport */
@@ -115,13 +166,13 @@
 
     /* Superpositions hors panneau */
     .hint {
-      position: fixed; bottom: 14px; left: 334px; z-index: 2;
+      position: fixed; bottom: 14px; left: 14px; z-index: 1;
       color: var(--ink-2); font-size: 12px;
       background: var(--surface); border: 1px solid var(--line);
       padding: 6px 12px; backdrop-filter: blur(6px);
     }
     .legend {
-      position: fixed; bottom: 14px; right: 14px; z-index: 2;
+      position: fixed; bottom: 14px; right: 14px; z-index: 1;
       display: flex; gap: 14px; font-size: 12px; color: var(--ink-2);
       background: var(--surface); border: 1px solid var(--line);
       padding: 8px 12px; backdrop-filter: blur(6px);
@@ -141,9 +192,17 @@
 <body>
   <canvas id="scene"></canvas>
 
-  <aside aria-label="Panneau de contrôle">
-    <section>
+  <aside id="winMain" class="window win-left" aria-label="Pilotage et configuration">
+    <header class="win-title">
       <p class="wordmark">SIM<span>STEPS</span></p>
+      <span class="win-summary">
+        <button id="playMini" aria-label="Pause">⏸</button>
+        <span id="clockMini">00:00:00</span>
+      </span>
+      <button class="win-toggle" aria-expanded="true" aria-label="Replier la fenêtre">⌃</button>
+    </header>
+    <div class="win-body">
+    <section>
       <p id="status">Chargement…</p>
     </section>
 
@@ -159,6 +218,12 @@
       <div class="progress" aria-hidden="true"><div id="progressFill"></div></div>
     </section>
 
+    <nav class="tabs" role="tablist" aria-label="Onglets du panneau">
+      <button id="tabPilot" role="tab" data-pane="panePilot" aria-selected="true">Piloter</button>
+      <button id="tabConfig" role="tab" data-pane="paneConfig" aria-selected="false">Configurer<i class="dot" id="editDot" hidden></i></button>
+    </nav>
+
+    <div id="paneConfig" role="tabpanel" hidden>
     <section>
       <h2>Projet</h2>
       <label class="field">
@@ -208,7 +273,9 @@
         <ul class="edit-errors" id="editErrors"></ul>
       </div>
     </section>
+    </div>
 
+    <div id="panePilot" role="tabpanel">
     <section>
       <h2>Scénario</h2>
       <label class="field">
@@ -236,7 +303,17 @@
       <label class="switch"><input type="checkbox" id="toggleTrails"> Traînées de déplacement (spaghetti)</label>
       <label class="switch"><input type="checkbox" id="toggleHeatmap"> Heatmap de fréquentation au sol</label>
     </section>
+    </div>
+    </div>
+  </aside>
 
+  <aside id="winKpi" class="window win-right" aria-label="Indicateurs">
+    <header class="win-title">
+      <h2 class="win-name">Indicateurs</h2>
+      <span class="win-summary"><span id="kpiSummary"></span></span>
+      <button class="win-toggle" aria-expanded="true" aria-label="Replier la fenêtre">⌃</button>
+    </header>
+    <div class="win-body">
     <section>
       <h2>Indicateurs en direct</h2>
       <dl class="kpis">
@@ -263,6 +340,7 @@
         <tbody></tbody>
       </table>
     </section>
+    </div>
   </aside>
 
   <p class="hint" id="hint">Glisser : orbite · Molette : zoom · Clic droit : déplacement</p>

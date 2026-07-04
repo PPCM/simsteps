@@ -94,7 +94,20 @@ démarrage de pod.
 
 ## Utilisation de l'interface
 
-Le panneau latéral regroupe tout :
+L'interface s'organise en deux fenêtres flottantes, déplaçables par leur
+barre de titre et rétractables d'un clic sur le chevron (position, repli
+et onglet actif sont mémorisés par le navigateur) :
+
+- la **fenêtre principale** porte la Lecture, toujours visible, et deux
+  onglets : **Piloter** (scénario, curseurs, affichage, enregistrement
+  du run) et **Configurer** (projet, entrepôt, éditeur 3D — un point
+  ambre sur l'onglet signale une édition en cours). Repliée, sa barre
+  de titre conserve lecture/pause et l'horloge simulée.
+- la **fenêtre Indicateurs** porte les KPI en direct et la comparaison.
+  Repliée, sa barre de titre affiche les deux KPI clés (commandes/h et
+  occupation), mis à jour en continu.
+
+Le détail des sections :
 
 - **Lecture** : lecture/pause, vitesse x1/x10/x60, horloge simulée.
 - **Projet** : un projet regroupe un entrepôt, un scénario et des

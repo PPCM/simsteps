@@ -23,10 +23,14 @@ import {
 } from './editor/model.js';
 import { createEditorControls } from './editor/controls.js';
 import { renderSelection, renderGlobals, renderErrors } from './editor/panel.js';
+import { kpiSummaryText } from './panels.js';
+import { setupWindow, setupTabs } from './windows.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
   status: $('status'), clock: $('clock'), play: $('play'), hint: $('hint'),
+  playMini: $('playMini'), clockMini: $('clockMini'), kpiSummary: $('kpiSummary'),
+  editDot: $('editDot'),
   project: $('project'), projectName: $('projectName'),
   projectCreate: $('projectCreate'), projectUpdate: $('projectUpdate'),
   projectDelete: $('projectDelete'), projectStatus: $('projectStatus'),
@@ -46,6 +50,16 @@ const els = {
 
 const HINT_DEFAULT = 'Glisser : orbite · Molette : zoom · Clic droit : déplacement';
 const HINT_EDIT = 'Glisser un élément : déplacer · Clic dans le vide : orbite';
+
+// Fenêtres flottantes (drag, repli, mémorisation) et onglets — branchés
+// avant le chargement des données pour rester utilisables même en erreur
+setupWindow($('winMain'), 'simsteps.fenetre.principale');
+setupWindow($('winKpi'), 'simsteps.fenetre.indicateurs');
+setupTabs(
+  [...document.querySelectorAll('.tabs [role="tab"]')],
+  [$('panePilot'), $('paneConfig')],
+  'simsteps.onglet'
+);
 
 const numFr = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const intFr = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
@@ -231,6 +245,7 @@ try {
     $('kpi-occ').textContent = `${numFr.format(k.occupancyRate * 100)} %`;
     $('kpi-cycle').textContent = formatCycle(k.avgCycleTimeSec);
     $('kpi-pending').textContent = intFr.format(k.pendingOrders);
+    els.kpiSummary.textContent = kpiSummaryText(k);
   }
 
   // --- Transport ---
@@ -248,14 +263,19 @@ try {
 
   function setPlaying(value) {
     playing = value;
-    els.play.textContent = playing ? '⏸' : '▶';
-    els.play.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
+    // Le bouton de la fenêtre et celui de la barre repliée restent synchrones
+    for (const btn of [els.play, els.playMini]) {
+      btn.textContent = playing ? '⏸' : '▶';
+      btn.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
+    }
   }
-  els.play.addEventListener('click', () => {
+  function togglePlay() {
     if (!sim) return;
     if (!playing && simTime >= sim.durationSec) simTime = 0;
     setPlaying(!playing);
-  });
+  }
+  els.play.addEventListener('click', togglePlay);
+  els.playMini.addEventListener('click', togglePlay);
 
   // --- Panneau : scénario, curseurs, interrupteurs ---
   els.scenario.addEventListener('change', () => {
@@ -449,7 +469,7 @@ try {
 
   // Éléments neutralisés pendant l'édition
   const editLocked = [
-    els.play, ...speedButtons, els.scenario, els.opCount, els.b2cShare, els.orderRate,
+    els.play, els.playMini, ...speedButtons, els.scenario, els.opCount, els.b2cShare, els.orderRate,
     els.saveRun, els.project, els.projectName, els.projectCreate, els.projectUpdate,
     els.projectDelete, els.warehouse, els.warehouseEdit, els.warehouseCreate,
     els.warehouseDuplicate, els.warehouseDelete, els.cmpA, els.cmpB, els.cmpRun,
@@ -457,6 +477,7 @@ try {
   function setEditingUI(value) {
     for (const el of editLocked) el.disabled = value;
     els.editPanel.hidden = !value;
+    els.editDot.hidden = !value; // point ambre sur l'onglet Configurer
     els.hint.textContent = value ? HINT_EDIT : HINT_DEFAULT;
   }
 
@@ -721,6 +742,7 @@ try {
       lastKpiRefresh = nowMs;
       refreshKpis();
       els.clock.textContent = `${formatClock(simTime)} / ${formatClock(sim.durationSec)}`;
+      els.clockMini.textContent = formatClock(simTime);
       $('progressFill').style.width = `${(simTime / sim.durationSec) * 100}%`;
     }
     controls.update();

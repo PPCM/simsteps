@@ -24,6 +24,18 @@ export async function openApp(page) {
   return consoleErrors;
 }
 
+/** Ouvre l'onglet Configurer (projet, entrepôt, édition 3D). */
+export async function openConfigTab(page) {
+  await page.locator('#tabConfig').click();
+  await expect(page.locator('#paneConfig')).toBeVisible();
+}
+
+/** Ouvre l'onglet Piloter (scénario, curseurs, affichage). */
+export async function openPilotTab(page) {
+  await page.locator('#tabPilot').click();
+  await expect(page.locator('#panePilot')).toBeVisible();
+}
+
 /**
  * Clique dans la scène jusqu'à sélectionner un élément du type voulu
  * (le placement exact des racks à l'écran dépend de la caméra : on

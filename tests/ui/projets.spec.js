@@ -3,13 +3,16 @@
 // passe sur un entrepôt jetable pour ne pas polluer les données réelles.
 
 import { test, expect } from '@playwright/test';
-import { openApp, uniqueName, createTestWarehouse, cleanupTestData } from './helpers.js';
+import {
+  openApp, openConfigTab, openPilotTab, uniqueName, createTestWarehouse, cleanupTestData,
+} from './helpers.js';
 
 let testWarehouse;
 
 test.beforeEach(async ({ page, request, baseURL }) => {
   testWarehouse = await createTestWarehouse(request, baseURL);
   await openApp(page);
+  await openConfigTab(page); // projet et entrepôt vivent dans l'onglet Configurer
   await page.locator('#warehouse').selectOption(String(testWarehouse.id));
   await expect(page.locator('#status')).toContainText(testWarehouse.name);
 });
@@ -28,7 +31,8 @@ test('cycle de vie complet d’un projet', async ({ page, request, baseURL }) =>
   await expect(page.locator('#project option:checked')).toHaveText(projectName);
   const projectId = Number(await page.locator('#project').inputValue());
 
-  // Le run enregistré est rattaché au projet
+  // Le run enregistré est rattaché au projet (bouton dans l'onglet Piloter)
+  await openPilotTab(page);
   await page.locator('#saveRun').click();
   await expect(page.locator('#saveStatus')).toContainText('enregistré');
   const projectRuns = await (await request.get(`${baseURL}/api/runs?projectId=${projectId}`)).json();
@@ -42,6 +46,7 @@ test('cycle de vie complet d’un projet', async ({ page, request, baseURL }) =>
 
   // Mise à jour du projet actif (nouveau réglage de curseur)
   await page.locator('#opCount').fill('9');
+  await openConfigTab(page);
   await page.locator('#projectUpdate').click();
   await expect(page.locator('#projectStatus')).toContainText('mis à jour');
   const updated = await (await request.get(`${baseURL}/api/projects/${projectId}`)).json();
@@ -49,7 +54,9 @@ test('cycle de vie complet d’un projet', async ({ page, request, baseURL }) =>
 
   // Resélection : le projet réapplique ses réglages
   await page.locator('#project').selectOption('');
+  await openPilotTab(page);
   await page.locator('#opCount').fill('3');
+  await openConfigTab(page);
   await page.locator('#project').selectOption(String(projectId));
   await expect(page.locator('#opCountVal')).toHaveText('9');
 
