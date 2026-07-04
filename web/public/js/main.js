@@ -146,6 +146,8 @@ try {
   const canvas = $('scene');
   const sceneApi = createWarehouseScene(canvas, definition);
   const { camera, scene, renderer, controls } = sceneApi;
+  // Poignée de débogage et de tests UI (lecture seule : caméra, contrôles)
+  window.simstepsDebug = { camera, controls };
 
   // --- État de la relecture ---
   let sim = null; // run courant : timeline, KPI, couches 3D
@@ -508,7 +510,8 @@ try {
     renderErrors(els.editErrors, errors);
     els.editSave.disabled = errors.length > 0;
     if (errors.length === 0) {
-      sceneApi.setDefinition(workingDef);
+      // Pas de recadrage : l'orientation choisie pendant l'édition est conservée
+      sceneApi.setDefinition(workingDef, { recenter: false });
       editorControls.setSelection(selection);
     }
     renderSelectionPanel();
@@ -626,7 +629,7 @@ try {
       if (entry) entry.name = definition.name;
       exitEdit();
       refreshWarehouseOptions();
-      sceneApi.setDefinition(definition);
+      sceneApi.setDefinition(definition, { recenter: false });
       runCurrent();
       setStatus(els.warehouseStatus, 'Entrepôt enregistré.');
     } catch (error) {
@@ -636,7 +639,7 @@ try {
 
   els.editCancel.addEventListener('click', () => {
     exitEdit();
-    sceneApi.setDefinition(definition);
+    sceneApi.setDefinition(definition, { recenter: false });
     runCurrent();
     setStatus(els.warehouseStatus, 'Modifications abandonnées.');
   });

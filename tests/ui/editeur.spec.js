@@ -93,6 +93,40 @@ test('validation, ajout d’allée et enregistrement', async ({ page, request, b
   expect(definition.aisles).toHaveLength(7);
 });
 
+test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
+  // Attend la fin de l'inertie d'OrbitControls puis lit la position caméra
+  const settledCamera = async () => {
+    await page.waitForFunction(() => {
+      const p = window.simstepsDebug.camera.position;
+      const prev = window.__camPrev;
+      window.__camPrev = [p.x, p.y, p.z];
+      return prev !== undefined &&
+        Math.hypot(p.x - prev[0], p.y - prev[1], p.z - prev[2]) < 1e-4;
+    }, undefined, { polling: 250 });
+    return page.evaluate(() => window.simstepsDebug.camera.position.toArray());
+  };
+
+  // Orbite : l'utilisateur choisit son point de vue (glisser sur le sol nu)
+  const { width, height } = page.viewportSize();
+  await page.mouse.move(width * 0.33, height * 0.92);
+  await page.mouse.down();
+  await page.mouse.move(width * 0.45, height * 0.75, { steps: 5 });
+  await page.mouse.up();
+  const before = await settledCamera();
+
+  // Modification (ajout d'allée) : l'orientation choisie est conservée
+  await page.locator('#editAddAisle').click();
+  await expect(page.locator('#selProps .placeholder')).toContainText('Allée A7');
+  const afterEdit = await settledCamera();
+  for (let i = 0; i < 3; i++) expect(afterEdit[i]).toBeCloseTo(before[i], 1);
+
+  // La sortie d'édition (annuler) ne recadre pas non plus
+  await page.locator('#editCancel').click();
+  await expect(page.locator('#editPanel')).toBeHidden();
+  const afterExit = await settledCamera();
+  for (let i = 0; i < 3; i++) expect(afterExit[i]).toBeCloseTo(before[i], 1);
+});
+
 test('annuler ne persiste aucune modification', async ({ page, request, baseURL }) => {
   await page.locator('#editAddAisle').click();
   await expect(page.locator('#selProps .placeholder')).toContainText('Allée A7');

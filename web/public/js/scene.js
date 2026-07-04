@@ -161,14 +161,16 @@ export function createWarehouseScene(canvas, definition) {
     });
   }
 
-  // Reconstruit les statiques et recadre la caméra sur le nouveau plan
-  function setDefinition(def) {
+  // Reconstruit les statiques ; recadre la caméra sur le nouveau plan
+  // sauf demande contraire (édition : l'orientation choisie est conservée)
+  function setDefinition(def, { recenter = true } = {}) {
     if (statics) {
       scene.remove(statics);
       disposeStatics(statics);
     }
     statics = buildStatics(def);
     scene.add(statics);
+    if (!recenter) return;
     const { width, depth } = floorSize(def);
     camera.position.set(width * 1.05, 34, depth * 1.25);
     controls.target.set(width / 2, 0, depth / 2);
