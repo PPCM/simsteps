@@ -133,6 +133,23 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
   for (let i = 0; i < 3; i++) expect(afterExit[i]).toBeCloseTo(before[i], 1);
 });
 
+test('changer la taille du sol recadre la caméra sur le nouveau terrain', async ({ page }) => {
+  const before = await page.evaluate(() => window.simstepsDebug.camera.position.toArray());
+
+  // Profondeur 42 → 62 : le sol grandit vers la caméra, hors champ sans
+  // recadrage — la caméra doit se replacer pour montrer tout le terrain
+  const depth = page.locator('#globalProps input').nth(2);
+  await depth.fill('62');
+  await depth.blur();
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+  const after = await page.evaluate(() => window.simstepsDebug.camera.position.toArray());
+  expect(after).not.toEqual(before);
+  const target = await page.evaluate(() => window.simstepsDebug.controls.target.toArray());
+  expect(target[2]).toBeCloseTo(31, 1); // centre du nouveau sol (profondeur 62)
+
+  await page.locator('#editCancel').click();
+});
+
 test('ajouter et redimensionner une zone d’expédition', async ({ page, request, baseURL }) => {
   // Ajout : la zone est créée et sélectionnée automatiquement
   await page.locator('#editAddShipping').click();

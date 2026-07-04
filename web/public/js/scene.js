@@ -178,8 +178,11 @@ export function createWarehouseScene(canvas, definition) {
     statics = buildStatics(def);
     scene.add(statics);
     if (!recenter) return;
+    // Recul et hauteur proportionnels au sol : le terrain entier tient
+    // dans le champ, y compris le bord proche pour les grandes profondeurs
     const { width, depth } = floorSize(def);
-    camera.position.set(width * 1.05, 34, depth * 1.25);
+    const span = Math.max(width, depth);
+    camera.position.set(width / 2 + span * 0.5, span * 1.05, depth / 2 + span * 0.95);
     controls.target.set(width / 2, 0, depth / 2);
   }
 
