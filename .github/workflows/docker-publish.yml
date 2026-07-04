@@ -1,0 +1,62 @@
+# Publication de l'image Docker sur Docker Hub à chaque montée de version,
+# matérialisée par un tag Git « vX.Y.Z » (ex. : git tag v0.2.0 && git push --tags).
+# Étiquettes produites : X.Y.Z, X.Y et latest. Build multi-architecture.
+#
+# Secrets requis dans le dépôt (Settings → Secrets and variables → Actions) :
+#   DOCKERHUB_USERNAME : identifiant Docker Hub
+#   DOCKERHUB_TOKEN    : jeton d'accès (hub.docker.com → Account Settings → Security)
+name: Docker
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch: # lancement manuel possible (publie uniquement le tag « edge »)
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Émulation nécessaire au build arm64 depuis un runner amd64
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Étiquettes dérivées du tag Git : v1.2.3 → 1.2.3, 1.2 et latest ;
+      # lancement manuel (sans tag) → edge
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/simsteps
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=edge,branch=main
+          labels: |
+            org.opencontainers.image.title=SimSteps
+            org.opencontainers.image.description=Simulateur de flux d'entrepôt 3D
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
