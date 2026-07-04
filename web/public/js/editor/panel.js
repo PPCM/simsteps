@@ -29,10 +29,10 @@ const FACILITY_FIELDS = [
 const asList = (value) => (Array.isArray(value) ? value : [value]);
 const GLOBAL_FIELDS = [
   ['name', 'Nom', 'text'],
-  ['width', 'Largeur', 'number'],
-  ['depth', 'Profondeur', 'number'],
-  ['frontY', 'Couloir avant', 'number'],
-  ['backY', 'Couloir arrière', 'number'],
+  ['width', 'Largeur (x)', 'number'],
+  ['depth', 'Profondeur (y)', 'number'],
+  ['frontY', 'Couloir avant (y)', 'number'],
+  ['backY', 'Couloir arrière (y)', 'number'],
 ];
 
 const TYPE_LABELS = {
