@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount } from '../../../web/public/js/layout.js';
+import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments } from '../../../web/public/js/layout.js';
 
 const def = JSON.parse(
   await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
@@ -93,4 +93,23 @@ test('zonePatches respecte les tailles par zone et les listes', () => {
   assert.equal(e2.width, 4.8); // défaut quand la taille n'est pas précisée
   assert.equal(e2.depth, 3);
   assert.ok(zones.some((z) => z.id === 'REC' && z.kind === 'receiving'));
+});
+
+test('gridSegments couvre exactement le sol, sans déborder', () => {
+  const lines = gridSegments(def); // sol 44 × 42
+  assert.equal(lines.length, (44 + 1) + (42 + 1));
+  for (const [x1, z1, x2, z2] of lines) {
+    assert.ok(x1 >= 0 && x2 <= 44, 'segment hors sol en x');
+    assert.ok(z1 >= 0 && z2 <= 42, 'segment hors sol en z');
+  }
+  // Ne change que la dimension modifiée (grille non carrée)
+  const wider = structuredClone(def);
+  wider.dimensions.width = 64;
+  const wideLines = gridSegments(wider);
+  assert.equal(wideLines.length, (64 + 1) + (42 + 1));
+  assert.ok(wideLines.every(([, z1, , z2]) => z1 >= 0 && z2 <= 42));
+  // Dimensions fractionnaires : lignes de bord ajoutées
+  const frac = structuredClone(def);
+  frac.dimensions.width = 44.5;
+  assert.ok(gridSegments(frac).some(([x1, , x2]) => x1 === 44.5 && x2 === 44.5));
 });

@@ -68,6 +68,22 @@ export function zonePatches(def) {
 }
 
 /**
+ * Segments de la grille au mètre, couvrant exactement le sol (et rien
+ * que lui : une grille carrée déborderait d'un sol rectangulaire et
+ * ferait croire que les deux dimensions changent ensemble).
+ * @returns {Array<[number, number, number, number]>} segments [x1, z1, x2, z2]
+ */
+export function gridSegments(def) {
+  const { width, depth } = def.dimensions;
+  const lines = [];
+  for (let x = 0; x <= width; x++) lines.push([x, 0, x, depth]);
+  if (!Number.isInteger(width)) lines.push([width, 0, width, depth]);
+  for (let z = 0; z <= depth; z++) lines.push([0, z, width, z]);
+  if (!Number.isInteger(depth)) lines.push([0, depth, width, depth]);
+  return lines;
+}
+
+/**
  * Étiquettes des allées, placées en tête d'allée.
  * @returns {Array<{id: string, x: number, z: number}>}
  */

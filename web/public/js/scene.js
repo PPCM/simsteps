@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { floorSize, rackBoxes, zonePatches, aisleLabels } from './layout.js';
+import { floorSize, rackBoxes, zonePatches, aisleLabels, gridSegments } from './layout.js';
 import { makeTextSprite } from './labels.js';
 
 // Palette de la scène (thème sombre)
@@ -14,7 +14,6 @@ const COLORS = {
   background: 0x14171c,
   floor: 0x1b2027,
   grid: 0x262c35,
-  gridCenter: 0x2e3540,
   rack: 0x3a4250,
   rackEdge: 0x161a20,
   zones: {
@@ -87,9 +86,17 @@ export function createWarehouseScene(canvas, definition) {
     floor.receiveShadow = true;
     group.add(floor);
 
-    const gridSize = Math.max(width, depth);
-    const grid = new THREE.GridHelper(gridSize, gridSize, COLORS.gridCenter, COLORS.grid);
-    grid.position.set(width / 2, 0.02, depth / 2);
+    // Grille rectangulaire au mètre, calée exactement sur le sol
+    const gridPositions = [];
+    for (const [x1, z1, x2, z2] of gridSegments(def)) {
+      gridPositions.push(x1, 0, z1, x2, 0, z2);
+    }
+    const gridGeometry = new THREE.BufferGeometry();
+    gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridPositions, 3));
+    const grid = new THREE.LineSegments(
+      gridGeometry, new THREE.LineBasicMaterial({ color: COLORS.grid })
+    );
+    grid.position.y = 0.02;
     group.add(grid);
 
     // --- Allées : un sous-groupe par allée (racks + arêtes + étiquette) ---
