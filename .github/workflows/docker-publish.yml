@@ -60,3 +60,35 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Une fois l'image publiée, aligne le chart Helm (version, appVersion,
+  # tag d'image) et le README sur la version publiée, par un commit sur main.
+  align-chart:
+    needs: build-and-push
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Align chart with released version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/^version: .*/version: ${VERSION}/" helm/simsteps/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${VERSION}\"/" helm/simsteps/Chart.yaml
+          sed -i "s/^  tag: \".*\"/  tag: \"${VERSION}\"/" helm/simsteps/values.yaml
+          sed -i "s|ppcm/simsteps:[0-9][0-9.]*|ppcm/simsteps:${VERSION}|g" README.md
+          if git diff --quiet; then
+            echo "Chart déjà aligné sur ${VERSION}, rien à committer"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add helm/simsteps/Chart.yaml helm/simsteps/values.yaml README.md
+          git commit -m "Alignement du chart Helm sur la version ${VERSION}"
+          git push origin main
