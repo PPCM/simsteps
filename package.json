@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Simulateur de flux d'entrepôt 3D — picking B2B/B2C",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "scripts": {
     "sim": "node sim/cli.js",
     "dev": "node --env-file-if-exists=.env --watch server/index.js",
