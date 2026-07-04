@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { floorSize, rackBoxes, zonePatches, aisleLabels, gridSegments } from './layout.js';
+import { floorSize, rackBoxes, zonePatches, aisleLabels, gridSegments, corridorBands } from './layout.js';
 import { makeTextSprite } from './labels.js';
 
 // Palette de la scène (thème sombre)
@@ -16,6 +16,8 @@ const COLORS = {
   grid: 0x262c35,
   rack: 0x3a4250,
   rackEdge: 0x161a20,
+  corridor: 0x58a6ff, // couloirs transversaux : bleu circulation
+
   zones: {
     workshop: 0x3f8f78, // ateliers : vert d'eau
     shipping: 0xffb14e, // expédition : ambre (accent SimSteps)
@@ -98,6 +100,19 @@ export function createWarehouseScene(canvas, definition) {
     );
     grid.position.y = 0.02;
     group.add(grid);
+
+    // --- Couloirs transversaux : bandes translucides, non sélectionnables ---
+    for (const band of corridorBands(def)) {
+      const strip = new THREE.Mesh(
+        new THREE.PlaneGeometry(band.width, band.depth),
+        new THREE.MeshStandardMaterial({
+          color: COLORS.corridor, transparent: true, opacity: 0.12, roughness: 1,
+        })
+      );
+      strip.rotation.x = -Math.PI / 2;
+      strip.position.set(band.x, 0.025, band.z);
+      group.add(strip);
+    }
 
     // --- Allées : un sous-groupe par allée (racks + arêtes + étiquette) ---
     const rackMaterial = new THREE.MeshStandardMaterial({ color: COLORS.rack, roughness: 0.8 });

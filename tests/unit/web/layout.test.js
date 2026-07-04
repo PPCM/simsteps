@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments } from '../../../web/public/js/layout.js';
+import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments, corridorBands } from '../../../web/public/js/layout.js';
 
 const def = JSON.parse(
   await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
@@ -112,4 +112,18 @@ test('gridSegments couvre exactement le sol, sans déborder', () => {
   const frac = structuredClone(def);
   frac.dimensions.width = 44.5;
   assert.ok(gridSegments(frac).some(([x1, , x2]) => x1 === 44.5 && x2 === 44.5));
+});
+
+test('corridorBands matérialise les couloirs avant et arrière sur toute la largeur', () => {
+  const bands = corridorBands(def); // couloirs à y = 4 et y = 38
+  assert.equal(bands.length, 2);
+  const front = bands.find((b) => b.id === 'front');
+  const back = bands.find((b) => b.id === 'back');
+  assert.equal(front.z, def.corridors.frontY);
+  assert.equal(back.z, def.corridors.backY);
+  for (const band of bands) {
+    assert.equal(band.width, def.dimensions.width);
+    assert.equal(band.x, def.dimensions.width / 2);
+    assert.ok(band.depth > 0);
+  }
 });

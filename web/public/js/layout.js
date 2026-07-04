@@ -68,6 +68,18 @@ export function zonePatches(def) {
 }
 
 /**
+ * Bandes des couloirs transversaux (avant/arrière) : les allées
+ * débouchent dessus et les opérateurs y circulent ; les matérialiser
+ * au sol rend visible la borne de déplacement des allées.
+ * @returns {Array<{id: 'front'|'back', x: number, z: number, width: number, depth: number}>}
+ */
+export function corridorBands(def) {
+  const { width } = def.dimensions;
+  const band = (id, y) => ({ id, x: width / 2, z: y, width, depth: DEFAULT_AISLE_WIDTH });
+  return [band('front', def.corridors.frontY), band('back', def.corridors.backY)];
+}
+
+/**
  * Segments de la grille au mètre, couvrant exactement le sol (et rien
  * que lui : une grille carrée déborderait d'un sol rectangulaire et
  * ferait croire que les deux dimensions changent ensemble).
