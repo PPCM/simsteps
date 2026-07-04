@@ -1,0 +1,36 @@
+# Analyse statique CodeQL : à chaque push et pull request sur main,
+# plus un passage hebdomadaire pour bénéficier des nouvelles requêtes.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '30 5 * * 1' # lundi 05h30 UTC
+
+jobs:
+  analyze:
+    name: Analyze (javascript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # publication des résultats dans Code scanning
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # Requêtes standard + qualité (security-and-quality est plus large
+          # que le défaut security-extended)
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
