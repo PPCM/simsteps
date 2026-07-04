@@ -2,8 +2,8 @@ apiVersion: v2
 name: simsteps
 description: SimSteps — simulateur de flux d'entrepôt 3D (Node.js + PostgreSQL)
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.1.1
+appVersion: "0.1.1"
 keywords:
   - simulation
   - entrepot
