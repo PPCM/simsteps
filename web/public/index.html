@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SimSteps</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2314171c'/%3E%3Cpath d='M6 22h6v4H6zm7-6h6v10h-6zm7-6h6v16h-6z' fill='%23ffb14e'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #14171c; --surface: rgba(24, 28, 34, .92); --line: #2e343d;
+      --ink: #e6e8ea; --ink-2: #9aa3ad; --ink-3: #6b737e;
+      --accent: #ffb14e; --danger: #e07070; --good: #6fce9a;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, sans-serif; overflow: hidden; }
+    canvas#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+    /* ---- Panneau latéral ---- */
+    aside {
+      position: fixed; top: 14px; left: 14px; bottom: 14px; width: 304px; z-index: 2;
+      background: var(--surface); border: 1px solid var(--line);
+      backdrop-filter: blur(8px); overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    aside::-webkit-scrollbar { width: 8px; }
+    aside::-webkit-scrollbar-thumb { background: var(--line); }
+
+    section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: 0; }
+    h2 {
+      margin: 0 0 10px; font-size: 10.5px; font-weight: 600;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
+    }
+
+    .wordmark {
+      margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 19px; font-weight: 700; letter-spacing: .18em;
+    }
+    .wordmark span { color: var(--accent); }
+    #status { margin: 3px 0 0; color: var(--ink-2); font-size: 12px; }
+    #status.error { color: var(--danger); }
+
+    /* Transport */
+    .transport { display: flex; align-items: center; gap: 6px; }
+    .transport button {
+      appearance: none; border: 1px solid var(--line); background: transparent;
+      color: var(--ink-2); font: 600 12.5px/1 system-ui, sans-serif;
+      padding: 7px 0; cursor: pointer; flex: 1;
+    }
+    .transport button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    #clock {
+      display: block; margin-top: 8px; text-align: center;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums;
+    }
+    .progress { margin-top: 8px; height: 3px; background: var(--line); }
+    .progress div { height: 100%; width: 0; background: var(--accent); transition: width .25s linear; }
+    @media (prefers-reduced-motion: reduce) { .progress div { transition: none; } }
+
+    /* Formulaires */
+    label.field { display: block; margin-bottom: 12px; font-size: 12.5px; color: var(--ink-2); }
+    label.field:last-child { margin-bottom: 0; }
+    .field-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .field-head output { color: var(--ink); font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+    select {
+      width: 100%; background: var(--bg); color: var(--ink);
+      border: 1px solid var(--line); padding: 7px 8px; font: inherit; font-size: 13px;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+    .switch { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+    .switch:last-child { margin-bottom: 0; }
+    .switch input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+
+    button.action {
+      appearance: none; width: 100%; border: 1px solid var(--line);
+      background: transparent; color: var(--ink); font: 600 13px/1 system-ui, sans-serif;
+      padding: 9px 10px; cursor: pointer;
+    }
+    button.action:hover { border-color: var(--accent); color: var(--accent); }
+    button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .action-status { margin: 8px 0 0; font-size: 12px; color: var(--ink-2); min-height: 1em; }
+    .action-status.error { color: var(--danger); }
+
+    /* KPI en direct */
+    .kpis { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; font-size: 12.5px; }
+    .kpis dt { color: var(--ink-2); margin: 0; }
+    .kpis dd {
+      margin: 0; text-align: right; color: var(--ink);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-variant-numeric: tabular-nums; font-size: 12.5px;
+    }
+
+    /* Comparaison */
+    .cmp-selects { display: grid; gap: 8px; margin-bottom: 10px; }
+    table.cmp { border-collapse: collapse; width: 100%; font-size: 11.5px; margin-top: 12px; }
+    table.cmp th, table.cmp td { padding: 4px 4px; text-align: right; border-top: 1px solid var(--line); }
+    table.cmp th:first-child, table.cmp td:first-child { text-align: left; color: var(--ink-2); font-weight: 400; padding-left: 0; }
+    table.cmp thead th { border-top: 0; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+    table.cmp td { font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    td.better { color: var(--good); }
+    td.worse { color: var(--danger); }
+
+    /* Superpositions hors panneau */
+    .hint {
+      position: fixed; bottom: 14px; left: 334px; z-index: 2;
+      color: var(--ink-2); font-size: 12px;
+      background: var(--surface); border: 1px solid var(--line);
+      padding: 6px 12px; backdrop-filter: blur(6px);
+    }
+    .legend {
+      position: fixed; bottom: 14px; right: 14px; z-index: 2;
+      display: flex; gap: 14px; font-size: 12px; color: var(--ink-2);
+      background: var(--surface); border: 1px solid var(--line);
+      padding: 8px 12px; backdrop-filter: blur(6px);
+    }
+    .legend span { display: flex; align-items: center; gap: 6px; }
+    .legend i { width: 10px; height: 10px; border-radius: 50%; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.min.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <aside aria-label="Panneau de contrôle">
+    <section>
+      <p class="wordmark">SIM<span>STEPS</span></p>
+      <p id="status">Chargement…</p>
+    </section>
+
+    <section>
+      <h2>Lecture</h2>
+      <div class="transport" role="group" aria-label="Contrôle de la relecture">
+        <button id="play" aria-label="Pause">⏸</button>
+        <button data-speed="1" aria-pressed="false">x1</button>
+        <button data-speed="10" aria-pressed="false">x10</button>
+        <button data-speed="60" aria-pressed="false">x60</button>
+      </div>
+      <span id="clock">00:00:00</span>
+      <div class="progress" aria-hidden="true"><div id="progressFill"></div></div>
+    </section>
+
+    <section>
+      <h2>Scénario</h2>
+      <label class="field">
+        <span class="field-head"><span>Scénario de base</span></span>
+        <select id="scenario"></select>
+      </label>
+      <label class="field">
+        <span class="field-head"><span>Opérateurs</span><output id="opCountVal"></output></span>
+        <input type="range" id="opCount" min="1" max="20" step="1">
+      </label>
+      <label class="field">
+        <span class="field-head"><span>Mix B2C</span><output id="b2cShareVal"></output></span>
+        <input type="range" id="b2cShare" min="0" max="100" step="5">
+      </label>
+      <label class="field">
+        <span class="field-head"><span>Cadence de commandes</span><output id="orderRateVal"></output></span>
+        <input type="range" id="orderRate" min="5" max="120" step="5">
+      </label>
+      <button class="action" id="saveRun">Enregistrer ce run en base</button>
+      <p class="action-status" id="saveStatus"></p>
+    </section>
+
+    <section>
+      <h2>Affichage</h2>
+      <label class="switch"><input type="checkbox" id="toggleTrails"> Traînées de déplacement (spaghetti)</label>
+      <label class="switch"><input type="checkbox" id="toggleHeatmap"> Heatmap de fréquentation au sol</label>
+    </section>
+
+    <section>
+      <h2>Indicateurs en direct</h2>
+      <dl class="kpis">
+        <dt>Commandes traitées</dt><dd id="kpi-orders">—</dd>
+        <dt>Commandes / h</dt><dd id="kpi-oph">—</dd>
+        <dt>Lignes / h</dt><dd id="kpi-lph">—</dd>
+        <dt>Distance moy. / op.</dt><dd id="kpi-dist">—</dd>
+        <dt>Occupation</dt><dd id="kpi-occ">—</dd>
+        <dt>Cycle moyen</dt><dd id="kpi-cycle">—</dd>
+        <dt>En attente</dt><dd id="kpi-pending">—</dd>
+      </dl>
+    </section>
+
+    <section>
+      <h2>Comparaison</h2>
+      <div class="cmp-selects">
+        <select id="cmpA" aria-label="Run A"></select>
+        <select id="cmpB" aria-label="Run B"></select>
+      </div>
+      <button class="action" id="cmpRun">Comparer</button>
+      <p class="action-status" id="cmpStatus"></p>
+      <table class="cmp" id="cmpTable" hidden>
+        <thead><tr><th>Indicateur</th><th>A</th><th>B</th><th>Δ</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </aside>
+
+  <p class="hint">Glisser : orbite · Molette : zoom · Clic droit : déplacement</p>
+  <div class="legend" aria-label="États des opérateurs">
+    <span><i style="background:#58a6ff"></i>Déplacement</span>
+    <span><i style="background:#ffb14e"></i>Prélèvement</span>
+    <span><i style="background:#3f8f78"></i>Dépose</span>
+    <span><i style="background:#6b737e"></i>Inactif</span>
+  </div>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

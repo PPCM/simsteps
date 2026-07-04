@@ -1,0 +1,78 @@
+# Valeurs du chart SimSteps.
+# Démarrage rapide : helm install simsteps ./helm/simsteps
+# (PostgreSQL Bitnami inclus par défaut ; voir « database » pour une base externe.)
+
+# --- Application ---
+
+replicaCount: 1
+
+image:
+  # Image construite par le Dockerfile du dépôt (docker build -t simsteps .)
+  repository: simsteps
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Port d'écoute du conteneur (variable PORT de l'application)
+containerPort: 3000
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  # Ingress désactivable : enabled=false ne rend aucun manifeste Ingress
+  enabled: false
+  className: ""
+  annotations: {}
+  host: simsteps.local
+  path: /
+  pathType: Prefix
+  # tls:
+  #   - secretName: simsteps-tls
+  #     hosts: [simsteps.local]
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Migrations SQL exécutées avant le démarrage de l'application
+# (initContainer utilisant la même image : node db/migrate-cli.js)
+migrations:
+  enabled: true
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# --- Base de données ---
+
+database:
+  # Base externe : URL complète, utilisée si postgresql.enabled=false.
+  # Exemple : postgres://user:motdepasse@hote:5432/simsteps
+  externalUrl: ""
+  # Ou bien un Secret Kubernetes existant contenant la clé DATABASE_URL
+  # (prioritaire sur externalUrl et sur le sous-chart)
+  existingSecret: ""
+
+# Sous-chart PostgreSQL Bitnami (dépendance optionnelle).
+# Toutes les valeurs du sous-chart sont acceptées sous cette clé.
+postgresql:
+  enabled: true
+  auth:
+    username: simsteps
+    password: simsteps
+    database: simsteps
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi

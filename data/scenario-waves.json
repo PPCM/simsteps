@@ -1,0 +1,14 @@
+{
+  "name": "Vagues par zone",
+  "seed": 42,
+  "durationHours": 2,
+  "operators": 5,
+  "ordersPerHour": 30,
+  "b2cShare": 0.7,
+  "strategy": "zoneWave",
+  "waveSize": 20,
+  "speedMps": 1.2,
+  "pickTimePerLineSec": 12,
+  "dropTimeSec": 20,
+  "b2bClients": 8
+}

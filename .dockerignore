@@ -1,0 +1,12 @@
+node_modules
+doc
+tests
+helm
+.env
+.env.*
+!.env.example
+.gitignore
+docker-compose.yml
+Dockerfile
+CLAUDE.md
+CLAUDE.local.md

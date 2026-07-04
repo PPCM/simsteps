@@ -1,0 +1,23 @@
+SimSteps est déployé.
+
+{{- if .Values.ingress.enabled }}
+
+Accès : http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- else }}
+
+L'Ingress est désactivé. Pour accéder à l'application en local :
+
+  kubectl port-forward svc/{{ include "simsteps.fullname" . }} 3000:{{ .Values.service.port }}
+
+puis ouvrez http://localhost:3000
+{{- end }}
+
+{{- if .Values.postgresql.enabled }}
+
+Base de données : sous-chart PostgreSQL Bitnami ({{ .Release.Name }}-postgresql).
+{{- else }}
+
+Base de données : externe.
+{{- end }}
+
+État : kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}

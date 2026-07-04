@@ -1,0 +1,13 @@
+{
+  "name": "Base — commande par commande",
+  "seed": 42,
+  "durationHours": 2,
+  "operators": 5,
+  "ordersPerHour": 30,
+  "b2cShare": 0.7,
+  "strategy": "orderByOrder",
+  "speedMps": 1.2,
+  "pickTimePerLineSec": 12,
+  "dropTimeSec": 20,
+  "b2bClients": 8
+}

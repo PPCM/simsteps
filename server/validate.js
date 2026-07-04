@@ -1,0 +1,95 @@
+// Validation des entrées de l'API : définitions d'entrepôt et paramètres
+// de scénario. Renvoie une liste de messages d'erreur (vide = valide).
+
+import { buildWarehouse } from '../sim/warehouse.js';
+import { STRATEGIES } from '../sim/strategies.js';
+import { DEFAULT_SCENARIO } from '../sim/engine.js';
+
+/**
+ * Valide une définition d'entrepôt (format warehouse.json).
+ * La construction complète est tentée : toute incohérence topologique
+ * (rack orphelin, nœud dupliqué…) est remontée comme erreur.
+ * @param {object} def
+ * @returns {string[]} messages d'erreur
+ */
+export function validateWarehouseDefinition(def) {
+  const errors = [];
+  if (def === null || typeof def !== 'object' || Array.isArray(def)) {
+    return ['la définition doit être un objet JSON'];
+  }
+  if (typeof def.name !== 'string' || def.name.trim() === '') {
+    errors.push('« name » est requis (chaîne non vide)');
+  }
+  if (!Array.isArray(def.aisles) || def.aisles.length === 0) {
+    errors.push('« aisles » est requis (au moins une allée)');
+  }
+  if (!Array.isArray(def.racks) || def.racks.length === 0) {
+    errors.push('« racks » est requis (au moins un rack)');
+  }
+  if (!Array.isArray(def.workshops) || def.workshops.length === 0) {
+    errors.push('« workshops » est requis (au moins un atelier)');
+  }
+  if (!def.corridors || typeof def.corridors.frontY !== 'number' || typeof def.corridors.backY !== 'number') {
+    errors.push('« corridors » est requis ({ frontY, backY })');
+  }
+  if (!def.shipping || !def.shipping.id) errors.push('« shipping » est requis');
+  if (!def.receiving || !def.receiving.id) errors.push('« receiving » est requis');
+  if (errors.length > 0) return errors;
+
+  try {
+    buildWarehouse(def);
+  } catch (error) {
+    errors.push(`définition incohérente : ${error.message}`);
+  }
+  return errors;
+}
+
+// Bornes de validation par paramètre numérique de scénario
+const NUMERIC_PARAMS = {
+  seed: { min: 0, max: Number.MAX_SAFE_INTEGER, integer: true },
+  durationHours: { min: 0.01, max: 168 },
+  operators: { min: 1, max: 500, integer: true },
+  ordersPerHour: { min: 0.1, max: 100000 },
+  b2cShare: { min: 0, max: 1 },
+  speedMps: { min: 0.1, max: 10 },
+  pickTimePerLineSec: { min: 0, max: 3600 },
+  dropTimeSec: { min: 0, max: 3600 },
+  waveSize: { min: 1, max: 10000, integer: true },
+  b2bClients: { min: 1, max: 100000, integer: true },
+};
+
+/**
+ * Valide des paramètres de scénario (tous facultatifs : les valeurs
+ * manquantes prennent les défauts du moteur).
+ * @param {object} params
+ * @returns {string[]} messages d'erreur
+ */
+export function validateScenarioParams(params) {
+  const errors = [];
+  if (params === null || typeof params !== 'object' || Array.isArray(params)) {
+    return ['les paramètres doivent être un objet JSON'];
+  }
+  for (const [key, value] of Object.entries(params)) {
+    if (key === 'name') {
+      if (typeof value !== 'string' || value.trim() === '') {
+        errors.push('« name » doit être une chaîne non vide');
+      }
+    } else if (key === 'strategy') {
+      if (!STRATEGIES.has(value)) {
+        errors.push(`stratégie inconnue : ${value} (disponibles : ${[...STRATEGIES.keys()].join(', ')})`);
+      }
+    } else if (key in NUMERIC_PARAMS) {
+      const { min, max, integer } = NUMERIC_PARAMS[key];
+      if (typeof value !== 'number' || Number.isNaN(value)) {
+        errors.push(`« ${key} » doit être un nombre`);
+      } else if (value < min || value > max) {
+        errors.push(`« ${key} » doit être compris entre ${min} et ${max}`);
+      } else if (integer && !Number.isInteger(value)) {
+        errors.push(`« ${key} » doit être un entier`);
+      }
+    } else if (!(key in DEFAULT_SCENARIO)) {
+      errors.push(`paramètre inconnu : « ${key} »`);
+    }
+  }
+  return errors;
+}

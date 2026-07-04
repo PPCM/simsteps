@@ -1,0 +1,18 @@
+apiVersion: v2
+name: simsteps
+description: SimSteps — simulateur de flux d'entrepôt 3D (Node.js + PostgreSQL)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - simulation
+  - entrepot
+  - logistique
+dependencies:
+  # Sous-chart PostgreSQL Bitnami, optionnel : désactivez-le
+  # (postgresql.enabled=false) pour utiliser une base externe via
+  # database.externalUrl ou database.existingSecret.
+  - name: postgresql
+    version: "16.4.5"
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: postgresql.enabled
