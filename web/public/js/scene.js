@@ -56,6 +56,7 @@ export function createWarehouseScene(canvas, definition) {
 
   let statics = null; // groupe des statiques dépendants de la définition
   let pickables = []; // sous-groupes éditables (allées, ateliers, zones)
+  let corridorGroups = []; // couloirs : désignables au clic mais non éditables
   let labelEntries = []; // sprites de libellé : { sprite, type, id }
   let labelsVisible = true; // interrupteur global des libellés
   let revealed = null; // libellé révélé au clic quand les libellés sont masqués
@@ -73,6 +74,7 @@ export function createWarehouseScene(canvas, definition) {
     const center = new THREE.Vector3(width / 2, 0, depth / 2);
     const group = new THREE.Group();
     pickables = [];
+    corridorGroups = [];
     labelEntries = [];
 
     // --- Soleil : position et emprise d'ombre calées sur le sol ---
@@ -112,8 +114,11 @@ export function createWarehouseScene(canvas, definition) {
     grid.position.y = 0.02;
     group.add(grid);
 
-    // --- Couloirs transversaux : bandes translucides étiquetées, non sélectionnables ---
+    // --- Couloirs transversaux : bandes translucides étiquetées,
+    // désignables au clic (révélation de libellé) mais hors éditeur ---
     for (const band of corridorBands(def)) {
+      const corridorGroup = new THREE.Group();
+      corridorGroup.userData = { type: 'corridor', id: band.id };
       const strip = new THREE.Mesh(
         new THREE.PlaneGeometry(band.width, band.depth),
         new THREE.MeshStandardMaterial({
@@ -122,18 +127,19 @@ export function createWarehouseScene(canvas, definition) {
       );
       strip.rotation.x = -Math.PI / 2;
       strip.position.set(band.x, 0.025, band.z);
-      group.add(strip);
+      corridorGroup.add(strip);
 
       // Étiquettes posées là où rien ne se superpose dans la vue par
-      // défaut : couloir avant côté gauche (sous les ateliers), couloir
-      // arrière vers l'extrémité droite (à côté de la réception)
+      // défaut : à droite des racks, plus à l'intérieur pour l'avant
       const label = makeTextSprite(band.label, { color: '#8b95a3', worldHeight: 1 });
       const labelX = band.id === 'front'
         ? Math.max(band.width - 8, band.width / 2)
         : Math.max(band.width - 4, band.width / 2);
       label.position.set(labelX, 0.7, band.z);
-      group.add(label);
+      corridorGroup.add(label);
       labelEntries.push({ sprite: label, type: 'corridor', id: band.id });
+      group.add(corridorGroup);
+      corridorGroups.push(corridorGroup);
     }
 
     // --- Allées : un sous-groupe par allée (racks + arêtes + étiquette) ---
@@ -242,7 +248,9 @@ export function createWarehouseScene(canvas, definition) {
       -((clientY - rect.top) / rect.height) * 2 + 1
     );
     pickRaycaster.setFromCamera(pointer, camera);
-    for (const { object } of pickRaycaster.intersectObjects(pickables, true)) {
+    // Les couloirs sont désignables ici (libellés) mais restent hors
+    // des pickables de l'éditeur (non déplaçables)
+    for (const { object } of pickRaycaster.intersectObjects([...pickables, ...corridorGroups], true)) {
       let node = object;
       while (node && !node.userData?.type) node = node.parent;
       if (node) return { ...node.userData };

@@ -145,8 +145,8 @@ Le détail des sections :
   les trajets agrégés côté serveur, pour comparaison ultérieure.
 - **Affichage** : traînées de déplacement (une couleur par opérateur),
   heatmap de fréquentation au sol, et masquage des libellés 3D — quand
-  ils sont masqués, un clic sur un élément (allée, atelier, zone)
-  révèle le sien, un clic dans le vide le cache.
+  ils sont masqués, un clic sur un élément (allée, atelier, zone,
+  couloir) révèle le sien, un clic dans le vide le cache.
 - **Indicateurs en direct** : les KPI évoluent pendant la relecture.
 - **Comparaison** : deux sources au choix (réglages actuels, scénarios,
   runs enregistrés) et tableau des écarts, colorés selon le sens de

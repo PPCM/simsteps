@@ -44,27 +44,35 @@ test('masquer les libellés puis en révéler un au clic', async ({ page }) => {
   await page.locator('#toggleLabels').check();
   expect((await stats()).visible).toBe(0);
 
-  // Un clic sur un rack révèle son libellé (position à l'écran calculée
-  // par projection : indépendante des dimensions de l'entrepôt)
-  const point = await page.evaluate(async () => {
+  // Positions écran d'un rack et du couloir avant, par projection
+  // caméra : indépendantes des dimensions de l'entrepôt
+  const points = await page.evaluate(async () => {
     const warehouses = await (await fetch('/api/warehouses')).json();
     const { definition } = await (await fetch(`/api/warehouses/${warehouses[0].id}`)).json();
     const aisle = definition.aisles[0];
     const { camera } = window.simstepsDebug;
     const rect = document.getElementById('scene').getBoundingClientRect();
-    const v = camera.position.clone()
-      .set(aisle.x - 1.4, 1.2, (aisle.yStart + aisle.yEnd) / 2).project(camera);
+    const toScreen = (wx, wy, wz) => {
+      const v = camera.position.clone().set(wx, wy, wz).project(camera);
+      return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
+    };
     return {
-      x: rect.left + (v.x + 1) / 2 * rect.width,
-      y: rect.top + (1 - v.y) / 2 * rect.height,
+      rack: toScreen(aisle.x - 1.4, 1.2, (aisle.yStart + aisle.yEnd) / 2),
+      corridor: toScreen(definition.dimensions.width - 6, 0, definition.corridors.frontY),
     };
   });
-  await page.mouse.click(point.x, point.y);
+
+  // Un clic sur un rack révèle le libellé de son allée
+  await page.mouse.click(points.rack.x, points.rack.y);
   expect((await stats()).visible).toBe(1);
 
   // Clic dans le vide (hors de tout élément) : le libellé révélé se cache
   await page.mouse.click(10, page.viewportSize().height / 2);
   expect((await stats()).visible).toBe(0);
+
+  // Les couloirs sont aussi des objets : clic sur la bande → libellé révélé
+  await page.mouse.click(points.corridor.x, points.corridor.y);
+  expect((await stats()).visible).toBe(1);
 
   // Décocher : tout revient
   await page.locator('#toggleLabels').uncheck();
