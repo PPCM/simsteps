@@ -7,6 +7,7 @@ import fastifyStatic from '@fastify/static';
 import fastifyRateLimit from '@fastify/rate-limit';
 import { registerWarehouseRoutes } from './routes/warehouses.js';
 import { registerScenarioRoutes } from './routes/scenarios.js';
+import { registerProjectRoutes } from './routes/projects.js';
 import { registerRunRoutes } from './routes/runs.js';
 
 /**
@@ -43,6 +44,7 @@ export async function buildApp({
 
   registerWarehouseRoutes(app, pool);
   registerScenarioRoutes(app, pool);
+  registerProjectRoutes(app, pool);
   registerRunRoutes(app, pool);
 
   if (webRoot) {

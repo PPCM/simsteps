@@ -1,9 +1,9 @@
-// Point d'entrée du frontend — étape 5 : panneau latéral (scénario,
-// curseurs, spaghetti/heatmap), KPI en direct pendant la relecture,
-// enregistrement des runs en base et mode comparaison.
-// La simulation s'exécute dans le navigateur ; chaque changement de
-// paramètre relance un run complet (quelques millisecondes) puis la
-// relecture repart de zéro.
+// Point d'entrée du frontend : panneau latéral (projet, entrepôt,
+// scénario, curseurs, spaghetti/heatmap), KPI en direct pendant la
+// relecture, enregistrement des runs, comparaison et éditeur 3D
+// d'entrepôt. La simulation s'exécute dans le navigateur ; chaque
+// changement de paramètre relance un run complet (quelques
+// millisecondes) puis la relecture repart de zéro.
 
 import { buildWarehouse } from '/sim/warehouse.js';
 import { runSimulation, DEFAULT_SCENARIO } from '/sim/engine.js';
@@ -15,16 +15,37 @@ import { createHeatmapLayer } from './heatmap.js';
 import { createKpiSampler, kpiAt } from './kpiSampler.js';
 import { buildComparisonRows } from './compare.js';
 import { slotCount } from './layout.js';
+import { splitSettings, buildSettings, mergeProjectParams } from './projects.js';
+import {
+  moveAisle, moveFacility, addAisle, removeAisle, addWorkshop, removeWorkshop,
+  updateAisle, updateFacility, updateGlobals, validateDefinition,
+  duplicateDefinition, minimalDefinition,
+} from './editor/model.js';
+import { createEditorControls } from './editor/controls.js';
+import { renderSelection, renderGlobals, renderErrors } from './editor/panel.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
-  status: $('status'), clock: $('clock'), play: $('play'),
+  status: $('status'), clock: $('clock'), play: $('play'), hint: $('hint'),
+  project: $('project'), projectName: $('projectName'),
+  projectCreate: $('projectCreate'), projectUpdate: $('projectUpdate'),
+  projectDelete: $('projectDelete'), projectStatus: $('projectStatus'),
+  warehouse: $('warehouse'), warehouseEdit: $('warehouseEdit'),
+  warehouseCreate: $('warehouseCreate'), warehouseDuplicate: $('warehouseDuplicate'),
+  warehouseDelete: $('warehouseDelete'), warehouseStatus: $('warehouseStatus'),
+  editPanel: $('editPanel'), selProps: $('selProps'), globalProps: $('globalProps'),
+  editAddAisle: $('editAddAisle'), editAddWorkshop: $('editAddWorkshop'),
+  editRemoveSelection: $('editRemoveSelection'),
+  editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
   scenario: $('scenario'), opCount: $('opCount'), b2cShare: $('b2cShare'), orderRate: $('orderRate'),
   opCountVal: $('opCountVal'), b2cShareVal: $('b2cShareVal'), orderRateVal: $('orderRateVal'),
   toggleTrails: $('toggleTrails'), toggleHeatmap: $('toggleHeatmap'),
   saveRun: $('saveRun'), saveStatus: $('saveStatus'),
   cmpA: $('cmpA'), cmpB: $('cmpB'), cmpRun: $('cmpRun'), cmpStatus: $('cmpStatus'), cmpTable: $('cmpTable'),
 };
+
+const HINT_DEFAULT = 'Glisser : orbite · Molette : zoom · Clic droit : déplacement';
+const HINT_EDIT = 'Glisser un élément : déplacer · Clic dans le vide : orbite';
 
 const numFr = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const intFr = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
@@ -33,6 +54,23 @@ async function fetchJson(url, options) {
   const response = await fetch(url, options);
   if (!response.ok) throw new Error(`${url} → ${response.status}`);
   return response.json();
+}
+
+// Envoi JSON avec remontée des messages d'erreur français de l'API
+async function sendJson(url, method, body) {
+  // Pas d'en-tête JSON sans corps : Fastify rejette un corps vide typé
+  const response = await fetch(url, {
+    method,
+    ...(body !== undefined && {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  });
+  const data = response.status === 204 ? null : await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.errors?.join(' · ') ?? data?.error ?? `${url} → ${response.status}`);
+  }
+  return data;
 }
 
 function formatClock(seconds) {
@@ -49,22 +87,51 @@ function formatCycle(seconds) {
   return min > 0 ? `${min} min ${String(sec).padStart(2, '0')} s` : `${sec} s`;
 }
 
+// Affiche un statut d'action, en erreur ou non
+function setStatus(el, message, isError = false) {
+  el.classList.toggle('error', isError);
+  el.textContent = message;
+}
+
 try {
-  // --- Chargement initial : entrepôt et scénarios ---
-  const warehousesList = await fetchJson('/api/warehouses');
+  // --- Chargement initial : entrepôts, scénarios, projets ---
+  let warehousesList = await fetchJson('/api/warehouses');
   if (warehousesList.length === 0) throw new Error('Aucun entrepôt en base');
-  const warehouseId = warehousesList[0].id;
-  const { definition } = await fetchJson(`/api/warehouses/${warehouseId}`);
-  const warehouse = buildWarehouse(definition);
+  let warehouseId = warehousesList[0].id;
+  let { definition } = await fetchJson(`/api/warehouses/${warehouseId}`);
+  let warehouse = buildWarehouse(definition);
 
   const scenarios = await fetchJson('/api/scenarios');
   for (const s of scenarios) {
     els.scenario.append(new Option(s.name, s.id));
   }
 
-  // --- Scène 3D (construite une seule fois) ---
+  let projects = await fetchJson('/api/projects');
+  let activeProjectId = null;
+  let extraSettings = {}; // paramétrages du projet hors curseurs
+
+  function refreshWarehouseOptions() {
+    els.warehouse.innerHTML = '';
+    for (const w of warehousesList) {
+      els.warehouse.append(new Option(w.name, w.id));
+    }
+    els.warehouse.value = String(warehouseId);
+  }
+  function refreshProjectOptions() {
+    els.project.innerHTML = '';
+    els.project.append(new Option('— Aucun projet —', ''));
+    for (const p of projects) {
+      els.project.append(new Option(p.name, p.id));
+    }
+    els.project.value = activeProjectId === null ? '' : String(activeProjectId);
+  }
+  refreshWarehouseOptions();
+  refreshProjectOptions();
+
+  // --- Scène 3D (statiques reconstructibles au changement d'entrepôt) ---
   const canvas = $('scene');
-  const { camera, scene, renderer, controls } = createWarehouseScene(canvas, definition);
+  const sceneApi = createWarehouseScene(canvas, definition);
+  const { camera, scene, renderer, controls } = sceneApi;
 
   // --- État de la relecture ---
   let sim = null; // run courant : timeline, KPI, couches 3D
@@ -78,27 +145,42 @@ try {
     return scenarios.find((s) => s.id === Number(els.scenario.value));
   }
 
-  function currentParams() {
+  function sliderValues() {
     return {
-      ...(selectedScenario()?.params ?? {}),
       operators: Number(els.opCount.value),
       b2cShare: Number(els.b2cShare.value) / 100,
       ordersPerHour: Number(els.orderRate.value),
     };
   }
 
-  function syncSlidersFromScenario() {
-    const params = { ...DEFAULT_SCENARIO, ...(selectedScenario()?.params ?? {}) };
+  function currentParams() {
+    return mergeProjectParams(selectedScenario()?.params ?? {}, extraSettings, sliderValues());
+  }
+
+  function setSliders(params) {
     els.opCount.value = params.operators;
     els.b2cShare.value = Math.round(params.b2cShare * 100);
     els.orderRate.value = params.ordersPerHour;
     refreshSliderLabels();
   }
 
+  function syncSlidersFromScenario() {
+    setSliders({ ...DEFAULT_SCENARIO, ...(selectedScenario()?.params ?? {}) });
+  }
+
   function refreshSliderLabels() {
     els.opCountVal.textContent = els.opCount.value;
     els.b2cShareVal.textContent = `${els.b2cShare.value} % B2C`;
     els.orderRateVal.textContent = `${els.orderRate.value} cmd/h`;
+  }
+
+  // Recharge un entrepôt et reconstruit la scène statique
+  async function loadWarehouse(id) {
+    warehouseId = id;
+    ({ definition } = await fetchJson(`/api/warehouses/${id}`));
+    warehouse = buildWarehouse(definition);
+    sceneApi.setDefinition(definition);
+    els.warehouse.value = String(id);
   }
 
   // --- Exécution d'un run et construction des couches 3D ---
@@ -170,6 +252,7 @@ try {
     els.play.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
   }
   els.play.addEventListener('click', () => {
+    if (!sim) return;
     if (!playing && simTime >= sim.durationSec) simTime = 0;
     setPlaying(!playing);
   });
@@ -184,42 +267,383 @@ try {
     slider.addEventListener('change', runCurrent);
   }
   els.toggleTrails.addEventListener('change', () => {
+    if (!sim) return;
     sim.trails.setVisible(els.toggleTrails.checked);
     sim.trails.update(simTime);
   });
   els.toggleHeatmap.addEventListener('change', () => {
-    sim.heatmap.setVisible(els.toggleHeatmap.checked);
+    sim?.heatmap.setVisible(els.toggleHeatmap.checked);
+  });
+
+  // --- Projets : application, création, mise à jour, suppression ---
+  function activeProject() {
+    return projects.find((p) => p.id === activeProjectId);
+  }
+
+  // Applique un projet : entrepôt, scénario, curseurs et extras
+  async function applyProject(project) {
+    activeProjectId = project.id;
+    els.projectName.value = project.name;
+    if (project.warehouse_id !== warehouseId) {
+      await loadWarehouse(project.warehouse_id);
+    }
+    if (project.scenario_id !== null && scenarios.some((s) => s.id === project.scenario_id)) {
+      els.scenario.value = String(project.scenario_id);
+    }
+    extraSettings = splitSettings(project.settings).extras;
+    setSliders({
+      ...DEFAULT_SCENARIO,
+      ...(selectedScenario()?.params ?? {}),
+      ...project.settings,
+    });
+    runCurrent();
+    await refreshCompareOptions();
+  }
+
+  function clearProject() {
+    activeProjectId = null;
+    extraSettings = {};
+    els.projectName.value = '';
+  }
+
+  function projectBody() {
+    return {
+      name: els.projectName.value.trim() || 'Projet sans nom',
+      warehouseId,
+      scenarioId: Number(els.scenario.value),
+      settings: buildSettings(extraSettings, sliderValues()),
+    };
+  }
+
+  els.project.addEventListener('change', async () => {
+    setStatus(els.projectStatus, '');
+    if (els.project.value === '') {
+      clearProject();
+      syncSlidersFromScenario();
+      runCurrent();
+      await refreshCompareOptions();
+      return;
+    }
+    const project = projects.find((p) => p.id === Number(els.project.value));
+    if (project) await applyProject(project);
+  });
+
+  els.projectCreate.addEventListener('click', async () => {
+    setStatus(els.projectStatus, 'Création…');
+    try {
+      const created = await sendJson('/api/projects', 'POST', projectBody());
+      projects = await fetchJson('/api/projects');
+      activeProjectId = created.id;
+      els.projectName.value = created.name;
+      refreshProjectOptions();
+      setStatus(els.projectStatus, `Projet « ${created.name} » créé.`);
+      await refreshCompareOptions();
+    } catch (error) {
+      setStatus(els.projectStatus, `Échec : ${error.message}`, true);
+    }
+  });
+
+  els.projectUpdate.addEventListener('click', async () => {
+    if (activeProjectId === null) {
+      setStatus(els.projectStatus, 'Aucun projet actif à mettre à jour.', true);
+      return;
+    }
+    setStatus(els.projectStatus, 'Mise à jour…');
+    try {
+      const updated = await sendJson(`/api/projects/${activeProjectId}`, 'PUT', projectBody());
+      projects = projects.map((p) => (p.id === updated.id ? updated : p));
+      refreshProjectOptions();
+      setStatus(els.projectStatus, `Projet « ${updated.name} » mis à jour.`);
+    } catch (error) {
+      setStatus(els.projectStatus, `Échec : ${error.message}`, true);
+    }
+  });
+
+  els.projectDelete.addEventListener('click', async () => {
+    const project = activeProject();
+    if (!project) {
+      setStatus(els.projectStatus, 'Aucun projet actif à supprimer.', true);
+      return;
+    }
+    if (!window.confirm(`Supprimer le projet « ${project.name} » ? Les runs associés seront conservés.`)) return;
+    try {
+      await sendJson(`/api/projects/${project.id}`, 'DELETE');
+      projects = projects.filter((p) => p.id !== project.id);
+      clearProject();
+      refreshProjectOptions();
+      setStatus(els.projectStatus, 'Projet supprimé.');
+      await refreshCompareOptions();
+    } catch (error) {
+      setStatus(els.projectStatus, `Échec : ${error.message}`, true);
+    }
+  });
+
+  // --- Entrepôts : sélection, création, duplication, suppression ---
+  els.warehouse.addEventListener('change', async () => {
+    setStatus(els.warehouseStatus, '');
+    await loadWarehouse(Number(els.warehouse.value));
+    runCurrent();
+    await refreshCompareOptions();
+  });
+
+  els.warehouseCreate.addEventListener('click', async () => {
+    setStatus(els.warehouseStatus, 'Création…');
+    try {
+      const created = await sendJson('/api/warehouses', 'POST', minimalDefinition());
+      warehousesList = await fetchJson('/api/warehouses');
+      refreshWarehouseOptions();
+      await loadWarehouse(created.id);
+      runCurrent();
+      await refreshCompareOptions();
+      setStatus(els.warehouseStatus, `Entrepôt « ${created.name} » créé.`);
+      enterEdit();
+    } catch (error) {
+      setStatus(els.warehouseStatus, `Échec : ${error.message}`, true);
+    }
+  });
+
+  els.warehouseDuplicate.addEventListener('click', async () => {
+    setStatus(els.warehouseStatus, 'Duplication…');
+    try {
+      const created = await sendJson('/api/warehouses', 'POST', duplicateDefinition(definition));
+      warehousesList = await fetchJson('/api/warehouses');
+      refreshWarehouseOptions();
+      await loadWarehouse(created.id);
+      runCurrent();
+      await refreshCompareOptions();
+      setStatus(els.warehouseStatus, `Entrepôt « ${created.name} » créé.`);
+    } catch (error) {
+      setStatus(els.warehouseStatus, `Échec : ${error.message}`, true);
+    }
+  });
+
+  els.warehouseDelete.addEventListener('click', async () => {
+    const entry = warehousesList.find((w) => w.id === warehouseId);
+    if (warehousesList.length <= 1) {
+      setStatus(els.warehouseStatus, 'Impossible de supprimer le dernier entrepôt.', true);
+      return;
+    }
+    if (!window.confirm(
+      `Supprimer l'entrepôt « ${entry.name} » ? Les runs et les projets associés seront supprimés.`
+    )) return;
+    try {
+      await sendJson(`/api/warehouses/${warehouseId}`, 'DELETE');
+      warehousesList = warehousesList.filter((w) => w.id !== warehouseId);
+      projects = await fetchJson('/api/projects');
+      if (activeProjectId !== null && !activeProject()) clearProject();
+      refreshProjectOptions();
+      refreshWarehouseOptions();
+      await loadWarehouse(warehousesList[0].id);
+      runCurrent();
+      await refreshCompareOptions();
+      setStatus(els.warehouseStatus, 'Entrepôt supprimé.');
+    } catch (error) {
+      setStatus(els.warehouseStatus, `Échec : ${error.message}`, true);
+    }
+  });
+
+  // --- Éditeur 3D : mode édition de l'entrepôt courant ---
+  let editing = false;
+  let workingDef = null; // définition de travail (clonée à l'entrée)
+  let selection = null; // { type, id } de l'élément sélectionné
+
+  // Éléments neutralisés pendant l'édition
+  const editLocked = [
+    els.play, ...speedButtons, els.scenario, els.opCount, els.b2cShare, els.orderRate,
+    els.saveRun, els.project, els.projectName, els.projectCreate, els.projectUpdate,
+    els.projectDelete, els.warehouse, els.warehouseEdit, els.warehouseCreate,
+    els.warehouseDuplicate, els.warehouseDelete, els.cmpA, els.cmpB, els.cmpRun,
+  ];
+  function setEditingUI(value) {
+    for (const el of editLocked) el.disabled = value;
+    els.editPanel.hidden = !value;
+    els.hint.textContent = value ? HINT_EDIT : HINT_DEFAULT;
+  }
+
+  function findFacility(def, kind, id) {
+    return kind === 'workshop' ? def.workshops.find((w) => w.id === id) : def[kind];
+  }
+
+  function renderSelectionPanel() {
+    renderSelection(els.selProps, workingDef, selection, (props) => {
+      const next = selection.type === 'aisle'
+        ? updateAisle(workingDef, selection.id, props)
+        : updateFacility(workingDef, selection.type, selection.id, props);
+      if (props.id !== undefined) selection = { ...selection, id: props.id };
+      applyWorkingDef(next);
+    });
+  }
+  function renderGlobalsPanel() {
+    renderGlobals(els.globalProps, workingDef, (props) => {
+      applyWorkingDef(updateGlobals(workingDef, props));
+    });
+  }
+
+  // Applique une définition de travail : validation, reconstruction de
+  // la scène si valide (sinon la scène garde le dernier état valide)
+  function applyWorkingDef(next) {
+    workingDef = next;
+    const errors = validateDefinition(workingDef, buildWarehouse);
+    renderErrors(els.editErrors, errors);
+    els.editSave.disabled = errors.length > 0;
+    if (errors.length === 0) {
+      sceneApi.setDefinition(workingDef);
+      editorControls.setSelection(selection);
+    }
+    renderSelectionPanel();
+    renderGlobalsPanel();
+  }
+
+  const editorControls = createEditorControls({
+    canvas,
+    camera,
+    orbit: controls,
+    getPickables: sceneApi.getPickables,
+    onSelect(sel) {
+      selection = sel;
+      renderSelectionPanel();
+    },
+    // Aperçu du drag : mêmes accrochage et bornes que le commit
+    constrainDelta(type, id, delta) {
+      if (type === 'aisle') {
+        const aisle = workingDef.aisles.find((a) => a.id === id);
+        const moved = moveAisle(workingDef, id, {
+          x: aisle.x + delta.dx, yStart: aisle.yStart + delta.dz,
+        }).aisles.find((a) => a.id === id);
+        return { dx: moved.x - aisle.x, dz: moved.yStart - aisle.yStart };
+      }
+      const facility = findFacility(workingDef, type, id);
+      const moved = findFacility(
+        moveFacility(workingDef, type, id, { x: facility.x + delta.dx, y: facility.y + delta.dz }),
+        type, id
+      );
+      return { dx: moved.x - facility.x, dz: moved.y - facility.y };
+    },
+    onMoved(type, id, delta) {
+      if (type === 'aisle') {
+        const aisle = workingDef.aisles.find((a) => a.id === id);
+        applyWorkingDef(moveAisle(workingDef, id, {
+          x: aisle.x + delta.dx, yStart: aisle.yStart + delta.dz,
+        }));
+      } else {
+        const facility = findFacility(workingDef, type, id);
+        applyWorkingDef(moveFacility(workingDef, type, id, {
+          x: facility.x + delta.dx, y: facility.y + delta.dz,
+        }));
+      }
+    },
+  });
+
+  function enterEdit() {
+    if (editing) return;
+    editing = true;
+    setPlaying(false);
+    sim?.dispose();
+    sim = null;
+    workingDef = structuredClone(definition);
+    selection = null;
+    setEditingUI(true);
+    editorControls.setEnabled(true);
+    renderSelectionPanel();
+    renderGlobalsPanel();
+    renderErrors(els.editErrors, []);
+    els.editSave.disabled = false;
+    els.status.textContent = 'Mode édition — simulation en pause';
+  }
+
+  function exitEdit() {
+    editing = false;
+    selection = null;
+    workingDef = null;
+    editorControls.setEnabled(false);
+    setEditingUI(false);
+  }
+
+  els.warehouseEdit.addEventListener('click', enterEdit);
+
+  els.editAddAisle.addEventListener('click', () => {
+    const next = addAisle(workingDef);
+    selection = { type: 'aisle', id: next.aisles[next.aisles.length - 1].id };
+    applyWorkingDef(next);
+  });
+  els.editAddWorkshop.addEventListener('click', () => {
+    const next = addWorkshop(workingDef);
+    selection = { type: 'workshop', id: next.workshops[next.workshops.length - 1].id };
+    applyWorkingDef(next);
+  });
+  els.editRemoveSelection.addEventListener('click', () => {
+    if (!selection) {
+      renderErrors(els.editErrors, ['Aucun élément sélectionné.']);
+      return;
+    }
+    try {
+      let next;
+      if (selection.type === 'aisle') next = removeAisle(workingDef, selection.id);
+      else if (selection.type === 'workshop') next = removeWorkshop(workingDef, selection.id);
+      else throw new Error('Les zones expédition et réception ne peuvent pas être supprimées.');
+      selection = null;
+      applyWorkingDef(next);
+    } catch (error) {
+      renderErrors(els.editErrors, [error.message]);
+    }
+  });
+
+  els.editSave.addEventListener('click', async () => {
+    const errors = validateDefinition(workingDef, buildWarehouse);
+    if (errors.length > 0) {
+      renderErrors(els.editErrors, errors);
+      return;
+    }
+    try {
+      await sendJson(`/api/warehouses/${warehouseId}`, 'PUT', {
+        name: workingDef.name,
+        definition: workingDef,
+      });
+      definition = workingDef;
+      warehouse = buildWarehouse(definition);
+      const entry = warehousesList.find((w) => w.id === warehouseId);
+      if (entry) entry.name = definition.name;
+      exitEdit();
+      refreshWarehouseOptions();
+      sceneApi.setDefinition(definition);
+      runCurrent();
+      setStatus(els.warehouseStatus, 'Entrepôt enregistré.');
+    } catch (error) {
+      renderErrors(els.editErrors, [error.message]);
+    }
+  });
+
+  els.editCancel.addEventListener('click', () => {
+    exitEdit();
+    sceneApi.setDefinition(definition);
+    runCurrent();
+    setStatus(els.warehouseStatus, 'Modifications abandonnées.');
   });
 
   // --- Enregistrement du run courant en base ---
   els.saveRun.addEventListener('click', async () => {
-    els.saveStatus.classList.remove('error');
-    els.saveStatus.textContent = 'Enregistrement…';
+    setStatus(els.saveStatus, 'Enregistrement…');
     try {
-      const run = await fetchJson('/api/runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          warehouseId,
-          scenarioId: Number(els.scenario.value),
-          overrides: {
-            operators: Number(els.opCount.value),
-            b2cShare: Number(els.b2cShare.value) / 100,
-            ordersPerHour: Number(els.orderRate.value),
-          },
-        }),
+      const run = await sendJson('/api/runs', 'POST', {
+        warehouseId,
+        scenarioId: Number(els.scenario.value),
+        projectId: activeProjectId ?? undefined,
+        overrides: buildSettings(extraSettings, sliderValues()),
       });
-      els.saveStatus.textContent = `Run nᵒ ${run.id} enregistré.`;
+      setStatus(els.saveStatus, `Run nᵒ ${run.id} enregistré.`);
       await refreshCompareOptions();
     } catch (error) {
-      els.saveStatus.classList.add('error');
-      els.saveStatus.textContent = `Échec : ${error.message}`;
+      setStatus(els.saveStatus, `Échec : ${error.message}`, true);
     }
   });
 
   // --- Comparaison : scénarios, run courant, runs enregistrés ---
   async function refreshCompareOptions() {
-    const runs = await fetchJson(`/api/runs?warehouseId=${warehouseId}`);
+    // Avec un projet actif, seuls ses runs sont proposés
+    const filter = activeProjectId !== null
+      ? `projectId=${activeProjectId}`
+      : `warehouseId=${warehouseId}`;
+    const runs = await fetchJson(`/api/runs?${filter}`);
     for (const select of [els.cmpA, els.cmpB]) {
       const previous = select.value;
       select.innerHTML = '';
@@ -249,8 +673,7 @@ try {
   }
 
   els.cmpRun.addEventListener('click', async () => {
-    els.cmpStatus.classList.remove('error');
-    els.cmpStatus.textContent = 'Comparaison…';
+    setStatus(els.cmpStatus, 'Comparaison…');
     try {
       const [kpisA, kpisB] = await Promise.all([
         kpisForOption(els.cmpA.value),
@@ -267,10 +690,9 @@ try {
         tbody.appendChild(tr);
       }
       els.cmpTable.hidden = false;
-      els.cmpStatus.textContent = '';
+      setStatus(els.cmpStatus, '');
     } catch (error) {
-      els.cmpStatus.classList.add('error');
-      els.cmpStatus.textContent = `Échec : ${error.message}`;
+      setStatus(els.cmpStatus, `Échec : ${error.message}`, true);
     }
   });
 
@@ -286,7 +708,7 @@ try {
   renderer.setAnimationLoop((nowMs) => {
     const dt = (nowMs - lastFrame) / 1000;
     lastFrame = nowMs;
-    if (playing) {
+    if (sim && playing) {
       simTime += dt * speed;
       if (simTime >= sim.durationSec) {
         simTime = sim.durationSec;
@@ -295,7 +717,7 @@ try {
       sim.operators.update(simTime);
       sim.trails.update(simTime);
     }
-    if (nowMs - lastKpiRefresh > 250) {
+    if (sim && nowMs - lastKpiRefresh > 250) {
       lastKpiRefresh = nowMs;
       refreshKpis();
       els.clock.textContent = `${formatClock(simTime)} / ${formatClock(sim.durationSec)}`;

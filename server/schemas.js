@@ -19,6 +19,7 @@ export const RUN_LIST_OPTS = {
       properties: {
         warehouseId: { type: 'integer', minimum: 1 },
         scenarioId: { type: 'integer', minimum: 1 },
+        projectId: { type: 'integer', minimum: 1 },
       },
       additionalProperties: false,
     },

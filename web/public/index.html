@@ -82,6 +82,17 @@
     button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     .action-status { margin: 8px 0 0; font-size: 12px; color: var(--ink-2); min-height: 1em; }
     .action-status.error { color: var(--danger); }
+    input[type="text"], input[type="number"] {
+      width: 100%; background: var(--bg); color: var(--ink);
+      border: 1px solid var(--line); padding: 7px 8px; font: inherit; font-size: 13px;
+    }
+    input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .props-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    ul.edit-errors { margin: 8px 0 0; padding-left: 16px; color: var(--danger); font-size: 12px; }
+    button.action[disabled], select[disabled], input[disabled] { opacity: .45; pointer-events: none; }
+    #editPanel h2 { margin-top: 16px; }
+    #editPanel .placeholder { margin: 0 0 8px; font-size: 12px; color: var(--ink-3); }
 
     /* KPI en direct */
     .kpis { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; font-size: 12.5px; }
@@ -149,6 +160,56 @@
     </section>
 
     <section>
+      <h2>Projet</h2>
+      <label class="field">
+        <span class="field-head"><span>Projet actif</span></span>
+        <select id="project"></select>
+      </label>
+      <label class="field">
+        <span class="field-head"><span>Nom du projet</span></span>
+        <input type="text" id="projectName" placeholder="Mon projet">
+      </label>
+      <div class="btn-row">
+        <button class="action" id="projectCreate">Créer</button>
+        <button class="action" id="projectUpdate">Mettre à jour</button>
+      </div>
+      <button class="action" id="projectDelete">Supprimer le projet</button>
+      <p class="action-status" id="projectStatus"></p>
+    </section>
+
+    <section>
+      <h2>Entrepôt</h2>
+      <label class="field">
+        <span class="field-head"><span>Entrepôt</span></span>
+        <select id="warehouse"></select>
+      </label>
+      <div class="btn-row">
+        <button class="action" id="warehouseEdit">Éditer</button>
+        <button class="action" id="warehouseCreate">Créer</button>
+        <button class="action" id="warehouseDuplicate">Dupliquer</button>
+        <button class="action" id="warehouseDelete">Supprimer</button>
+      </div>
+      <p class="action-status" id="warehouseStatus"></p>
+
+      <div id="editPanel" hidden>
+        <h2>Sélection</h2>
+        <div id="selProps"><p class="placeholder">Cliquez un élément dans la scène.</p></div>
+        <div class="btn-row">
+          <button class="action" id="editAddAisle">+ Allée</button>
+          <button class="action" id="editAddWorkshop">+ Atelier</button>
+        </div>
+        <button class="action" id="editRemoveSelection">Supprimer la sélection</button>
+        <h2>Propriétés globales</h2>
+        <div id="globalProps"></div>
+        <div class="btn-row">
+          <button class="action" id="editSave">Enregistrer</button>
+          <button class="action" id="editCancel">Annuler</button>
+        </div>
+        <ul class="edit-errors" id="editErrors"></ul>
+      </div>
+    </section>
+
+    <section>
       <h2>Scénario</h2>
       <label class="field">
         <span class="field-head"><span>Scénario de base</span></span>
@@ -204,7 +265,7 @@
     </section>
   </aside>
 
-  <p class="hint">Glisser : orbite · Molette : zoom · Clic droit : déplacement</p>
+  <p class="hint" id="hint">Glisser : orbite · Molette : zoom · Clic droit : déplacement</p>
   <div class="legend" aria-label="États des opérateurs">
     <span><i style="background:#58a6ff"></i>Déplacement</span>
     <span><i style="background:#ffb14e"></i>Prélèvement</span>

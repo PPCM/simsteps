@@ -90,6 +90,26 @@ démarrage de pod.
 Le panneau latéral regroupe tout :
 
 - **Lecture** : lecture/pause, vitesse x1/x10/x60, horloge simulée.
+- **Projet** : un projet regroupe un entrepôt, un scénario et des
+  paramétrages (n'importe quel paramètre de scénario peut être surchargé,
+  y compris ceux sans curseur comme la stratégie). Sélectionner un projet
+  applique le tout d'un coup ; « Créer » enregistre les réglages courants
+  sous le nom saisi, « Mettre à jour » et « Supprimer » gèrent le projet
+  actif. Pas de versionnage : le projet référence l'entrepôt et le
+  scénario vivants.
+- **Entrepôt** : choix de l'entrepôt affiché, création (modèle minimal),
+  duplication et suppression (les runs et projets associés sont supprimés
+  avec l'entrepôt). « Éditer » ouvre l'éditeur 3D : la simulation se met
+  en pause, cliquer un élément dans la scène (allée, atelier, expédition,
+  réception) le sélectionne, glisser le déplace au mètre près dans les
+  limites du plan et des couloirs ; le panneau expose les propriétés de
+  la sélection (baies, zone, identifiants…), les propriétés globales
+  (dimensions, couloirs), l'ajout/la suppression d'allées et d'ateliers.
+  « Enregistrer » valide et persiste la définition (modification en
+  place : tous les projets qui référencent l'entrepôt la voient),
+  « Annuler » restaure l'état d'entrée. Limites assumées : pas
+  d'annulation fine, pas de redimensionnement à la souris, racks dérivés
+  des allées (deux racks gauche/droite).
 - **Scénario** : choix du scénario de base, curseurs opérateurs / mix B2C /
   cadence. Tout changement relance instantanément la simulation (elle
   s'exécute dans le navigateur en quelques millisecondes) ; la relecture
@@ -101,7 +121,8 @@ Le panneau latéral regroupe tout :
 - **Indicateurs en direct** : les KPI évoluent pendant la relecture.
 - **Comparaison** : deux sources au choix (réglages actuels, scénarios,
   runs enregistrés) et tableau des écarts, colorés selon le sens de
-  l'amélioration.
+  l'amélioration. Avec un projet actif, seuls les runs du projet sont
+  proposés ; sinon, ceux de l'entrepôt affiché.
 
 Couleurs des opérateurs : bleu = déplacement, ambre = prélèvement,
 vert = dépose, gris = inactif.
@@ -113,8 +134,9 @@ vert = dépose, gris = inactif.
 | `GET /health` | État du serveur et de la base |
 | `GET/POST /api/warehouses`, `GET/PUT/DELETE /api/warehouses/:id` | CRUD entrepôts (import/export JSON direct) |
 | `GET/POST /api/scenarios`, `GET/PUT/DELETE /api/scenarios/:id` | CRUD scénarios |
-| `POST /api/runs` | Exécute une simulation côté serveur et l'enregistre — corps : `{"warehouseId": 1, "scenarioId": 1, "overrides": {"operators": 8}}` |
-| `GET /api/runs?warehouseId=&scenarioId=` | Liste des runs (KPI inclus) |
+| `GET/POST /api/projects`, `GET/PUT/DELETE /api/projects/:id` | CRUD projets — corps : `{"name": "…", "warehouseId": 1, "scenarioId": 1, "settings": {"operators": 8, "strategy": "zoneWave"}}` (`scenarioId` optionnel, `settings` = surcharges de paramètres de scénario) |
+| `POST /api/runs` | Exécute une simulation côté serveur et l'enregistre — corps : `{"warehouseId": 1, "scenarioId": 1, "projectId": 1, "overrides": {"operators": 8}}` (`projectId` optionnel) |
+| `GET /api/runs?warehouseId=&scenarioId=&projectId=` | Liste des runs (KPI inclus) |
 | `GET /api/runs/:id` | Détail d'un run (avec trajets agrégés) |
 | `DELETE /api/runs/:id` | Suppression |
 
@@ -214,7 +236,8 @@ Elle devient immédiatement utilisable dans les scénarios
 |---|---|---|
 | `warehouses` | `id`, `name`, `definition` (JSONB), `created_at`, `updated_at` | Définitions d'entrepôts (le JSON importable est stocké tel quel) |
 | `scenarios` | `id`, `name`, `params` (JSONB), `created_at`, `updated_at` | Paramètres de simulation |
-| `runs` | `id`, `warehouse_id` (FK), `scenario_id` (FK, nullable), `scenario_snapshot` (JSONB), `kpis` (JSONB), `traffic` (JSONB), `created_at` | Historique des runs : paramètres figés, KPI et trafic agrégé par arête |
+| `projects` | `id`, `name`, `warehouse_id` (FK), `scenario_id` (FK, nullable), `settings` (JSONB), `created_at`, `updated_at` | Projets : références vivantes vers un entrepôt et un scénario + surcharges de paramètres |
+| `runs` | `id`, `warehouse_id` (FK), `scenario_id` (FK, nullable), `project_id` (FK, nullable), `scenario_snapshot` (JSONB), `kpis` (JSONB), `traffic` (JSONB), `created_at` | Historique des runs : paramètres figés, KPI et trafic agrégé par arête |
 | `schema_migrations` | `name`, `applied_at` | Suivi des migrations SQL (`db/migrations/`) |
 
 Un run garde un **instantané** de ses paramètres : modifier ou supprimer le

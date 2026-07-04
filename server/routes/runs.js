@@ -9,7 +9,7 @@ import { ID_OPTS, RUN_LIST_OPTS } from '../schemas.js';
 
 export function registerRunRoutes(app, pool) {
   app.post('/api/runs', async (request, reply) => {
-    const { warehouseId, scenarioId, overrides = {} } = request.body ?? {};
+    const { warehouseId, scenarioId, projectId, overrides = {} } = request.body ?? {};
     if (!warehouseId) return reply.code(400).send({ errors: ['« warehouseId » est requis'] });
 
     const warehouseRow = await pool.query('SELECT definition FROM warehouses WHERE id = $1', [warehouseId]);
@@ -21,6 +21,10 @@ export function registerRunRoutes(app, pool) {
       if (scenarioRow.rows.length === 0) return reply.code(404).send({ error: 'Scénario introuvable' });
       baseParams = scenarioRow.rows[0].params;
     }
+    if (projectId) {
+      const projectRow = await pool.query('SELECT 1 FROM projects WHERE id = $1', [projectId]);
+      if (projectRow.rows.length === 0) return reply.code(404).send({ error: 'Projet introuvable' });
+    }
     const params = { ...baseParams, ...overrides };
     const errors = validateScenarioParams(params);
     if (errors.length > 0) return reply.code(400).send({ errors });
@@ -29,10 +33,10 @@ export function registerRunRoutes(app, pool) {
     const { kpis, scenario, traffic } = runSimulation(warehouse, params);
 
     const { rows } = await pool.query(
-      `INSERT INTO runs (warehouse_id, scenario_id, scenario_snapshot, kpis, traffic)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, warehouse_id, scenario_id, scenario_snapshot, kpis, created_at`,
-      [warehouseId, scenarioId ?? null, scenario, kpis, JSON.stringify(traffic)]
+      `INSERT INTO runs (warehouse_id, scenario_id, project_id, scenario_snapshot, kpis, traffic)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, warehouse_id, scenario_id, project_id, scenario_snapshot, kpis, created_at`,
+      [warehouseId, scenarioId ?? null, projectId ?? null, scenario, kpis, JSON.stringify(traffic)]
     );
     return reply.code(201).send(rows[0]);
   });
@@ -49,9 +53,13 @@ export function registerRunRoutes(app, pool) {
       values.push(request.query.scenarioId);
       conditions.push(`scenario_id = $${values.length}`);
     }
+    if (request.query.projectId) {
+      values.push(request.query.projectId);
+      conditions.push(`project_id = $${values.length}`);
+    }
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await pool.query(
-      `SELECT id, warehouse_id, scenario_id, scenario_snapshot, kpis, created_at
+      `SELECT id, warehouse_id, scenario_id, project_id, scenario_snapshot, kpis, created_at
        FROM runs ${where} ORDER BY id DESC`,
       values
     );

@@ -1,5 +1,8 @@
 // Construction de la scène 3D statique de l'entrepôt : sol, racks,
 // zones colorées et étiquettes, éclairage et caméra orbitale.
+// Les statiques sont regroupés dans un THREE.Group reconstructible
+// (changement d'entrepôt, éditeur) ; chaque élément métier éditable
+// (allée, atelier, zone) vit dans un sous-groupe porteur de userData.
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -26,12 +29,10 @@ const COLORS = {
  * @param {HTMLCanvasElement} canvas
  * @param {object} definition définition JSON de l'entrepôt
  * @returns {{scene: THREE.Scene, camera: THREE.Camera, renderer: THREE.WebGLRenderer,
- *            controls: OrbitControls, dispose: () => void}}
+ *            controls: OrbitControls, setDefinition: (def: object) => void,
+ *            getPickables: () => THREE.Group[], dispose: () => void}}
  */
 export function createWarehouseScene(canvas, definition) {
-  const { width, depth } = floorSize(definition);
-  const center = new THREE.Vector3(width / 2, 0, depth / 2);
-
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
@@ -42,91 +43,151 @@ export function createWarehouseScene(canvas, definition) {
   scene.fog = new THREE.Fog(COLORS.background, 90, 220);
 
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
-  camera.position.set(width * 1.05, 34, depth * 1.25);
-
   const controls = new OrbitControls(camera, canvas);
-  controls.target.copy(center);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.maxPolarAngle = Math.PI / 2 - 0.05; // ne pas passer sous le sol
   controls.minDistance = 8;
   controls.maxDistance = 160;
 
-  // --- Éclairage ---
+  // Éclairage d'ambiance, indépendant de la définition
   scene.add(new THREE.HemisphereLight(0x8a9db8, 0x1a1d22, 0.75));
-  const sun = new THREE.DirectionalLight(0xfff2dd, 1.6);
-  sun.position.set(width * 0.8, 45, -depth * 0.3);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  const span = Math.max(width, depth) * 0.75;
-  sun.shadow.camera.left = -span;
-  sun.shadow.camera.right = span;
-  sun.shadow.camera.top = span;
-  sun.shadow.camera.bottom = -span;
-  sun.shadow.camera.far = 150;
-  sun.target.position.copy(center);
-  scene.add(sun, sun.target);
 
-  // --- Sol et grille au mètre ---
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, depth),
-    new THREE.MeshStandardMaterial({ color: COLORS.floor, roughness: 0.95 })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(width / 2, 0, depth / 2);
-  floor.receiveShadow = true;
-  scene.add(floor);
+  let statics = null; // groupe des statiques dépendants de la définition
+  let pickables = []; // sous-groupes éditables (allées, ateliers, zones)
 
-  const gridSize = Math.max(width, depth);
-  const grid = new THREE.GridHelper(gridSize, gridSize, COLORS.gridCenter, COLORS.grid);
-  grid.position.set(width / 2, 0.02, depth / 2);
-  scene.add(grid);
+  // Construit le groupe des statiques pour une définition donnée
+  function buildStatics(def) {
+    const { width, depth } = floorSize(def);
+    const center = new THREE.Vector3(width / 2, 0, depth / 2);
+    const group = new THREE.Group();
+    pickables = [];
 
-  // --- Racks : volumes simples avec arêtes marquées ---
-  const rackMaterial = new THREE.MeshStandardMaterial({ color: COLORS.rack, roughness: 0.8 });
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: COLORS.rackEdge });
-  for (const box of rackBoxes(definition)) {
-    const geometry = new THREE.BoxGeometry(box.width, box.height, box.depth);
-    const mesh = new THREE.Mesh(geometry, rackMaterial);
-    mesh.position.set(box.x, box.height / 2, box.z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial);
-    edges.position.copy(mesh.position);
-    scene.add(edges);
-  }
+    // --- Soleil : position et emprise d'ombre calées sur le sol ---
+    const sun = new THREE.DirectionalLight(0xfff2dd, 1.6);
+    sun.position.set(width * 0.8, 45, -depth * 0.3);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    const span = Math.max(width, depth) * 0.75;
+    sun.shadow.camera.left = -span;
+    sun.shadow.camera.right = span;
+    sun.shadow.camera.top = span;
+    sun.shadow.camera.bottom = -span;
+    sun.shadow.camera.far = 150;
+    sun.target.position.copy(center);
+    group.add(sun, sun.target);
 
-  // --- Zones colorées au sol + étiquettes flottantes ---
-  for (const zone of zonePatches(definition)) {
-    const color = COLORS.zones[zone.kind];
-    const patch = new THREE.Mesh(
-      new THREE.PlaneGeometry(zone.width, zone.depth),
-      new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.32, roughness: 1 })
+    // --- Sol et grille au mètre ---
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, depth),
+      new THREE.MeshStandardMaterial({ color: COLORS.floor, roughness: 0.95 })
     );
-    patch.rotation.x = -Math.PI / 2;
-    patch.position.set(zone.x, 0.03, zone.z);
-    scene.add(patch);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(width / 2, 0, depth / 2);
+    floor.receiveShadow = true;
+    group.add(floor);
 
-    const label = makeTextSprite(zone.label, {
-      color: `#${color.toString(16).padStart(6, '0')}`,
-      worldHeight: 1.3,
+    const gridSize = Math.max(width, depth);
+    const grid = new THREE.GridHelper(gridSize, gridSize, COLORS.gridCenter, COLORS.grid);
+    grid.position.set(width / 2, 0.02, depth / 2);
+    group.add(grid);
+
+    // --- Allées : un sous-groupe par allée (racks + arêtes + étiquette) ---
+    const rackMaterial = new THREE.MeshStandardMaterial({ color: COLORS.rack, roughness: 0.8 });
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: COLORS.rackEdge });
+    const aisleGroups = new Map();
+    for (const aisle of def.aisles) {
+      const aisleGroup = new THREE.Group();
+      aisleGroup.userData = { type: 'aisle', id: aisle.id };
+      aisleGroups.set(aisle.id, aisleGroup);
+      group.add(aisleGroup);
+      pickables.push(aisleGroup);
+    }
+    const boxes = rackBoxes(def);
+    def.racks.forEach((rack, i) => {
+      const box = boxes[i];
+      const aisleGroup = aisleGroups.get(rack.aisle);
+      const geometry = new THREE.BoxGeometry(box.width, box.height, box.depth);
+      const mesh = new THREE.Mesh(geometry, rackMaterial);
+      mesh.position.set(box.x, box.height / 2, box.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      aisleGroup.add(mesh);
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial);
+      edges.position.copy(mesh.position);
+      aisleGroup.add(edges);
     });
-    label.position.set(zone.x, 2.4, zone.z);
-    scene.add(label);
+    for (const aisle of aisleLabels(def)) {
+      const label = makeTextSprite(aisle.id, { color: '#9aa3ad', worldHeight: 1.1 });
+      label.position.set(aisle.x, 0.8, aisle.z);
+      aisleGroups.get(aisle.id)?.add(label);
+    }
+
+    // --- Zones : un sous-groupe par zone (patch coloré + étiquette) ---
+    for (const zone of zonePatches(def)) {
+      const zoneGroup = new THREE.Group();
+      zoneGroup.userData = { type: zone.kind, id: zone.id };
+      const color = COLORS.zones[zone.kind];
+      const patch = new THREE.Mesh(
+        new THREE.PlaneGeometry(zone.width, zone.depth),
+        new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.32, roughness: 1 })
+      );
+      patch.rotation.x = -Math.PI / 2;
+      patch.position.set(zone.x, 0.03, zone.z);
+      zoneGroup.add(patch);
+
+      const label = makeTextSprite(zone.label, {
+        color: `#${color.toString(16).padStart(6, '0')}`,
+        worldHeight: 1.3,
+      });
+      label.position.set(zone.x, 2.4, zone.z);
+      zoneGroup.add(label);
+      group.add(zoneGroup);
+      pickables.push(zoneGroup);
+    }
+
+    return group;
   }
 
-  // --- Étiquettes d'allées ---
-  for (const aisle of aisleLabels(definition)) {
-    const label = makeTextSprite(aisle.id, { color: '#9aa3ad', worldHeight: 1.1 });
-    label.position.set(aisle.x, 0.8, aisle.z);
-    scene.add(label);
+  // Libère géométries, matériaux, textures et shadow maps d'un groupe
+  function disposeStatics(group) {
+    group.traverse((object) => {
+      object.geometry?.dispose();
+      if (object.material) {
+        object.material.map?.dispose();
+        object.material.dispose();
+      }
+      object.shadow?.map?.dispose();
+    });
   }
+
+  // Reconstruit les statiques et recadre la caméra sur le nouveau plan
+  function setDefinition(def) {
+    if (statics) {
+      scene.remove(statics);
+      disposeStatics(statics);
+    }
+    statics = buildStatics(def);
+    scene.add(statics);
+    const { width, depth } = floorSize(def);
+    camera.position.set(width * 1.05, 34, depth * 1.25);
+    controls.target.set(width / 2, 0, depth / 2);
+  }
+
+  setDefinition(definition);
 
   function dispose() {
     controls.dispose();
     renderer.dispose();
   }
 
-  return { scene, camera, renderer, controls, dispose };
+  return {
+    scene,
+    camera,
+    renderer,
+    controls,
+    setDefinition,
+    getPickables: () => pickables,
+    dispose,
+  };
 }

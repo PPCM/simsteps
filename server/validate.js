@@ -1,5 +1,6 @@
-// Validation des entrées de l'API : définitions d'entrepôt et paramètres
-// de scénario. Renvoie une liste de messages d'erreur (vide = valide).
+// Validation des entrées de l'API : définitions d'entrepôt, paramètres
+// de scénario et projets. Renvoie une liste de messages d'erreur
+// (vide = valide).
 
 import { buildWarehouse } from '../sim/warehouse.js';
 import { STRATEGIES } from '../sim/strategies.js';
@@ -90,6 +91,35 @@ export function validateScenarioParams(params) {
     } else if (!(key in DEFAULT_SCENARIO)) {
       errors.push(`paramètre inconnu : « ${key} »`);
     }
+  }
+  return errors;
+}
+
+/**
+ * Valide le corps d'un projet : nom, références d'entrepôt/scénario et
+ * paramétrages (surcharges libres de paramètres de scénario).
+ * L'existence en base des références est vérifiée par les routes.
+ * @param {{name?: unknown, warehouseId?: unknown, scenarioId?: unknown, settings?: unknown}} payload
+ * @returns {string[]} messages d'erreur
+ */
+export function validateProjectPayload({ name, warehouseId, scenarioId, settings } = {}) {
+  const errors = [];
+  if (typeof name !== 'string' || name.trim() === '') {
+    errors.push('« name » est requis (chaîne non vide)');
+  }
+  if (!Number.isInteger(warehouseId) || warehouseId < 1) {
+    errors.push('« warehouseId » est requis (entier ≥ 1)');
+  }
+  if (scenarioId !== undefined && scenarioId !== null && (!Number.isInteger(scenarioId) || scenarioId < 1)) {
+    errors.push('« scenarioId » doit être un entier ≥ 1 ou null');
+  }
+  if (settings === undefined) return errors;
+  const settingsErrors = validateScenarioParams(settings);
+  if (settingsErrors.length > 0) return errors.concat(settingsErrors);
+  // « name » est accepté par validateScenarioParams mais n'est pas un
+  // paramétrage : le nom du projet vit dans la colonne dédiée
+  if ('name' in settings) {
+    errors.push('« settings » ne doit pas contenir « name »');
   }
   return errors;
 }
