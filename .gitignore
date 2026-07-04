@@ -4,3 +4,7 @@ CLAUDE.local.md
 node_modules/
 .env
 helm/simsteps/charts/
+
+# Artefacts Playwright (tests UI)
+test-results/
+playwright-report/

@@ -47,9 +47,16 @@ Autres commandes utiles :
 
 ```bash
 npm test                    # tests unitaires (runner natif de Node, sans base)
+npm run test:ui             # tests UI Playwright (navigateur réel contre la pile
+                            # Docker ; la démarre si besoin, prérequis :
+                            # npx playwright install chromium)
 npm run sim                 # simulation en console (KPI, sans base ni 3D)
 npm run sim data/scenario-waves.json   # autre scénario
 ```
+
+Les tests UI travaillent sur des entrepôts et projets jetables (noms
+suffixés `[test …]`, nettoyés après chaque test) : les données réelles de
+la base ne sont pas touchées.
 
 ## Déploiement Kubernetes (Helm)
 
@@ -253,7 +260,7 @@ web/      rendu 3D Three.js + interface (aucune étape de build)
 db/       migrations SQL versionnées + seed
 data/     entrepôt et scénarios d'exemple (JSON)
 helm/     chart Helm (Kubernetes)
-tests/    tests unitaires (node --test), exécutables sans base
+tests/    tests unitaires (node --test, sans base) et tests UI Playwright (tests/ui/)
 ```
 
 ## Pistes d'évolution

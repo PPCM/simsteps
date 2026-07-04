@@ -8,7 +8,8 @@
     "sim": "node sim/cli.js",
     "dev": "node --env-file-if-exists=.env --watch server/index.js",
     "start": "node --env-file-if-exists=.env server/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:ui": "playwright test"
   },
   "engines": {
     "node": ">=22"
@@ -19,5 +20,8 @@
     "fastify": "^5.9.0",
     "pg": "^8.22.0",
     "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
   }
 }
