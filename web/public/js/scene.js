@@ -56,6 +56,16 @@ export function createWarehouseScene(canvas, definition) {
 
   let statics = null; // groupe des statiques dépendants de la définition
   let pickables = []; // sous-groupes éditables (allées, ateliers, zones)
+  let labelEntries = []; // sprites de libellé : { sprite, type, id }
+  let labelsVisible = true; // interrupteur global des libellés
+  let revealed = null; // libellé révélé au clic quand les libellés sont masqués
+
+  // Applique l'état de visibilité aux sprites (interrupteur + révélation)
+  function applyLabelVisibility() {
+    for (const { sprite, type, id } of labelEntries) {
+      sprite.visible = labelsVisible || (revealed?.type === type && revealed?.id === id);
+    }
+  }
 
   // Construit le groupe des statiques pour une définition donnée
   function buildStatics(def) {
@@ -63,6 +73,7 @@ export function createWarehouseScene(canvas, definition) {
     const center = new THREE.Vector3(width / 2, 0, depth / 2);
     const group = new THREE.Group();
     pickables = [];
+    labelEntries = [];
 
     // --- Soleil : position et emprise d'ombre calées sur le sol ---
     const sun = new THREE.DirectionalLight(0xfff2dd, 1.6);
@@ -122,6 +133,7 @@ export function createWarehouseScene(canvas, definition) {
         : Math.max(band.width - 4, band.width / 2);
       label.position.set(labelX, 0.7, band.z);
       group.add(label);
+      labelEntries.push({ sprite: label, type: 'corridor', id: band.id });
     }
 
     // --- Allées : un sous-groupe par allée (racks + arêtes + étiquette) ---
@@ -153,6 +165,7 @@ export function createWarehouseScene(canvas, definition) {
       const label = makeTextSprite(aisle.id, { color: '#9aa3ad', worldHeight: 1.1 });
       label.position.set(aisle.x, 0.8, aisle.z);
       aisleGroups.get(aisle.id)?.add(label);
+      labelEntries.push({ sprite: label, type: 'aisle', id: aisle.id });
     }
 
     // --- Zones : un sous-groupe par zone (patch coloré + étiquette) ---
@@ -176,6 +189,7 @@ export function createWarehouseScene(canvas, definition) {
       zoneGroup.add(label);
       group.add(zoneGroup);
       pickables.push(zoneGroup);
+      labelEntries.push({ sprite: label, type: zone.kind, id: zone.id });
     }
 
     return group;
@@ -202,6 +216,7 @@ export function createWarehouseScene(canvas, definition) {
     }
     statics = buildStatics(def);
     scene.add(statics);
+    applyLabelVisibility();
     if (!recenter) return;
     // Recul et hauteur proportionnels au sol : le terrain entier tient
     // dans le champ, y compris le bord proche pour les grandes profondeurs
@@ -218,6 +233,23 @@ export function createWarehouseScene(canvas, definition) {
     renderer.dispose();
   }
 
+  // Sélection au clic hors édition : sous-groupe éditable sous le pointeur
+  const pickRaycaster = new THREE.Raycaster();
+  function pick(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const pointer = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1
+    );
+    pickRaycaster.setFromCamera(pointer, camera);
+    for (const { object } of pickRaycaster.intersectObjects(pickables, true)) {
+      let node = object;
+      while (node && !node.userData?.type) node = node.parent;
+      if (node) return { ...node.userData };
+    }
+    return null;
+  }
+
   return {
     scene,
     camera,
@@ -225,6 +257,21 @@ export function createWarehouseScene(canvas, definition) {
     controls,
     setDefinition,
     getPickables: () => pickables,
+    // Libellés : interrupteur global et révélation d'un seul au clic
+    setLabelsVisible(value) {
+      labelsVisible = value;
+      if (value) revealed = null;
+      applyLabelVisibility();
+    },
+    revealLabel(sel) {
+      revealed = sel;
+      applyLabelVisibility();
+    },
+    labelStats: () => ({
+      total: labelEntries.length,
+      visible: labelEntries.filter((e) => e.sprite.visible).length,
+    }),
+    pick,
     dispose,
   };
 }

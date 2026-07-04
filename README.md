@@ -143,8 +143,10 @@ Le détail des sections :
   repart de zéro.
 - **Enregistrer ce run en base** : fige les paramètres courants, les KPI et
   les trajets agrégés côté serveur, pour comparaison ultérieure.
-- **Affichage** : traînées de déplacement (une couleur par opérateur) et
-  heatmap de fréquentation au sol.
+- **Affichage** : traînées de déplacement (une couleur par opérateur),
+  heatmap de fréquentation au sol, et masquage des libellés 3D — quand
+  ils sont masqués, un clic sur un élément (allée, atelier, zone)
+  révèle le sien, un clic dans le vide le cache.
 - **Indicateurs en direct** : les KPI évoluent pendant la relecture.
 - **Comparaison** : deux sources au choix (réglages actuels, scénarios,
   runs enregistrés) et tableau des écarts, colorés selon le sens de

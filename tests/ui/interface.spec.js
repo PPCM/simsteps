@@ -30,3 +30,46 @@ test('la page se charge et la relecture démarre', async ({ page }) => {
 
   expect(consoleErrors).toEqual([]);
 });
+
+test('masquer les libellés puis en révéler un au clic', async ({ page }) => {
+  const consoleErrors = await openApp(page);
+  const stats = () => page.evaluate(() => window.simstepsDebug.labelStats());
+
+  // Tous les libellés sont visibles par défaut
+  const initial = await stats();
+  expect(initial.total).toBeGreaterThan(0);
+  expect(initial.visible).toBe(initial.total);
+
+  // Cocher la case masque tout
+  await page.locator('#toggleLabels').check();
+  expect((await stats()).visible).toBe(0);
+
+  // Un clic sur un rack révèle son libellé (position à l'écran calculée
+  // par projection : indépendante des dimensions de l'entrepôt)
+  const point = await page.evaluate(async () => {
+    const warehouses = await (await fetch('/api/warehouses')).json();
+    const { definition } = await (await fetch(`/api/warehouses/${warehouses[0].id}`)).json();
+    const aisle = definition.aisles[0];
+    const { camera } = window.simstepsDebug;
+    const rect = document.getElementById('scene').getBoundingClientRect();
+    const v = camera.position.clone()
+      .set(aisle.x - 1.4, 1.2, (aisle.yStart + aisle.yEnd) / 2).project(camera);
+    return {
+      x: rect.left + (v.x + 1) / 2 * rect.width,
+      y: rect.top + (1 - v.y) / 2 * rect.height,
+    };
+  });
+  await page.mouse.click(point.x, point.y);
+  expect((await stats()).visible).toBe(1);
+
+  // Clic dans le vide (hors de tout élément) : le libellé révélé se cache
+  await page.mouse.click(10, page.viewportSize().height / 2);
+  expect((await stats()).visible).toBe(0);
+
+  // Décocher : tout revient
+  await page.locator('#toggleLabels').uncheck();
+  const restored = await stats();
+  expect(restored.visible).toBe(restored.total);
+
+  expect(consoleErrors).toEqual([]);
+});

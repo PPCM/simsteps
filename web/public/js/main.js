@@ -46,6 +46,7 @@ const els = {
   scenario: $('scenario'), opCount: $('opCount'), b2cShare: $('b2cShare'), orderRate: $('orderRate'),
   opCountVal: $('opCountVal'), b2cShareVal: $('b2cShareVal'), orderRateVal: $('orderRateVal'),
   toggleTrails: $('toggleTrails'), toggleHeatmap: $('toggleHeatmap'),
+  toggleLabels: $('toggleLabels'),
   saveRun: $('saveRun'), saveStatus: $('saveStatus'),
   cmpA: $('cmpA'), cmpB: $('cmpB'), cmpRun: $('cmpRun'), cmpStatus: $('cmpStatus'), cmpTable: $('cmpTable'),
 };
@@ -149,8 +150,9 @@ try {
   const canvas = $('scene');
   const sceneApi = createWarehouseScene(canvas, definition);
   const { camera, scene, renderer, controls } = sceneApi;
-  // Poignée de débogage et de tests UI (lecture seule : caméra, contrôles)
-  window.simstepsDebug = { camera, controls };
+  // Poignée de débogage et de tests UI (lecture seule : caméra,
+  // contrôles, état des libellés)
+  window.simstepsDebug = { camera, controls, labelStats: sceneApi.labelStats };
 
   // --- État de la relecture ---
   let sim = null; // run courant : timeline, KPI, couches 3D
@@ -298,6 +300,25 @@ try {
   });
   els.toggleHeatmap.addEventListener('change', () => {
     sim?.heatmap.setVisible(els.toggleHeatmap.checked);
+  });
+
+  // --- Libellés : interrupteur global et révélation au clic ---
+  els.toggleLabels.addEventListener('change', () => {
+    sceneApi.setLabelsVisible(!els.toggleLabels.checked);
+  });
+  // Un clic (sans glisser : l'orbite génère aussi un click) sur un objet
+  // révèle son libellé quand les libellés sont masqués
+  let pointerDownAt = null;
+  canvas.addEventListener('pointerdown', (event) => {
+    pointerDownAt = { x: event.clientX, y: event.clientY };
+  });
+  canvas.addEventListener('click', (event) => {
+    if (!els.toggleLabels.checked) return;
+    if (pointerDownAt &&
+        Math.hypot(event.clientX - pointerDownAt.x, event.clientY - pointerDownAt.y) > 5) {
+      return; // fin d'orbite, pas un clic de désignation
+    }
+    sceneApi.revealLabel(sceneApi.pick(event.clientX, event.clientY));
   });
 
   // --- Projets : application, création, mise à jour, suppression ---
