@@ -65,7 +65,7 @@ Principales valeurs (`values.yaml`, documenté) :
 
 | Clé | Rôle | Défaut |
 |---|---|---|
-| `image.repository`, `image.tag` | Image applicative (construite avec le Dockerfile) | `simsteps:0.1.0` |
+| `image.repository`, `image.tag` | Image applicative (publiée sur Docker Hub) | `ppcm/simsteps:0.1.0` |
 | `replicaCount`, `resources` | Dimensionnement | 1 replica |
 | `ingress.enabled`, `ingress.host` | Ingress désactivable | `false` |
 | `postgresql.enabled` | Sous-chart PostgreSQL Bitnami | `true` |

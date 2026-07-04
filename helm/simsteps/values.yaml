@@ -7,8 +7,10 @@
 replicaCount: 1
 
 image:
-  # Image construite par le Dockerfile du dépôt (docker build -t simsteps .)
-  repository: simsteps
+  # Image publiée sur Docker Hub à chaque tag de version (voir
+  # .github/workflows/docker-publish.yml) ; construisible aussi en local
+  # avec le Dockerfile du dépôt (docker build -t simsteps .)
+  repository: ppcm/simsteps
   tag: "0.1.0"
   pullPolicy: IfNotPresent
 
