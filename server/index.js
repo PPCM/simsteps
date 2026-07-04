@@ -26,7 +26,13 @@ if (await seedIfEmpty(pool, dataDir)) console.log('Données d’exemple inséré
 const webRoot = fileURLToPath(new URL('../web/public/', import.meta.url));
 const threeRoot = fileURLToPath(new URL('../node_modules/three/', import.meta.url));
 const simRoot = fileURLToPath(new URL('../sim/', import.meta.url));
-const app = await buildApp({ pool, webRoot, threeRoot, simRoot, logger: true });
+// JSON structuré en production (agrégation de logs), pino-pretty en
+// développement (lisible, bannière multiligne rendue correctement) —
+// pino-pretty est une devDependency, absente de l'image Docker
+const logger = process.env.NODE_ENV === 'production'
+  ? true
+  : { transport: { target: 'pino-pretty' } };
+const app = await buildApp({ pool, webRoot, threeRoot, simRoot, logger });
 
 // Arrêt propre (docker stop, Ctrl+C)
 for (const signal of ['SIGINT', 'SIGTERM']) {
