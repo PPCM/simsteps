@@ -55,6 +55,7 @@ const HINT_EDIT = 'Glisser un élément : déplacer · Clic dans le vide : orbit
 // avant le chargement des données pour rester utilisables même en erreur
 setupWindow($('winMain'), 'simsteps.fenetre.principale');
 setupWindow($('winKpi'), 'simsteps.fenetre.indicateurs');
+const editWindow = setupWindow($('editPanel'), 'simsteps.fenetre.edition');
 setupTabs(
   [...document.querySelectorAll('.tabs [role="tab"]')],
   [$('panePilot'), $('paneConfig')],
@@ -479,6 +480,8 @@ try {
   function setEditingUI(value) {
     for (const el of editLocked) el.disabled = value;
     els.editPanel.hidden = !value;
+    // Une position mémorisée peut dépasser la fenêtre actuelle du navigateur
+    if (value) editWindow.reclamp();
     els.editDot.hidden = !value; // point ambre sur l'onglet Configurer
     els.hint.textContent = value ? HINT_EDIT : HINT_DEFAULT;
   }

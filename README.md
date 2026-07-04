@@ -119,12 +119,14 @@ Le détail des sections :
   scénario vivants.
 - **Entrepôt** : choix de l'entrepôt affiché, création (modèle minimal),
   duplication et suppression (les runs et projets associés sont supprimés
-  avec l'entrepôt). « Éditer » ouvre l'éditeur 3D : la simulation se met
-  en pause, cliquer un élément dans la scène (allée, atelier, expédition,
-  réception) le sélectionne, glisser le déplace au mètre près dans les
-  limites du plan et des couloirs ; le panneau expose les propriétés de
-  la sélection (baies, zone, identifiants…), les propriétés globales
-  (dimensions, couloirs), l'ajout/la suppression d'allées et d'ateliers.
+  avec l'entrepôt). « Éditer » met la simulation en pause et ouvre une
+  fenêtre d'édition dédiée en bas de l'écran (flottante et rétractable
+  comme les autres), aux propriétés disposées horizontalement : cliquer
+  un élément dans la scène (allée, atelier, expédition, réception) le
+  sélectionne, glisser le déplace au mètre près dans les limites du plan
+  et des couloirs ; la fenêtre expose les propriétés de la sélection
+  (baies, zone, identifiants…), les propriétés globales (dimensions,
+  couloirs), l'ajout/la suppression d'allées et d'ateliers.
   « Enregistrer » valide et persiste la définition (modification en
   place : tous les projets qui référencent l'entrepôt la voient),
   « Annuler » restaure l'état d'entrée. Limites assumées : pas

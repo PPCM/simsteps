@@ -39,6 +39,7 @@ export function setupWindow(el, storageKey) {
     el.style.left = `${clamped.x}px`;
     el.style.top = `${clamped.y}px`;
     el.style.right = 'auto';
+    el.style.bottom = 'auto'; // les ancrages CSS (right/bottom) cèdent la place à left/top
     return clamped;
   }
 
@@ -90,9 +91,13 @@ export function setupWindow(el, storageKey) {
   title.addEventListener('pointercancel', endDrag);
 
   // Une fenêtre déplacée doit rester visible quand la page se redimensionne
-  window.addEventListener('resize', () => {
+  const reclamp = () => {
     if (el.style.left !== '') applyPosition(currentPos());
-  });
+  };
+  window.addEventListener('resize', reclamp);
+
+  // Poignée pour reborder une fenêtre montrée après coup (ex. : édition)
+  return { reclamp };
 }
 
 /**

@@ -106,11 +106,12 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
     return page.evaluate(() => window.simstepsDebug.camera.position.toArray());
   };
 
-  // Orbite : l'utilisateur choisit son point de vue (glisser sur le sol nu)
+  // Orbite : l'utilisateur choisit son point de vue (glisser dans le
+  // vide, en haut à droite — hors des trois fenêtres)
   const { width, height } = page.viewportSize();
-  await page.mouse.move(width * 0.33, height * 0.92);
+  await page.mouse.move(width * 0.72, height * 0.12);
   await page.mouse.down();
-  await page.mouse.move(width * 0.45, height * 0.75, { steps: 5 });
+  await page.mouse.move(width * 0.6, height * 0.28, { steps: 5 });
   await page.mouse.up();
   const before = await settledCamera();
 

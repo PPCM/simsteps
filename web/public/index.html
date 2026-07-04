@@ -25,8 +25,19 @@
       backdrop-filter: blur(8px);
       display: flex; flex-direction: column;
     }
+    .window[hidden] { display: none; } /* display explicite : l'attribut hidden doit gagner */
     .win-left { top: 14px; left: 14px; }
     .win-right { top: 14px; right: 14px; width: 286px; }
+    .win-edit {
+      bottom: 14px; left: max(14px, calc(50vw - 380px));
+      width: min(760px, calc(100vw - 28px));
+    }
+    .edit-columns { flex-direction: row; flex-wrap: wrap; align-items: stretch; display: flex; }
+    .edit-columns section {
+      flex: 1 1 220px; min-width: 220px;
+      border-bottom: 0; border-right: 1px solid var(--line);
+    }
+    .edit-columns section:last-child { border-right: 0; }
     .win-body { overflow-y: auto; }
     .win-body::-webkit-scrollbar { width: 8px; }
     .win-body::-webkit-scrollbar-thumb { background: var(--line); }
@@ -142,7 +153,6 @@
     .props-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
     ul.edit-errors { margin: 8px 0 0; padding-left: 16px; color: var(--danger); font-size: 12px; }
     button.action[disabled], select[disabled], input[disabled] { opacity: .45; pointer-events: none; }
-    #editPanel h2 { margin-top: 16px; }
     #editPanel .placeholder { margin: 0 0 8px; font-size: 12px; color: var(--ink-3); }
 
     /* KPI en direct */
@@ -255,23 +265,6 @@
         <button class="action" id="warehouseDelete">Supprimer</button>
       </div>
       <p class="action-status" id="warehouseStatus"></p>
-
-      <div id="editPanel" hidden>
-        <h2>Sélection</h2>
-        <div id="selProps"><p class="placeholder">Cliquez un élément dans la scène.</p></div>
-        <div class="btn-row">
-          <button class="action" id="editAddAisle">+ Allée</button>
-          <button class="action" id="editAddWorkshop">+ Atelier</button>
-        </div>
-        <button class="action" id="editRemoveSelection">Supprimer la sélection</button>
-        <h2>Propriétés globales</h2>
-        <div id="globalProps"></div>
-        <div class="btn-row">
-          <button class="action" id="editSave">Enregistrer</button>
-          <button class="action" id="editCancel">Annuler</button>
-        </div>
-        <ul class="edit-errors" id="editErrors"></ul>
-      </div>
     </section>
     </div>
 
@@ -340,6 +333,36 @@
         <tbody></tbody>
       </table>
     </section>
+    </div>
+  </aside>
+
+  <aside id="editPanel" class="window win-edit" aria-label="Édition de l'entrepôt" hidden>
+    <header class="win-title">
+      <h2 class="win-name">Édition de l'entrepôt</h2>
+      <button class="win-toggle" aria-expanded="true" aria-label="Replier la fenêtre">⌃</button>
+    </header>
+    <div class="win-body edit-columns">
+      <section>
+        <h2>Sélection</h2>
+        <div id="selProps"><p class="placeholder">Cliquez un élément dans la scène.</p></div>
+        <div class="btn-row">
+          <button class="action" id="editAddAisle">+ Allée</button>
+          <button class="action" id="editAddWorkshop">+ Atelier</button>
+        </div>
+        <button class="action" id="editRemoveSelection">Supprimer la sélection</button>
+      </section>
+      <section>
+        <h2>Propriétés globales</h2>
+        <div id="globalProps"></div>
+      </section>
+      <section>
+        <h2>Terminer</h2>
+        <div class="btn-row">
+          <button class="action" id="editSave">Enregistrer</button>
+          <button class="action" id="editCancel">Annuler</button>
+        </div>
+        <ul class="edit-errors" id="editErrors"></ul>
+      </section>
     </div>
   </aside>
 

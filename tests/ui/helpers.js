@@ -39,13 +39,14 @@ export async function openPilotTab(page) {
 /**
  * Clique dans la scène jusqu'à sélectionner un élément du type voulu
  * (le placement exact des racks à l'écran dépend de la caméra : on
- * balaie quelques points autour du centre).
+ * balaie quelques points autour du centre, en évitant le bas de l'écran
+ * où vit la fenêtre d'édition).
  * @returns {Promise<string>} le libellé de sélection (ex. « Allée A5 »)
  */
 export async function selectInScene(page, labelPrefix) {
   const { width, height } = page.viewportSize();
   const placeholder = page.locator('#selProps .placeholder');
-  for (const [fx, fy] of [[0.55, 0.55], [0.5, 0.5], [0.6, 0.6], [0.45, 0.6], [0.65, 0.5], [0.55, 0.7]]) {
+  for (const [fx, fy] of [[0.55, 0.55], [0.5, 0.5], [0.6, 0.5], [0.45, 0.55], [0.65, 0.45], [0.55, 0.4]]) {
     await page.mouse.click(width * fx, height * fy);
     const text = await placeholder.textContent();
     if (text?.startsWith(labelPrefix)) return text;
