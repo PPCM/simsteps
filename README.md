@@ -125,8 +125,10 @@ Le détail des sections :
   un élément dans la scène (allée, atelier, expédition, réception) le
   sélectionne, glisser le déplace au mètre près dans les limites du plan
   et des couloirs ; la fenêtre expose les propriétés de la sélection
-  (baies, zone, identifiants…), les propriétés globales (dimensions,
-  couloirs), l'ajout/la suppression d'allées et d'ateliers.
+  (baies, zone, identifiants, largeur/profondeur — chaque élément est
+  redimensionnable), les propriétés globales (dimensions, couloirs), et
+  l'ajout/la suppression d'allées, d'ateliers et de zones d'expédition
+  ou de réception (au moins une de chaque doit rester).
   « Enregistrer » valide et persiste la définition (modification en
   place : tous les projets qui référencent l'entrepôt la voient),
   « Annuler » restaure l'état d'entrée. Limites assumées : pas
@@ -176,8 +178,9 @@ pathfinding des opérateurs utilise A* sur ce graphe.
   "corridors": { "frontY": 4, "backY": 38 },       // couloirs transversaux (y)
   "aisles": [
     // x : abscisse de l'allée ; yStart/yEnd : étendue ; bays : nb de baies ;
-    // zone : groupe utilisé par la stratégie « vagues par zone »
-    { "id": "A1", "x": 6, "yStart": 7, "yEnd": 35, "bays": 17, "zone": "Z1" }
+    // zone : groupe utilisé par la stratégie « vagues par zone » ;
+    // width (facultatif, 1.4) : largeur du couloir entre les deux racks
+    { "id": "A1", "x": 6, "yStart": 7, "yEnd": 35, "bays": 17, "zone": "Z1", "width": 1.4 }
   ],
   "racks": [
     // Un rack par côté d'allée ; levels : niveaux picking par baie.
@@ -186,18 +189,24 @@ pathfinding des opérateurs utilise A* sur ce graphe.
     { "id": "R02", "aisle": "A1", "side": "droite", "levels": 1 }
   ],
   "workshops": [
-    // Postes d'emballage : cibles de dépose des commandes B2C
+    // Postes d'emballage : cibles de dépose des commandes B2C.
+    // width/depth (facultatifs, 4.8 × 3) : emprise au sol en mètres
     { "id": "AT1", "label": "Atelier emballage 1", "x": 9, "y": 2 }
   ],
-  "shipping":  { "id": "EXP", "label": "Expédition", "x": 28, "y": 2 },
-  "receiving": { "id": "REC", "label": "Réception", "x": 36, "y": 40 }
+  // Une zone unique (objet) ou une liste de zones ; mêmes width/depth
+  // facultatifs que les ateliers
+  "shipping":  [{ "id": "EXP", "label": "Expédition", "x": 28, "y": 2 }],
+  "receiving": [{ "id": "REC", "label": "Réception", "x": 36, "y": 40 }]
 }
 ```
 
-Règles : chaque rack référence une allée existante ; les ateliers, l'expédition
-et la réception sont rattachés au couloir le plus proche ; les commandes B2B
-sont déposées à l'expédition, les B2C à l'atelier le plus proche du dernier
-prélèvement. L'API valide la cohérence topologique à l'import.
+Règles : chaque rack référence une allée existante ; les ateliers, les zones
+d'expédition et de réception sont rattachés au couloir le plus proche ; les
+commandes B2B sont déposées à la zone d'expédition la plus proche du dernier
+prélèvement, les B2C à l'atelier le plus proche. Il faut au moins une zone
+d'expédition et une de réception (`shipping`/`receiving` acceptent un objet
+unique — format historique — ou une liste). L'API valide la cohérence
+topologique à l'import.
 
 ## Paramètres d'un scénario
 

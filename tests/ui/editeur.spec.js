@@ -65,6 +65,7 @@ test('sélection au clic et glisser contraint d’une allée', async ({ page }) 
 });
 
 test('validation, ajout d’allée et enregistrement', async ({ page, request, baseURL }) => {
+  const { definition: before } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
   await selectInScene(page, 'Allée');
 
   // bays = 1 : erreur française et enregistrement bloqué
@@ -82,7 +83,7 @@ test('validation, ajout d’allée et enregistrement', async ({ page, request, b
 
   // Ajout d'une allée : sélectionnée automatiquement
   await page.locator('#editAddAisle').click();
-  await expect(page.locator('#selProps .placeholder')).toContainText('Allée A7');
+  await expect(page.locator('#selProps .placeholder')).toContainText(`Allée A${before.aisles.length + 1}`);
 
   // Enregistrement : persisté, sortie d'édition, relecture relancée
   await page.locator('#editSave').click();
@@ -90,7 +91,7 @@ test('validation, ajout d’allée et enregistrement', async ({ page, request, b
   await expect(page.locator('#editPanel')).toBeHidden();
   await expect(page.locator('#status')).toContainText('opérateurs');
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
-  expect(definition.aisles).toHaveLength(7);
+  expect(definition.aisles).toHaveLength(before.aisles.length + 1);
 });
 
 test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
@@ -117,7 +118,7 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
 
   // Modification (ajout d'allée) : l'orientation choisie est conservée
   await page.locator('#editAddAisle').click();
-  await expect(page.locator('#selProps .placeholder')).toContainText('Allée A7');
+  await expect(page.locator('#selProps .placeholder')).toContainText(/Allée A\d+/);
   const afterEdit = await settledCamera();
   for (let i = 0; i < 3; i++) expect(afterEdit[i]).toBeCloseTo(before[i], 1);
 
@@ -128,11 +129,37 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
   for (let i = 0; i < 3; i++) expect(afterExit[i]).toBeCloseTo(before[i], 1);
 });
 
+test('ajouter et redimensionner une zone d’expédition', async ({ page, request, baseURL }) => {
+  // Ajout : la zone est créée et sélectionnée automatiquement
+  await page.locator('#editAddShipping').click();
+  await expect(page.locator('#selProps .placeholder')).toContainText('Expédition EXP1');
+
+  // Redimensionnement par champs (id, label, x, y, largeur, profondeur)
+  const width = page.locator('#selProps input').nth(4);
+  await width.fill('8');
+  await width.blur();
+  const depth = page.locator('#selProps input').nth(5);
+  await depth.fill('4');
+  await depth.blur();
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+
+  // Enregistrement : persisté en base, zones au format liste
+  await page.locator('#editSave').click();
+  await expect(page.locator('#warehouseStatus')).toHaveText('Entrepôt enregistré.');
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  expect(Array.isArray(definition.shipping)).toBe(true);
+  expect(definition.shipping).toHaveLength(2);
+  const added = definition.shipping.find((z) => z.id === 'EXP1');
+  expect(added.width).toBe(8);
+  expect(added.depth).toBe(4);
+});
+
 test('annuler ne persiste aucune modification', async ({ page, request, baseURL }) => {
+  const { definition: before } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
   await page.locator('#editAddAisle').click();
-  await expect(page.locator('#selProps .placeholder')).toContainText('Allée A7');
+  await expect(page.locator('#selProps .placeholder')).toContainText(`Allée A${before.aisles.length + 1}`);
   await page.locator('#editCancel').click();
   await expect(page.locator('#editPanel')).toBeHidden();
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
-  expect(definition.aisles).toHaveLength(6);
+  expect(definition.aisles).toHaveLength(before.aisles.length);
 });

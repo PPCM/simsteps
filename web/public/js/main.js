@@ -5,7 +5,7 @@
 // changement de paramètre relance un run complet (quelques
 // millisecondes) puis la relecture repart de zéro.
 
-import { buildWarehouse } from '/sim/warehouse.js';
+import { buildWarehouse, facilityList } from '/sim/warehouse.js';
 import { runSimulation, DEFAULT_SCENARIO } from '/sim/engine.js';
 import { createWarehouseScene } from './scene.js';
 import { createRecorder } from './timeline.js';
@@ -18,8 +18,9 @@ import { slotCount } from './layout.js';
 import { splitSettings, buildSettings, mergeProjectParams } from './projects.js';
 import {
   moveAisle, moveFacility, addAisle, removeAisle, addWorkshop, removeWorkshop,
+  addShipping, addReceiving, removeZone,
   updateAisle, updateFacility, updateGlobals, validateDefinition,
-  duplicateDefinition, minimalDefinition,
+  duplicateDefinition, minimalDefinition, normalizeDefinition,
 } from './editor/model.js';
 import { createEditorControls } from './editor/controls.js';
 import { renderSelection, renderGlobals, renderErrors } from './editor/panel.js';
@@ -39,6 +40,7 @@ const els = {
   warehouseDelete: $('warehouseDelete'), warehouseStatus: $('warehouseStatus'),
   editPanel: $('editPanel'), selProps: $('selProps'), globalProps: $('globalProps'),
   editAddAisle: $('editAddAisle'), editAddWorkshop: $('editAddWorkshop'),
+  editAddShipping: $('editAddShipping'), editAddReceiving: $('editAddReceiving'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
   scenario: $('scenario'), opCount: $('opCount'), b2cShare: $('b2cShare'), orderRate: $('orderRate'),
@@ -487,7 +489,9 @@ try {
   }
 
   function findFacility(def, kind, id) {
-    return kind === 'workshop' ? def.workshops.find((w) => w.id === id) : def[kind];
+    return kind === 'workshop'
+      ? def.workshops.find((w) => w.id === id)
+      : facilityList(def[kind]).find((z) => z.id === id);
   }
 
   function renderSelectionPanel() {
@@ -567,7 +571,8 @@ try {
     setPlaying(false);
     sim?.dispose();
     sim = null;
-    workingDef = structuredClone(definition);
+    // Normalisation : zones en listes et dimensions par défaut explicites
+    workingDef = normalizeDefinition(definition);
     selection = null;
     setEditingUI(true);
     editorControls.setEnabled(true);
@@ -598,6 +603,16 @@ try {
     selection = { type: 'workshop', id: next.workshops[next.workshops.length - 1].id };
     applyWorkingDef(next);
   });
+  els.editAddShipping.addEventListener('click', () => {
+    const next = addShipping(workingDef);
+    selection = { type: 'shipping', id: next.shipping[next.shipping.length - 1].id };
+    applyWorkingDef(next);
+  });
+  els.editAddReceiving.addEventListener('click', () => {
+    const next = addReceiving(workingDef);
+    selection = { type: 'receiving', id: next.receiving[next.receiving.length - 1].id };
+    applyWorkingDef(next);
+  });
   els.editRemoveSelection.addEventListener('click', () => {
     if (!selection) {
       renderErrors(els.editErrors, ['Aucun élément sélectionné.']);
@@ -607,7 +622,7 @@ try {
       let next;
       if (selection.type === 'aisle') next = removeAisle(workingDef, selection.id);
       else if (selection.type === 'workshop') next = removeWorkshop(workingDef, selection.id);
-      else throw new Error('Les zones expédition et réception ne peuvent pas être supprimées.');
+      else next = removeZone(workingDef, selection.type, selection.id);
       selection = null;
       applyWorkingDef(next);
     } catch (error) {

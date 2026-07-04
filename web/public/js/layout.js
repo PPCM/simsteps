@@ -3,11 +3,15 @@
 // Convention : les coordonnées (x, y) du plan de l'entrepôt deviennent
 // (x, z) dans la scène 3D, la hauteur est portée par l'axe Y.
 
-// Décalages latéraux des racks par rapport à l'axe de l'allée (mètres),
-// identiques à la projection utilisée par le moteur
-const RACK_OFFSETS = { gauche: -2.1, droite: 0.7 };
 const RACK_WIDTH = 1.4;
 const RACK_MARGIN = 0.9; // dépassement au-delà des baies en bout d'allée
+// Largeur par défaut du couloir d'une allée (entre ses deux racks) et
+// dimensions par défaut des zones au sol — surchargables par élément
+export const DEFAULT_AISLE_WIDTH = 1.4;
+export const DEFAULT_ZONE_SIZE = { width: 4.8, depth: 3 };
+
+// Zones d'expédition/réception : objet unique (format historique) ou liste
+const asList = (value) => (Array.isArray(value) ? value : [value]);
 
 /** Dimensions du sol. */
 export function floorSize(def) {
@@ -24,7 +28,10 @@ export function rackBoxes(def) {
   return def.racks.map((rack) => {
     const aisle = aisleById.get(rack.aisle);
     if (!aisle) throw new Error(`Rack ${rack.id} : allée inconnue ${rack.aisle}`);
-    const offset = RACK_OFFSETS[rack.side];
+    // Racks de part et d'autre du couloir de circulation de l'allée
+    const half = (aisle.width ?? DEFAULT_AISLE_WIDTH) / 2;
+    const offsets = { gauche: -half - RACK_WIDTH, droite: half };
+    const offset = offsets[rack.side];
     if (offset === undefined) throw new Error(`Rack ${rack.id} : côté inconnu ${rack.side}`);
     const depth = aisle.yEnd - aisle.yStart + 2 * RACK_MARGIN;
     return {
@@ -50,13 +57,13 @@ export function zonePatches(def) {
     kind,
     x: f.x,
     z: f.y,
-    width: 4.8,
-    depth: 3,
+    width: f.width ?? DEFAULT_ZONE_SIZE.width,
+    depth: f.depth ?? DEFAULT_ZONE_SIZE.depth,
   });
   return [
     ...def.workshops.map((w) => patch(w, 'workshop')),
-    patch(def.shipping, 'shipping'),
-    patch(def.receiving, 'receiving'),
+    ...asList(def.shipping).map((s) => patch(s, 'shipping')),
+    ...asList(def.receiving).map((r) => patch(r, 'receiving')),
   ];
 }
 

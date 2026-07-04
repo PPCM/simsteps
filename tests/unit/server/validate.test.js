@@ -98,3 +98,17 @@ test('les settings de projet passent par la validation de scénario et refusent 
   const errors = validateProjectPayload({ name: 'P', warehouseId: 1, settings: { name: 'X' } });
   assert.ok(errors.some((e) => e.includes('settings')));
 });
+
+test('les zones shipping/receiving acceptent un objet ou une liste non vide', () => {
+  const base = JSON.parse(JSON.stringify(validWarehouse));
+  base.shipping = [base.shipping, { id: 'EXP2', label: 'Expédition 2', x: 40, y: 2 }];
+  assert.deepEqual(validateWarehouseDefinition(base), []);
+
+  const empty = JSON.parse(JSON.stringify(validWarehouse));
+  empty.shipping = [];
+  assert.ok(validateWarehouseDefinition(empty).some((e) => e.includes('shipping')));
+
+  const noId = JSON.parse(JSON.stringify(validWarehouse));
+  noId.receiving = [{ label: 'Sans id', x: 1, y: 1 }];
+  assert.ok(validateWarehouseDefinition(noId).some((e) => e.includes('receiving')));
+});

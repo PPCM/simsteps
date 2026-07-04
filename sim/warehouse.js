@@ -7,6 +7,15 @@
 import { Graph } from './graph.js';
 
 /**
+ * Zones d'expédition/réception : le format accepte un objet unique
+ * (format historique) ou une liste ; on travaille toujours en liste.
+ * @returns {Array<object>}
+ */
+export function facilityList(value) {
+  return Array.isArray(value) ? value : [value];
+}
+
+/**
  * Construit la représentation exploitable de l'entrepôt.
  * @param {object} spec contenu du warehouse.json
  * @returns {{
@@ -15,6 +24,8 @@ import { Graph } from './graph.js';
  *   slots: Map<string, {id: string, rackId: string, aisleId: string, zone: string, nodeId: string, level: number}>,
  *   aisles: Array<object>,
  *   workshops: Array<{id: string, label: string, nodeId: string}>,
+ *   shippings: Array<{id: string, label: string, nodeId: string}>,
+ *   receivings: Array<{id: string, label: string, nodeId: string}>,
  *   shippingNodeId: string,
  *   receivingNodeId: string,
  *   raw: object
@@ -42,10 +53,12 @@ export function buildWarehouse(spec) {
 
   // --- Ateliers et zones : un nœud chacun, rattaché au couloir le plus proche ---
   const midY = (frontY + backY) / 2;
+  const shippings = facilityList(spec.shipping);
+  const receivings = facilityList(spec.receiving);
   const facilities = [
     ...spec.workshops.map((w) => ({ ...w, kind: 'workshop' })),
-    { ...spec.shipping, kind: 'shipping' },
-    { ...spec.receiving, kind: 'receiving' },
+    ...shippings.map((s) => ({ ...s, kind: 'shipping' })),
+    ...receivings.map((r) => ({ ...r, kind: 'receiving' })),
   ];
   const frontChain = spec.aisles.map((a) => ({ x: a.x, nodeId: `${a.id}:front` }));
   const backChain = spec.aisles.map((a) => ({ x: a.x, nodeId: `${a.id}:back` }));
@@ -89,8 +102,12 @@ export function buildWarehouse(spec) {
     slots,
     aisles: spec.aisles,
     workshops: spec.workshops.map((w) => ({ id: w.id, label: w.label, nodeId: w.id })),
-    shippingNodeId: spec.shipping.id,
-    receivingNodeId: spec.receiving.id,
+    shippings: shippings.map((s) => ({ id: s.id, label: s.label, nodeId: s.id })),
+    receivings: receivings.map((r) => ({ id: r.id, label: r.label, nodeId: r.id })),
+    // Première zone de chaque type : point de départ des opérateurs et
+    // compatibilité avec les consommateurs mono-zone (relecture)
+    shippingNodeId: shippings[0].id,
+    receivingNodeId: receivings[0].id,
     raw: spec,
   };
 }

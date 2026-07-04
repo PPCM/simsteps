@@ -33,8 +33,12 @@ export function validateWarehouseDefinition(def) {
   if (!def.corridors || typeof def.corridors.frontY !== 'number' || typeof def.corridors.backY !== 'number') {
     errors.push('« corridors » est requis ({ frontY, backY })');
   }
-  if (!def.shipping || !def.shipping.id) errors.push('« shipping » est requis');
-  if (!def.receiving || !def.receiving.id) errors.push('« receiving » est requis');
+  // Une zone { id … } (format historique) ou une liste non vide de zones
+  const zoneOk = (value) => (Array.isArray(value)
+    ? value.length > 0 && value.every((z) => z && z.id)
+    : Boolean(value && value.id));
+  if (!zoneOk(def.shipping)) errors.push('« shipping » est requis (zone ou liste non vide de zones)');
+  if (!zoneOk(def.receiving)) errors.push('« receiving » est requis (zone ou liste non vide de zones)');
   if (errors.length > 0) return errors;
 
   try {

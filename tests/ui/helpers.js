@@ -66,7 +66,8 @@ export async function selectionFields(page) {
  * @returns {Promise<{id: number, name: string}>}
  */
 export async function createTestWarehouse(request, baseURL) {
-  const [first] = await (await request.get(`${baseURL}/api/warehouses`)).json();
+  const all = await (await request.get(`${baseURL}/api/warehouses`)).json();
+  const first = all.find((w) => !w.name.includes('[test')); // jamais une copie de test résiduelle
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${first.id}`)).json();
   definition.name = uniqueName('Entrepôt');
   const response = await request.post(`${baseURL}/api/warehouses`, { data: definition });

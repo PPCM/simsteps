@@ -68,3 +68,29 @@ test('aisleLabels place une étiquette par allée, en tête d’allée', () => {
 test('slotCount compte les emplacements de l’entrepôt d’exemple', () => {
   assert.equal(slotCount(def), 204);
 });
+
+test('la largeur du couloir d’une allée écarte ses racks', () => {
+  const custom = structuredClone(def);
+  custom.aisles[0].width = 3;
+  const boxes = rackBoxes(custom);
+  const left = boxes.find((b) => b.id === 'R01');
+  const right = boxes.find((b) => b.id === 'R02');
+  const corridor = (right.x - right.width / 2) - (left.x + left.width / 2);
+  assert.ok(Math.abs(corridor - 3) < 1e-9, `couloir attendu 3 m, obtenu ${corridor}`);
+});
+
+test('zonePatches respecte les tailles par zone et les listes', () => {
+  const custom = structuredClone(def);
+  custom.shipping = [
+    { id: 'E1', label: 'Expédition 1', x: 5, y: 2, width: 8, depth: 4 },
+    { id: 'E2', label: 'Expédition 2', x: 12, y: 2 },
+  ];
+  const zones = zonePatches(custom);
+  const e1 = zones.find((z) => z.id === 'E1');
+  assert.equal(e1.width, 8);
+  assert.equal(e1.depth, 4);
+  const e2 = zones.find((z) => z.id === 'E2');
+  assert.equal(e2.width, 4.8); // défaut quand la taille n'est pas précisée
+  assert.equal(e2.depth, 3);
+  assert.ok(zones.some((z) => z.id === 'REC' && z.kind === 'receiving'));
+});

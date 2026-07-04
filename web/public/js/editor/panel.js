@@ -10,13 +10,19 @@ const AISLE_FIELDS = [
   ['bays', 'Baies', 'number'],
   ['yStart', 'Début (y)', 'number'],
   ['yEnd', 'Fin (y)', 'number'],
+  ['width', 'Largeur couloir', 'number'],
 ];
 const FACILITY_FIELDS = [
   ['id', 'Identifiant', 'text'],
   ['label', 'Libellé', 'text'],
   ['x', 'x', 'number'],
   ['y', 'y', 'number'],
+  ['width', 'Largeur', 'number'],
+  ['depth', 'Profondeur', 'number'],
 ];
+
+// Zones d'expédition/réception : objet unique (format historique) ou liste
+const asList = (value) => (Array.isArray(value) ? value : [value]);
 const GLOBAL_FIELDS = [
   ['name', 'Nom', 'text'],
   ['width', 'Largeur', 'number'],
@@ -84,7 +90,7 @@ export function renderSelection(container, def, selection, onChange) {
   } else {
     const facility = selection.type === 'workshop'
       ? def.workshops.find((w) => w.id === selection.id)
-      : def[selection.type];
+      : asList(def[selection.type]).find((z) => z.id === selection.id);
     if (facility) renderFields(container, FACILITY_FIELDS, facility, onChange);
   }
 }

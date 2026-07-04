@@ -59,3 +59,22 @@ test('un rack référençant une allée inconnue lève une erreur', () => {
   };
   assert.throws(() => buildWarehouse(broken), /allée inconnue/);
 });
+
+test('shipping/receiving acceptent un objet unique ou une liste', () => {
+  // Format historique : objet unique → liste à un élément
+  const single = buildWarehouse(spec);
+  assert.equal(single.shippings.length, 1);
+  assert.equal(single.receivings.length, 1);
+  assert.equal(single.shippingNodeId, 'EXP');
+
+  // Nouveau format : listes ; le premier élément reste le nœud de départ
+  const multi = structuredClone(spec);
+  multi.shipping = [multi.shipping, { id: 'EXP2', label: 'Expédition 2', x: 40, y: 2 }];
+  multi.receiving = [multi.receiving];
+  const w = buildWarehouse(multi);
+  assert.equal(w.shippings.length, 2);
+  assert.equal(w.shippingNodeId, 'EXP');
+  assert.ok(w.graph.nodes.has('EXP2'), 'la seconde zone doit avoir son nœud');
+  const route = w.graph.shortestPath('EXP', 'EXP2');
+  assert.ok(route && route.distance > 0, 'la seconde zone doit être raccordée aux couloirs');
+});

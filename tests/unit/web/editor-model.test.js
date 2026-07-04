@@ -13,12 +13,16 @@ import {
   removeAisle,
   addWorkshop,
   removeWorkshop,
+  addShipping,
+  addReceiving,
+  removeZone,
   updateAisle,
   updateFacility,
   updateGlobals,
   validateDefinition,
   duplicateDefinition,
   minimalDefinition,
+  normalizeDefinition,
 } from '../../../web/public/js/editor/model.js';
 
 const def = JSON.parse(
@@ -149,7 +153,7 @@ test('validateDefinition détecte allée hors couloirs et zone hors sol', () => 
   assert.ok(validateDefinition(outAisle, buildWarehouse).some((e) => e.includes('couloirs')));
   const outZone = structuredClone(def);
   outZone.shipping.x = 500;
-  assert.ok(validateDefinition(outZone, buildWarehouse).some((e) => e.includes('hors du sol')));
+  assert.ok(validateDefinition(outZone, buildWarehouse).some((e) => e.includes('dépasse le sol')));
 });
 
 test('validateDefinition remonte les erreurs de construction du graphe', () => {
@@ -168,4 +172,78 @@ test('duplicateDefinition renomme et clone en profondeur', () => {
 
 test('minimalDefinition est une définition valide', () => {
   assert.deepEqual(validateDefinition(minimalDefinition(), buildWarehouse), []);
+});
+
+test('normalizeDefinition passe les zones en listes avec dimensions explicites', () => {
+  const next = normalizeDefinition(def);
+  assert.ok(Array.isArray(next.shipping));
+  assert.equal(next.shipping[0].id, 'EXP');
+  assert.equal(next.shipping[0].width, 4.8);
+  assert.equal(next.shipping[0].depth, 3);
+  assert.ok(Array.isArray(next.receiving));
+  assert.equal(next.aisles[0].width, 1.4);
+  assert.equal(next.workshops[0].width, 4.8);
+  // Idempotente, et la définition d'origine n'est pas mutée
+  assert.deepEqual(normalizeDefinition(next), next);
+  assert.ok(!Array.isArray(def.shipping));
+});
+
+test('addShipping / addReceiving ajoutent une zone avec identifiant unique', () => {
+  const next = addShipping(normalizeDefinition(def));
+  assert.equal(next.shipping.length, 2);
+  const added = next.shipping[1];
+  assert.equal(added.id, 'EXP1');
+  assert.ok(added.label.startsWith('Expédition'));
+  assert.equal(added.width, 4.8);
+  assert.ok(added.x >= added.width / 2);
+  const more = addReceiving(next);
+  assert.equal(more.receiving.length, 2);
+  assert.equal(more.receiving[1].id, 'REC1');
+  // Toujours valide après ajout
+  assert.deepEqual(validateDefinition(more, buildWarehouse), []);
+});
+
+test('removeZone refuse de supprimer la dernière zone de chaque type', () => {
+  const norm = normalizeDefinition(def);
+  assert.throws(() => removeZone(norm, 'shipping', 'EXP'), /dernière zone d’expédition/);
+  assert.throws(() => removeZone(norm, 'receiving', 'REC'), /dernière zone de réception/);
+  const two = addShipping(norm);
+  const back = removeZone(two, 'shipping', 'EXP1');
+  assert.equal(back.shipping.length, 1);
+  assert.equal(back.shipping[0].id, 'EXP');
+});
+
+test('updateFacility redimensionne une zone et moveFacility borne sur son emprise', () => {
+  const norm = normalizeDefinition(def);
+  const resized = updateFacility(norm, 'shipping', 'EXP', { width: 10, depth: 6 });
+  const zone = resized.shipping.find((z) => z.id === 'EXP');
+  assert.equal(zone.width, 10);
+  assert.equal(zone.depth, 6);
+  const moved = moveFacility(resized, 'shipping', 'EXP', { x: 0, y: 0 });
+  const clamped = moved.shipping.find((z) => z.id === 'EXP');
+  assert.equal(clamped.x, 5); // demi-largeur de la zone redimensionnée
+  assert.equal(clamped.y, 3); // demi-profondeur
+});
+
+test('updateAisle règle la largeur du couloir, contrôlée par la validation', () => {
+  const norm = normalizeDefinition(def);
+  const wider = updateAisle(norm, 'A1', { width: 2.5 });
+  assert.equal(wider.aisles[0].width, 2.5);
+  assert.deepEqual(validateDefinition(wider, buildWarehouse), []);
+  const invalid = updateAisle(norm, 'A1', { width: -1 });
+  assert.ok(validateDefinition(invalid, buildWarehouse).some((e) => e.includes('largeur')));
+});
+
+test('validateDefinition exige au moins une zone de chaque type et borne les emprises', () => {
+  const norm = normalizeDefinition(def);
+  const noShipping = structuredClone(norm);
+  noShipping.shipping = [];
+  assert.ok(validateDefinition(noShipping, buildWarehouse).some((e) => e.includes('expédition')));
+  const bigZone = updateFacility(norm, 'receiving', 'REC', { width: 30 });
+  assert.ok(validateDefinition(bigZone, buildWarehouse).some((e) => e.includes('dépasse le sol')));
+});
+
+test('la définition minimale normalisée reste valide', () => {
+  assert.deepEqual(validateDefinition(minimalDefinition(), buildWarehouse), []);
+  assert.deepEqual(validateDefinition(normalizeDefinition(def), buildWarehouse), []);
 });

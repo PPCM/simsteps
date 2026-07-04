@@ -121,3 +121,23 @@ test('les valeurs par défaut du scénario couvrent tous les paramètres', () =>
     assert.ok(key in DEFAULT_SCENARIO, `paramètre par défaut manquant : ${key}`);
   }
 });
+
+test('les dépôts B2B partent à la zone d’expédition la plus proche', () => {
+  // Deux zones d'expédition : une au cœur du couloir avant, une à
+  // l'autre bout d'un sol très élargi (toujours plus lointaine)
+  const multi = structuredClone(spec);
+  multi.dimensions = { ...multi.dimensions, width: 200 };
+  multi.shipping = [
+    { id: 'EXP-PRES', label: 'Expédition proche', x: 18, y: 2 },
+    { id: 'EXP-LOIN', label: 'Expédition lointaine', x: 199, y: 2 },
+  ];
+  const w = buildWarehouse(multi);
+  const targets = new Set();
+  runSimulation(
+    w,
+    { ...BASE, b2cShare: 0 }, // commandes 100 % B2B
+    { onTravel: (opId, path) => targets.add(path[path.length - 1]) }
+  );
+  assert.ok(targets.has('EXP-PRES'), 'les missions doivent déposer à la zone proche');
+  assert.ok(!targets.has('EXP-LOIN'), 'la zone lointaine ne doit jamais être choisie');
+});

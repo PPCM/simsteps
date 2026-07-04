@@ -104,20 +104,21 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       return a1 % 2 === 0 ? y1 - y2 : y2 - y1;
     });
 
-    // Cibles de dépose : les lignes B2C partent à l'atelier le plus proche
-    // du dernier prélèvement, les lignes B2B directement à l'expédition
+    // Cibles de dépose : les lignes B2C partent à l'atelier le plus
+    // proche du dernier prélèvement, les lignes B2B à la zone
+    // d'expédition la plus proche
     const b2cLines = lines.filter((l) => l.profile === 'B2C');
     const b2bLines = lines.filter((l) => l.profile === 'B2B');
+    const lastNode = stops[stops.length - 1].nodeId;
+    const nearest = (candidates) => candidates.reduce((best, c) =>
+      graph.distance(lastNode, c.nodeId) < graph.distance(lastNode, best.nodeId) ? c : best
+    );
     const drops = [];
     if (b2cLines.length > 0) {
-      const lastNode = stops[stops.length - 1].nodeId;
-      const workshop = warehouse.workshops.reduce((best, w) =>
-        graph.distance(lastNode, w.nodeId) < graph.distance(lastNode, best.nodeId) ? w : best
-      );
-      drops.push({ nodeId: workshop.nodeId, lines: b2cLines });
+      drops.push({ nodeId: nearest(warehouse.workshops).nodeId, lines: b2cLines });
     }
     if (b2bLines.length > 0) {
-      drops.push({ nodeId: warehouse.shippingNodeId, lines: b2bLines });
+      drops.push({ nodeId: nearest(warehouse.shippings).nodeId, lines: b2bLines });
     }
 
     return { id: nextMissionId++, lines, stops, drops };
