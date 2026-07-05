@@ -471,9 +471,14 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
           break;
         }
         // 2) Mission exigeant un engin : un opérateur libre marche
-        //    jusqu'à un engin libre compatible et le conduit
-        const machine = operators.find((o) => o.vehicle !== 'pieton'
-          && o.state === 'idle' && o.reservedBy === null && compatible(o, mission));
+        //    jusqu'à un engin libre compatible et le conduit. À
+        //    compatibilité égale, l'engin le moins utilisé est choisi
+        //    (rotation de charge dans la flotte, déterministe)
+        const machine = operators.reduce((best, o) => (
+          o.vehicle !== 'pieton' && o.state === 'idle' && o.reservedBy === null
+            && compatible(o, mission) && (best === null || o.busyTime < best.busyTime)
+            ? o : best
+        ), null);
         if (machine) {
           const driver = nearestOf(idleHumans, machine.nodeId);
           const walkReach = reachOf(driver);

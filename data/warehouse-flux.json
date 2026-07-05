@@ -1,57 +1,369 @@
 {
   "name": "Entrepôt flux SimSteps",
-  "description": "Démonstration des flux : palettier 3 niveaux (rétractables), allées VNA 4 niveaux, réserve en hauteur, parkings dédiés, zone tampon, obstacles et couloir réservé aux engins",
-  "dimensions": { "width": 60, "depth": 46, "height": 11 },
+  "description": "Démonstration des flux et de toute la flotte : palettier 3 niveaux (frontal, gerbeur, rétractable, préparateur), allées VNA 4 niveaux, bloc est réservé aux engins (picking transpalette/gerbeur), réserve en hauteur, parkings dédiés, zone tampon, obstacles",
+  "dimensions": {
+    "width": 60,
+    "depth": 46,
+    "height": 11
+  },
   "corridors": [
-    { "id": "C1", "label": "Couloir avant", "x": 0, "y": 4, "length": 60, "width": 3, "orientation": "horizontal" },
-    { "id": "C2", "label": "Couloir arrière", "x": 0, "y": 42, "length": 60, "width": 3, "orientation": "horizontal" },
-    { "id": "C3", "label": "Liaison ouest", "x": 3, "y": 4, "length": 38, "width": 3, "orientation": "vertical" },
-    { "id": "C4", "label": "Voie engins est", "x": 57, "y": 4, "length": 38, "width": 3, "orientation": "vertical", "access": "engins" }
+    {
+      "id": "C1",
+      "label": "Couloir avant",
+      "x": 0,
+      "y": 4,
+      "length": 52,
+      "width": 3.6,
+      "orientation": "horizontal"
+    },
+    {
+      "id": "C2",
+      "label": "Couloir arrière",
+      "x": 0,
+      "y": 42,
+      "length": 52,
+      "width": 3.6,
+      "orientation": "horizontal"
+    },
+    {
+      "id": "C3",
+      "label": "Liaison ouest",
+      "x": 3,
+      "y": 4,
+      "length": 38,
+      "width": 3.6,
+      "orientation": "vertical"
+    },
+    {
+      "id": "C5",
+      "label": "Voie engins avant",
+      "x": 52,
+      "y": 4,
+      "length": 8,
+      "width": 3.6,
+      "orientation": "horizontal",
+      "access": "engins"
+    },
+    {
+      "id": "C6",
+      "label": "Voie engins arrière",
+      "x": 52,
+      "y": 42,
+      "length": 8,
+      "width": 3.6,
+      "orientation": "horizontal",
+      "access": "engins"
+    },
+    {
+      "id": "C4",
+      "label": "Liaison engins est",
+      "x": 58,
+      "y": 4,
+      "length": 38,
+      "width": 3.6,
+      "orientation": "vertical",
+      "access": "engins"
+    }
   ],
   "aisles": [
-    { "id": "A1", "x": 9, "yStart": 8, "yEnd": 38, "bays": 16, "zone": "Palettier", "width": 2.8 },
-    { "id": "A2", "x": 15, "yStart": 8, "yEnd": 38, "bays": 16, "zone": "Palettier", "width": 2.8 },
-    { "id": "A3", "x": 21, "yStart": 8, "yEnd": 38, "bays": 16, "zone": "Palettier", "width": 2.8 },
-    { "id": "A4", "x": 30, "yStart": 8, "yEnd": 38, "bays": 16, "zone": "VNA", "width": 1.7 },
-    { "id": "A5", "x": 36, "yStart": 8, "yEnd": 38, "bays": 16, "zone": "VNA", "width": 1.7 },
-    { "id": "A6", "x": 42, "yStart": 8, "yEnd": 38, "bays": 16, "zone": "VNA", "width": 1.7 },
-    { "id": "A7", "x": 48, "yStart": 8, "yEnd": 38, "bays": 16, "zone": "VNA", "width": 1.7 }
+    {
+      "id": "A1",
+      "x": 9,
+      "yStart": 8,
+      "yEnd": 38,
+      "bays": 16,
+      "zone": "Palettier",
+      "width": 3.6
+    },
+    {
+      "id": "A2",
+      "x": 15.5,
+      "yStart": 8,
+      "yEnd": 38,
+      "bays": 16,
+      "zone": "Palettier",
+      "width": 3.6
+    },
+    {
+      "id": "A3",
+      "x": 21.5,
+      "yStart": 8,
+      "yEnd": 38,
+      "bays": 16,
+      "zone": "Palettier",
+      "width": 2.8
+    },
+    {
+      "id": "A4",
+      "x": 30,
+      "yStart": 8,
+      "yEnd": 38,
+      "bays": 16,
+      "zone": "VNA",
+      "width": 1.7
+    },
+    {
+      "id": "A5",
+      "x": 36,
+      "yStart": 8,
+      "yEnd": 38,
+      "bays": 16,
+      "zone": "VNA",
+      "width": 1.7
+    },
+    {
+      "id": "A6",
+      "x": 42,
+      "yStart": 8,
+      "yEnd": 38,
+      "bays": 16,
+      "zone": "VNA",
+      "width": 1.7
+    },
+    {
+      "id": "A7",
+      "x": 47,
+      "yStart": 8,
+      "yEnd": 38,
+      "bays": 16,
+      "zone": "VNA",
+      "width": 1.7
+    },
+    {
+      "id": "A8",
+      "x": 53.5,
+      "yStart": 8,
+      "yEnd": 38,
+      "bays": 16,
+      "zone": "Sol engins",
+      "width": 2.4
+    }
   ],
   "racks": [
-    { "id": "R01", "aisle": "A1", "side": "gauche", "levels": 3, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R02", "aisle": "A1", "side": "droite", "levels": 3, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R03", "aisle": "A2", "side": "gauche", "levels": 3, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R04", "aisle": "A2", "side": "droite", "levels": 3, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R05", "aisle": "A3", "side": "gauche", "levels": 3, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R06", "aisle": "A3", "side": "droite", "levels": 3, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R07", "aisle": "A4", "side": "gauche", "levels": 4, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R08", "aisle": "A4", "side": "droite", "levels": 4, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R09", "aisle": "A5", "side": "gauche", "levels": 4, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R10", "aisle": "A5", "side": "droite", "levels": 4, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R11", "aisle": "A6", "side": "gauche", "levels": 4, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R12", "aisle": "A6", "side": "droite", "levels": 4, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R13", "aisle": "A7", "side": "gauche", "levels": 4, "levelHeight": 2.2, "depth": 1.4 },
-    { "id": "R14", "aisle": "A7", "side": "droite", "levels": 4, "levelHeight": 2.2, "depth": 1.4 }
+    {
+      "id": "R01",
+      "aisle": "A1",
+      "side": "gauche",
+      "levels": 3,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R02",
+      "aisle": "A1",
+      "side": "droite",
+      "levels": 3,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R03",
+      "aisle": "A2",
+      "side": "gauche",
+      "levels": 3,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R04",
+      "aisle": "A2",
+      "side": "droite",
+      "levels": 3,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R05",
+      "aisle": "A3",
+      "side": "gauche",
+      "levels": 3,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R06",
+      "aisle": "A3",
+      "side": "droite",
+      "levels": 3,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R07",
+      "aisle": "A4",
+      "side": "gauche",
+      "levels": 4,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R08",
+      "aisle": "A4",
+      "side": "droite",
+      "levels": 4,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R09",
+      "aisle": "A5",
+      "side": "gauche",
+      "levels": 4,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R10",
+      "aisle": "A5",
+      "side": "droite",
+      "levels": 4,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R11",
+      "aisle": "A6",
+      "side": "gauche",
+      "levels": 4,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R12",
+      "aisle": "A6",
+      "side": "droite",
+      "levels": 4,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R13",
+      "aisle": "A7",
+      "side": "gauche",
+      "levels": 4,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R14",
+      "aisle": "A7",
+      "side": "droite",
+      "levels": 4,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R15",
+      "aisle": "A8",
+      "side": "gauche",
+      "levels": 1,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    },
+    {
+      "id": "R16",
+      "aisle": "A8",
+      "side": "droite",
+      "levels": 1,
+      "levelHeight": 2.2,
+      "depth": 1.4
+    }
   ],
   "workshops": [
-    { "id": "AT1", "label": "Atelier emballage 1", "x": 10, "y": 1, "width": 5, "depth": 2 },
-    { "id": "AT2", "label": "Atelier emballage 2", "x": 22, "y": 1, "width": 5, "depth": 2 }
+    {
+      "id": "AT1",
+      "label": "Atelier emballage 1",
+      "x": 10,
+      "y": 1,
+      "width": 5,
+      "depth": 2
+    },
+    {
+      "id": "AT2",
+      "label": "Atelier emballage 2",
+      "x": 22,
+      "y": 1,
+      "width": 5,
+      "depth": 2
+    }
   ],
   "buffers": [
-    { "id": "TP1", "label": "Tampon emballage", "x": 16, "y": 1, "width": 4, "depth": 2 }
+    {
+      "id": "TP1",
+      "label": "Tampon emballage",
+      "x": 16,
+      "y": 1,
+      "width": 4,
+      "depth": 2
+    }
   ],
   "shipping": [
-    { "id": "EXP", "label": "Expédition", "x": 30, "y": 1, "width": 6, "depth": 2 }
+    {
+      "id": "EXP",
+      "label": "Expédition",
+      "x": 30,
+      "y": 1,
+      "width": 6,
+      "depth": 2
+    }
   ],
   "receiving": [
-    { "id": "REC", "label": "Réception (quais)", "x": 30, "y": 45, "width": 8, "depth": 2 }
+    {
+      "id": "REC",
+      "label": "Réception (quais)",
+      "x": 30,
+      "y": 45,
+      "width": 8,
+      "depth": 2
+    }
   ],
   "parkings": [
-    { "id": "PK1", "label": "Parking engins", "x": 8, "y": 45, "width": 6, "depth": 2, "vehicles": ["retractable", "vna"] },
-    { "id": "PK2", "label": "Point d'appel", "x": 45, "y": 1, "width": 4, "depth": 2, "vehicles": ["pieton"] }
+    {
+      "id": "PK1",
+      "label": "Parking engins",
+      "x": 8,
+      "y": 45,
+      "width": 8,
+      "depth": 2,
+      "vehicles": [
+        "transpalette",
+        "gerbeur",
+        "frontal",
+        "retractable",
+        "vna",
+        "preparateur"
+      ]
+    },
+    {
+      "id": "PK2",
+      "label": "Point d'appel",
+      "x": 44,
+      "y": 1,
+      "width": 4,
+      "depth": 2,
+      "vehicles": [
+        "pieton"
+      ]
+    }
   ],
   "obstacles": [
-    { "id": "OB1", "label": "Poteau", "x": 26, "y": 14, "width": 0.8, "depth": 0.8, "height": 5 },
-    { "id": "OB2", "label": "Poteau", "x": 26, "y": 32, "width": 0.8, "depth": 0.8, "height": 5 }
+    {
+      "id": "OB1",
+      "label": "Poteau",
+      "x": 26,
+      "y": 14,
+      "width": 0.8,
+      "depth": 0.8,
+      "height": 5
+    },
+    {
+      "id": "OB2",
+      "label": "Poteau",
+      "x": 26,
+      "y": 32,
+      "width": 0.8,
+      "depth": 0.8,
+      "height": 5
+    }
   ]
 }
