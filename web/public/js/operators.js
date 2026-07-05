@@ -119,9 +119,10 @@ export const VEHICLE_MODELS = {
     parts: [
       wheel(-1.05, -0.4), wheel(-1.05, 0.4), wheel(0.9, -0.4), wheel(0.9, 0.4),
       { x: -0.55, y: 0.36, z: 0, w: 1.9, h: 0.55, d: 1.3, role: 'body' },
-      { x: -1.0, y: 1.15, z: 0, w: 0.85, h: 1.0, d: 1.2, role: 'body' },
-      { x: -1.0, y: 1.4, z: 0, w: 0.3, h: 0.6, d: 0.34, role: 'driver' },
-      { x: -1.0, y: 1.85, z: 0, w: 0.8, h: 0.08, d: 1.1, role: 'guard' },
+      // Cabine basse : le conducteur debout doit rester visible dedans
+      { x: -1.0, y: 1.0, z: 0, w: 0.85, h: 0.7, d: 1.2, role: 'body' },
+      { x: -1.0, y: 1.5, z: 0, w: 0.3, h: 0.45, d: 0.34, role: 'driver' },
+      { x: -1.0, y: 1.95, z: 0, w: 0.8, h: 0.08, d: 1.1, role: 'guard' },
       { x: 0.45, y: 1.2, z: -0.35, w: 0.14, h: 2.3, d: 0.15, role: 'steel' },
       { x: 0.45, y: 1.2, z: 0.35, w: 0.14, h: 2.3, d: 0.15, role: 'steel' },
       { x: 0.45, y: 2.2, z: 0, w: 0.14, h: 0.1, d: 0.82, role: 'steel' },

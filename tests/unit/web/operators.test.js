@@ -28,6 +28,22 @@ test('l’état d’attente a sa couleur', () => {
   assert.ok(STATE_COLORS.waiting !== undefined);
 });
 
+test('le conducteur dépasse des caisses qui l’entourent (buste visible)', () => {
+  for (const [type, model] of Object.entries(VEHICLE_MODELS)) {
+    const d = model.parts.find((p) => p.role === 'driver');
+    const top = d.y + (d.h + d.w * 1.2) / 2;
+    for (const p of model.parts) {
+      // Boîtes pleines chevauchant l'emprise du conducteur (les toits
+      // et rails minces, h ≤ 0,2, sont au-dessus de lui par nature)
+      if (p.role === 'driver' || p.h <= 0.2) continue;
+      if (Math.abs(p.x - d.x) >= (p.w + d.w) / 2) continue;
+      if (Math.abs(p.z - d.z) >= (p.d + d.d) / 2) continue;
+      assert.ok(top - (p.y + p.h / 2) >= 0.35,
+        `${type} : conducteur noyé dans « ${p.role} » (${(top - p.y - p.h / 2).toFixed(2)} m visibles)`);
+    }
+  }
+});
+
 test('la capsule du piéton disparaît pendant qu’il conduit un engin', async () => {
   const THREE = await import('three');
   const { createOperatorLayer } = await import('../../../web/public/js/operators.js');
