@@ -10,7 +10,9 @@
     "gerbeur": 1,
     "retractable": 1,
     "vna": 2,
-    "preparateur": 1
+    "preparateur": 1,
+    "agv": 1,
+    "amr": 1
   },
   "ordersPerHour": 25,
   "b2cShare": 0.8,
@@ -27,5 +29,6 @@
   "dropTimeSec": 20,
   "b2bClients": 8,
   "replenishThresholdShare": 0.6,
-  "waveSize": 12
+  "waveSize": 12,
+  "agvAutonomyHours": 0.1
 }

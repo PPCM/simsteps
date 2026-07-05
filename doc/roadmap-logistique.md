@@ -124,8 +124,19 @@ KPIs.
    editable like any element). Simplified vs the plan: generic per-edge
    capacity is represented only by the aisle-exclusivity rule; walkers
    inside an aisle do not block an incoming locking vehicle.
-6. **Automation** — AGV/AMR with charging, conveyors as fixed-throughput
-   edges, goods-to-person strategies, mezzanines.
+6. **Automation** — **done (v0.6.x)**: automated vehicle types `agv`
+   and `amr` (driverless — missions start without an operator walking
+   over — with a battery: mission-time discharge, 20 % threshold,
+   3×-faster recharge at their parking, violet `charging` state,
+   `chargingTimeSec` KPI, `agvAutonomyHours` scenario parameter), and
+   conveyors as fixed-throughput links (axis-aligned segments attached
+   to the nearest buffer and workshop; staged B2C jobs enter at the
+   configured rate and travel at 0.5 m/s before packing — the belt
+   throughput is a measurable bottleneck, `conveyed` KPI; editable like
+   corridors). Deferred with rationale: goods-to-person strategies
+   (require a mobile-rack storage model — a different paradigm from the
+   fixed slot topology) and mezzanines (structural/visual only until
+   multi-floor circulation exists).
 
 Recommended sequence: 1 → 2 → 3 form the value core (realistic racks, mixed
 fleet, slotting); 4–6 add operational realism and can be re-prioritized.

@@ -133,7 +133,7 @@ Le détail des sections :
   (baies, zone, identifiants, largeur/profondeur — chaque élément est
   redimensionnable), les propriétés globales (nom, dimensions), et
   l'ajout/la suppression d'allées, d'ateliers, de zones d'expédition ou
-  de réception, de couloirs, de parkings d'agents et de zones tampon
+  de réception, de couloirs, de parkings d'agents, de zones tampon et de convoyeurs
   (au moins un couloir et une zone d'expédition/réception doivent
   rester ; parkings et tampons sont optionnels — placez les parkings en
   bordure, hors des flux, et les tampons près des ateliers). Les couloirs sont des objets à part
@@ -180,8 +180,9 @@ Le détail des sections :
 
 Couleurs d'état : bleu = déplacement, ambre = prélèvement,
 vert = dépose, rouge = attente à l'entrée d'une allée (congestion),
-gris = inactif. Les piétons portent la couleur sur leur capsule, les
-engins (carrosserie orange constante) sur leur anneau au sol.
+violet = recharge (engins automatisés), gris = inactif. Les piétons
+portent la couleur sur leur capsule, les engins (carrosserie orange
+constante) sur leur anneau au sol.
 
 **Congestion** : un engin dont le gabarit dépasse la moitié de la
 largeur du couloir d'allée ne peut pas y être croisé — il verrouille
@@ -264,6 +265,12 @@ pathfinding des opérateurs utilise A* sur ce graphe.
   // Zones tampon (facultatif) : dépose du picking B2C avant emballage
   // quand le scénario compte des emballeurs (paramètre packers)
   "buffers": [{ "id": "TP1", "label": "Tampon emballage", "x": 14, "y": 40 }],
+  // Convoyeurs (facultatif) : transport automatique à débit fixe du
+  // tampon le plus proche vers l'atelier le plus proche (0,5 m/s) —
+  // l'emballeur ne marche plus, le débit devient un goulot mesurable
+  // (KPI conveyed) ; exige au moins un tampon et un atelier
+  "conveyors": [{ "id": "CV1", "label": "Convoyeur emballage", "x": 12.5, "y": 1,
+                  "length": 1.5, "orientation": "horizontal", "throughputPerMin": 4 }],
   "parkings": [{ "id": "PK1", "label": "Parking engins", "x": 4, "y": 40,
                  "vehicles": ["retractable", "vna"] }]
 }
@@ -292,7 +299,7 @@ Tous facultatifs (défauts entre parenthèses) — voir
 | `seed` (1) | Graine du générateur aléatoire — même graine, même run |
 | `durationHours` (2) | Durée simulée |
 | `operators` (5) | Nombre d'opérateurs à pied (rétro-compatibilité) |
-| `fleet` (—) | Composition de flotte `{ type: nombre }` — types : `pieton`, `transpalette`, `gerbeur`, `frontal`, `retractable`, `vna`, `preparateur` ; prime sur `operators`. Les **piétons sont les opérateurs** (humains) ; les autres types sont du **matériel garé** : une mission faisable à pied part directement, une mission exigeant un engin mobilise un opérateur qui marche jusqu'à l'engin, le conduit (missions enchaînées sans redescendre), le ramène à son parking et rentre à pied. Chaque engin a ses vitesses à vide/en charge, sa hauteur de levée (borne les niveaux de rack accessibles) et son gabarit d'allée minimal — élargissez allées et couloirs en conséquence. Sans piéton, aucun engin ne bouge |
+| `fleet` (—) | Composition de flotte `{ type: nombre }` — types : `pieton`, `transpalette`, `gerbeur`, `frontal`, `retractable`, `vna`, `preparateur`, `agv`, `amr` (ces deux derniers sont **automatisés** : mission sans conducteur, mais batterie — voir `agvAutonomyHours`) ; prime sur `operators`. Les **piétons sont les opérateurs** (humains) ; les autres types sont du **matériel garé** : une mission faisable à pied part directement, une mission exigeant un engin mobilise un opérateur qui marche jusqu'à l'engin, le conduit (missions enchaînées sans redescendre), le ramène à son parking et rentre à pied. Chaque engin a ses vitesses à vide/en charge, sa hauteur de levée (borne les niveaux de rack accessibles) et son gabarit d'allée minimal — élargissez allées et couloirs en conséquence. Sans piéton, aucun engin ne bouge |
 | `ordersPerHour` (30) | Cadence d'arrivée des commandes (processus de Poisson) |
 | `b2cShare` (0.7) | Part de commandes B2C (0 à 1) |
 | `strategy` (`orderByOrder`) | `orderByOrder` ou `zoneWave` |
@@ -306,6 +313,7 @@ Tous facultatifs (défauts entre parenthèses) — voir
 | `palletHandlingSec` (30) | Prise/dépose d'une palette |
 | `packers` (0) | Emballeurs (exige des zones tampon) : les lignes B2C sont déposées au tampon, l'emballeur les ramène à l'atelier et emballe — le picking est découplé de l'emballage |
 | `packTimePerOrderSec` (60) | Emballage d'une commande au poste |
+| `agvAutonomyHours` (4) | Autonomie de batterie des engins automatisés (`agv`, `amr`) : décharge au temps de mission ; sous 20 %, retour à leur parking (station de charge) et recharge 3× plus rapide que la décharge (état violet « Charge », KPI `chargingTimeSec`) |
 | `speedMps` (1.2) | Vitesse de marche (m/s) |
 | `pickTimePerLineSec` (12) | Temps de prélèvement par ligne |
 | `liftTimePerLevelSec` (6) | Surcoût d'élévation par niveau de rack au-delà du premier |

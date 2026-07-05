@@ -1,6 +1,6 @@
 {
   "name": "Entrepôt flux SimSteps",
-  "description": "Démonstration des flux et de toute la flotte : palettier 3 niveaux (frontal, gerbeur, rétractable, préparateur), allées VNA 4 niveaux, bloc est réservé aux engins (picking transpalette/gerbeur), réserve en hauteur, parkings dédiés, zone tampon, obstacles",
+  "description": "Démonstration complète : palettier 3 niveaux, allées VNA 4 niveaux, bloc est réservé aux engins, AGV/AMR, convoyeur d'emballage, réserve en hauteur, parkings dédiés, zone tampon, obstacles",
   "dimensions": {
     "width": 60,
     "depth": 46,
@@ -331,7 +331,9 @@
         "frontal",
         "retractable",
         "vna",
-        "preparateur"
+        "preparateur",
+        "agv",
+        "amr"
       ]
     },
     {
@@ -364,6 +366,17 @@
       "width": 0.8,
       "depth": 0.8,
       "height": 5
+    }
+  ],
+  "conveyors": [
+    {
+      "id": "CV1",
+      "label": "Convoyeur emballage",
+      "x": 12.5,
+      "y": 1,
+      "length": 1.5,
+      "orientation": "horizontal",
+      "throughputPerMin": 4
     }
   ]
 }
