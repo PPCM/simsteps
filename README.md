@@ -258,6 +258,7 @@ Tous facultatifs (défauts entre parenthèses) — voir
 | `ordersPerHour` (30) | Cadence d'arrivée des commandes (processus de Poisson) |
 | `b2cShare` (0.7) | Part de commandes B2C (0 à 1) |
 | `strategy` (`orderByOrder`) | `orderByOrder` ou `zoneWave` |
+| `slotting` (`aleatoire`) | Placement des classes de rotation ABC : `aleatoire` (rotations dispersées) ou `abc` (20 % de références « A » — 80 % des lignes — au plus près de l'expédition). À comparer via le KPI « Distance / ligne » |
 | `waveSize` (20) | Taille max d'une vague (stratégie `zoneWave`) |
 | `speedMps` (1.2) | Vitesse de marche (m/s) |
 | `pickTimePerLineSec` (12) | Temps de prélèvement par ligne |

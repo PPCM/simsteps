@@ -46,7 +46,7 @@ const els = {
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
   scenario: $('scenario'), opCount: $('opCount'), fleetInputs: $('fleetInputs'),
-  b2cShare: $('b2cShare'), orderRate: $('orderRate'),
+  b2cShare: $('b2cShare'), orderRate: $('orderRate'), slotting: $('slotting'),
   opCountVal: $('opCountVal'), b2cShareVal: $('b2cShareVal'), orderRateVal: $('orderRateVal'),
   toggleTrails: $('toggleTrails'), toggleHeatmap: $('toggleHeatmap'),
   toggleLabels: $('toggleLabels'),
@@ -202,6 +202,7 @@ try {
       fleet,
       b2cShare: Number(els.b2cShare.value) / 100,
       ordersPerHour: Number(els.orderRate.value),
+      slotting: els.slotting.value,
     };
   }
 
@@ -216,6 +217,7 @@ try {
     }
     els.b2cShare.value = Math.round(params.b2cShare * 100);
     els.orderRate.value = params.ordersPerHour;
+    els.slotting.value = params.slotting ?? 'aleatoire';
     refreshSliderLabels();
   }
 
@@ -297,6 +299,8 @@ try {
     $('kpi-oph').textContent = numFr.format(k.ordersPerHour);
     $('kpi-lph').textContent = numFr.format(k.linesPerHour);
     $('kpi-dist').textContent = `${intFr.format(k.avgDistancePerOperatorM)} m`;
+    $('kpi-distline').textContent = k.distancePerLineM !== null && k.distancePerLineM !== undefined
+      ? `${numFr.format(k.distancePerLineM)} m` : '—';
     $('kpi-occ').textContent = `${numFr.format(k.occupancyRate * 100)} %`;
     $('kpi-cycle').textContent = formatCycle(k.avgCycleTimeSec);
     $('kpi-pending').textContent = intFr.format(k.pendingOrders);
@@ -344,6 +348,7 @@ try {
   for (const input of fleetEls.values()) {
     input.addEventListener('change', runCurrent);
   }
+  els.slotting.addEventListener('change', runCurrent);
   els.toggleTrails.addEventListener('change', () => {
     if (!sim) return;
     sim.trails.setVisible(els.toggleTrails.checked);
@@ -547,7 +552,7 @@ try {
   // Éléments neutralisés pendant l'édition
   const editLocked = [
     els.play, els.playMini, ...speedButtons, els.scenario, els.opCount, ...fleetEls.values(),
-    els.b2cShare, els.orderRate,
+    els.b2cShare, els.orderRate, els.slotting,
     els.saveRun, els.project, els.projectName, els.projectCreate, els.projectUpdate,
     els.projectDelete, els.warehouse, els.warehouseEdit, els.warehouseCreate,
     els.warehouseDuplicate, els.warehouseDelete, els.cmpA, els.cmpB, els.cmpRun,

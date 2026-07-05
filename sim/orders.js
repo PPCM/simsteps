@@ -12,21 +12,24 @@ export const PROFILES = {
 
 /**
  * Crée une commande d'un profil donné : lignes sur des emplacements
- * distincts tirés dans le pool fourni.
+ * distincts, tirés uniformément dans le pool fourni ou par un tirage
+ * injecté (`drawSlot`, pondéré par la rotation ABC — voir skus.js).
  * @param {() => number} rng générateur pseudo-aléatoire
- * @param {{id: number, profile: 'B2C'|'B2B', slotIds: string[], b2bClients?: number}} params
+ * @param {{id: number, profile: 'B2C'|'B2B', slotIds: string[],
+ *          drawSlot?: () => string, b2bClients?: number}} params
  * @returns {{id: number, profile: string, clientId: string|null, lines: Array<{slotId: string, qty: number}>}}
  */
-export function makeOrder(rng, { id, profile, slotIds, b2bClients = 8 }) {
+export function makeOrder(rng, { id, profile, slotIds, drawSlot, b2bClients = 8 }) {
   const p = PROFILES[profile];
   if (!p) throw new Error(`Profil de commande inconnu : ${profile}`);
   const lineCount = randInt(rng, p.minLines, Math.min(p.maxLines, slotIds.length));
 
   // Tirage d'emplacements distincts (échantillonnage par rejet, le pool
   // est bien plus grand que le nombre de lignes)
+  const draw = drawSlot ?? (() => slotIds[Math.floor(rng() * slotIds.length)]);
   const chosen = new Set();
   while (chosen.size < lineCount) {
-    chosen.add(slotIds[Math.floor(rng() * slotIds.length)]);
+    chosen.add(draw());
   }
 
   return {

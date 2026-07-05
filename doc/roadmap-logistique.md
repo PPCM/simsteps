@@ -82,9 +82,13 @@ KPIs.
    fleet counters in the Piloter tab. Deferred: per-type KPIs (needs a
    dedicated UI surface) and carrying capacity (needs strategy-side trip
    sizing).
-3. **SKUs & slotting** — ABC rotation classes, order lines drawn by
-   rotation (80/15/5), slotting strategies (random / by class near docks /
-   imported), distance-per-line KPI.
+3. **SKUs & slotting** — **done (v0.4.x)**: one reference per slot with
+   ABC rotation classes (20/30/50 % of slots drawing 80/15/5 % of
+   lines, `sim/skus.js`), `slotting` scenario parameter (`aleatoire` |
+   `abc` — class A placed nearest to shipping via Dijkstra distances),
+   distance-per-line KPI in the live panel, comparison table and
+   console output, slotting selector in the Piloter tab. Deferred:
+   imported/custom slotting assignments.
 4. **Inbound flows and process zones** — docks with N doors, scheduled
    trucks, putaway missions, threshold-based replenishment reserve →
    picking, buffer/drop zones feeding the packing workshops (pickers drop

@@ -3,9 +3,9 @@
 // scénario (stratégie, vitesses, seed…), et fusion des paramètres
 // effectifs de simulation. Module sans DOM : testable sous Node.
 
-// Paramètres pilotés par les contrôles du panneau latéral (curseurs et
-// compteurs d'engins de la flotte)
-export const SLIDER_KEYS = ['operators', 'fleet', 'b2cShare', 'ordersPerHour'];
+// Paramètres pilotés par les contrôles du panneau latéral (curseurs,
+// compteurs d'engins de la flotte et sélecteur de rangement)
+export const SLIDER_KEYS = ['operators', 'fleet', 'b2cShare', 'ordersPerHour', 'slotting'];
 
 /**
  * Sépare les paramétrages d'un projet : ce qui pilote les curseurs

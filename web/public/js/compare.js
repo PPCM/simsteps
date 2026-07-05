@@ -19,6 +19,7 @@ export const KPI_ROWS = [
   { key: 'ordersPerHour', label: 'Commandes / h', better: 'more', format: (v) => num.format(v) },
   { key: 'linesPerHour', label: 'Lignes / h', better: 'more', format: (v) => num.format(v) },
   { key: 'avgDistancePerOperatorM', label: 'Distance moy. / op.', better: 'neutral', format: (v) => `${int.format(v)} m` },
+  { key: 'distancePerLineM', label: 'Distance / ligne', better: 'less', format: (v) => `${num.format(v)} m` },
   { key: 'occupancyRate', label: 'Occupation', better: 'more', format: (v) => `${num.format(v * 100)} %` },
   { key: 'avgCycleTimeSec', label: 'Cycle moyen', better: 'less', format: formatDuration },
   { key: 'pendingOrders', label: 'Non terminées', better: 'less', format: (v) => int.format(v) },

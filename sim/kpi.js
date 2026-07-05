@@ -23,6 +23,8 @@ export function computeKpis({ orders, operators, durationSec }) {
     linesPerHour: linesPicked / hours,
     totalDistanceM: totalDistance,
     avgDistancePerOperatorM: operators.length > 0 ? totalDistance / operators.length : 0,
+    // L'indicateur du rangement : combien de mètres coûte une ligne ?
+    distancePerLineM: linesPicked > 0 ? totalDistance / linesPicked : null,
     occupancyRate: operators.length > 0 ? busyTime / (operators.length * durationSec) : 0,
     avgCycleTimeSec: cycleTimes.length > 0 ? cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length : null,
     pendingOrders: orders.length - completed.length,
@@ -42,6 +44,7 @@ export function formatKpis(kpis) {
     ['Commandes traitées / h', kpis.ordersPerHour.toFixed(1)],
     ['Lignes prélevées / h', kpis.linesPerHour.toFixed(1)],
     ['Distance moyenne / opérateur', `${kpis.avgDistancePerOperatorM.toFixed(0)} m`],
+    ['Distance par ligne', kpis.distancePerLineM !== null ? `${kpis.distancePerLineM.toFixed(1)} m` : '—'],
     ['Taux d’occupation des opérateurs', `${(kpis.occupancyRate * 100).toFixed(1)} %`],
     [
       'Temps moyen de cycle d’une commande',

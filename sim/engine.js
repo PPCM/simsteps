@@ -12,6 +12,7 @@ import { makeOrder, drawProfile } from './orders.js';
 import { getStrategy } from './strategies.js';
 import { computeKpis } from './kpi.js';
 import { VEHICLES, fleetFromScenario } from './vehicles.js';
+import { buildSlotting } from './skus.js';
 
 /** Valeurs par défaut d'un scénario (tous les champs sont surchargables). */
 export const DEFAULT_SCENARIO = {
@@ -23,6 +24,7 @@ export const DEFAULT_SCENARIO = {
   ordersPerHour: 30,
   b2cShare: 0.7,
   strategy: 'orderByOrder',
+  slotting: 'aleatoire', // placement des classes de rotation ABC (voir skus.js)
   speedMps: 1.2,
   pickTimePerLineSec: 12,
   liftTimePerLevelSec: 6, // surcoût par niveau au-dessus du premier
@@ -54,6 +56,10 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   const { graph, slots } = warehouse;
   const slotIds = [...slots.keys()];
   const orderRatePerSec = scenario.ordersPerHour / 3600;
+
+  // Références et rangement : tirage d'emplacements pondéré par la
+  // rotation ABC, placement des classes selon le paramètre slotting
+  const { drawSlot } = buildSlotting(warehouse, scenario.slotting, rng);
 
   // Abscisse de chaque allée pour ordonner les tournées en serpentin
   const aisleX = new Map(warehouse.aisles.map((a) => [a.id, a.x]));
@@ -251,6 +257,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       id: nextOrderId++,
       profile,
       slotIds,
+      drawSlot,
       b2bClients: scenario.b2bClients,
     });
     // Enrichissement des lignes avec la topologie et l'état de suivi

@@ -6,6 +6,7 @@ import { buildWarehouse } from '../sim/warehouse.js';
 import { STRATEGIES } from '../sim/strategies.js';
 import { DEFAULT_SCENARIO } from '../sim/engine.js';
 import { VEHICLES } from '../sim/vehicles.js';
+import { SLOTTINGS } from '../sim/skus.js';
 
 /**
  * Valide une définition d'entrepôt (format warehouse.json).
@@ -91,6 +92,10 @@ export function validateScenarioParams(params) {
     } else if (key === 'strategy') {
       if (!STRATEGIES.has(value)) {
         errors.push(`stratégie inconnue : ${value} (disponibles : ${[...STRATEGIES.keys()].join(', ')})`);
+      }
+    } else if (key === 'slotting') {
+      if (!SLOTTINGS.includes(value)) {
+        errors.push(`rangement inconnu : ${value} (disponibles : ${SLOTTINGS.join(', ')})`);
       }
     } else if (key === 'fleet') {
       // Composition de flotte : { type d'engin: nombre }, total ≥ 1

@@ -8,6 +8,7 @@ const baseKpis = {
   ordersPerHour: 31.5,
   linesPerHour: 425.5,
   avgDistancePerOperatorM: 1922.3,
+  distancePerLineM: 4.5,
   occupancyRate: 0.5416,
   avgCycleTimeSec: 312.8,
   pendingOrders: 3,

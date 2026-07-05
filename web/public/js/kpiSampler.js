@@ -28,6 +28,7 @@ export function computeLiveKpis(orders, operators, now) {
     ordersPerHour: hours > 0 ? completed.length / hours : 0,
     linesPerHour: hours > 0 ? linesPicked / hours : 0,
     avgDistancePerOperatorM: operators.length > 0 ? totalDistance / operators.length : 0,
+    distancePerLineM: linesPicked > 0 ? totalDistance / linesPicked : null,
     occupancyRate: operators.length > 0 && now > 0 ? busyTime / (operators.length * now) : 0,
     avgCycleTimeSec:
       cycleTimes.length > 0 ? cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length : null,

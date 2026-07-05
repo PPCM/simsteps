@@ -291,6 +291,13 @@
         <span class="field-head"><span>Cadence de commandes</span><output id="orderRateVal"></output></span>
         <input type="range" id="orderRate" min="5" max="120" step="5">
       </label>
+      <label class="field">
+        <span class="field-head"><span>Rangement (slotting)</span></span>
+        <select id="slotting">
+          <option value="aleatoire">Aléatoire (rotation ABC dispersée)</option>
+          <option value="abc">Optimisé ABC (rotations fortes près de l'expédition)</option>
+        </select>
+      </label>
       <button class="action" id="saveRun">Enregistrer ce run en base</button>
       <p class="action-status" id="saveStatus"></p>
     </section>
@@ -319,6 +326,7 @@
         <dt>Commandes / h</dt><dd id="kpi-oph">—</dd>
         <dt>Lignes / h</dt><dd id="kpi-lph">—</dd>
         <dt>Distance moy. / op.</dt><dd id="kpi-dist">—</dd>
+        <dt>Distance / ligne</dt><dd id="kpi-distline">—</dd>
         <dt>Occupation</dt><dd id="kpi-occ">—</dd>
         <dt>Cycle moyen</dt><dd id="kpi-cycle">—</dd>
         <dt>En attente</dt><dd id="kpi-pending">—</dd>

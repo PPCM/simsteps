@@ -198,3 +198,14 @@ test('la flotte mixte reste déterministe et rétro-compatible', () => {
   assert.deepEqual(a.kpis, b.kpis);
   assert.ok(a.operators.some((o) => o.vehicle === 'transpalette'));
 });
+
+test('le rangement ABC réduit la distance par ligne', () => {
+  // Mêmes commandes (graine identique), seul le placement des classes
+  // change : les rotations fortes près de l'expédition raccourcissent
+  // les tournées
+  const random = runSimulation(warehouse, { ...BASE, seed: 21, slotting: 'aleatoire' });
+  const abc = runSimulation(warehouse, { ...BASE, seed: 21, slotting: 'abc' });
+  assert.ok(random.kpis.distancePerLineM > 0);
+  assert.ok(abc.kpis.distancePerLineM < random.kpis.distancePerLineM,
+    `ABC attendu plus court : ${abc.kpis.distancePerLineM} vs ${random.kpis.distancePerLineM}`);
+});

@@ -39,6 +39,15 @@ test('la flotte d’engins se règle depuis l’onglet Piloter', async ({ page }
   await input.fill('2');
   await input.blur();
   await expect(page.locator('#status')).toContainText('7 opérateurs');
+
+  // Le sélecteur de rangement relance la simulation sans erreur et le
+  // KPI « Distance / ligne » s'alimente pendant la relecture (à ×60
+  // pour dépasser rapidement les premiers prélèvements)
+  await page.locator('#slotting').selectOption('abc');
+  await expect(page.locator('#status')).toContainText('opérateurs');
+  await page.locator('[data-speed="60"]').click();
+  await expect(page.locator('#kpi-distline')).not.toHaveText('—', { timeout: 20_000 });
+
   expect(consoleErrors).toEqual([]);
 });
 
