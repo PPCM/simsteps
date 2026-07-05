@@ -251,6 +251,9 @@ export function createOperatorLayer(scene, tracks, vehicles = new Map()) {
           entry.object.position.x = x;
           entry.object.position.z = y;
           if (state !== entry.lastState) {
+            // Au volant d'un engin : l'opérateur n'est plus au sol, sa
+            // capsule disparaît (le conducteur de l'engin apparaît)
+            entry.object.visible = state !== 'driving';
             const color = STATE_COLORS[state] ?? STATE_COLORS.idle;
             entry.object.material.color.setHex(color);
             entry.object.material.emissive.setHex(color);

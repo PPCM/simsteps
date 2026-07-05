@@ -27,3 +27,28 @@ test('chaque modèle a un conducteur, des roues, des pièces cohérentes', () =>
 test('l’état d’attente a sa couleur', () => {
   assert.ok(STATE_COLORS.waiting !== undefined);
 });
+
+test('la capsule du piéton disparaît pendant qu’il conduit un engin', async () => {
+  const THREE = await import('three');
+  const { createOperatorLayer } = await import('../../../web/public/js/operators.js');
+  const scene = new THREE.Scene();
+  // Piste synthétique : marche (0-10 s), conduite (10-20 s), retour à pied
+  const track = {
+    start: [0, 0],
+    segments: [],
+    states: [
+      { t: 0, state: 'moving' },
+      { t: 10, state: 'driving' },
+      { t: 20, state: 'moving' },
+    ],
+  };
+  const layer = createOperatorLayer(scene, new Map([['op-1', track]]), new Map([['op-1', 'pieton']]));
+  const capsule = scene.children.find((o) => o.isMesh);
+  layer.update(5);
+  assert.equal(capsule.visible, true);
+  layer.update(15);
+  assert.equal(capsule.visible, false, 'capsule visible pendant la conduite');
+  layer.update(25);
+  assert.equal(capsule.visible, true, 'capsule absente après la conduite');
+  layer.dispose();
+});
