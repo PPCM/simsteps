@@ -1,0 +1,15 @@
+{
+  "name": "Préparation à pied",
+  "seed": 5,
+  "durationHours": 2,
+  "operators": 8,
+  "ordersPerHour": 35,
+  "b2cShare": 0.7,
+  "strategy": "zoneWave",
+  "waveSize": 15,
+  "slotting": "abc",
+  "speedMps": 1.2,
+  "pickTimePerLineSec": 12,
+  "dropTimeSec": 20,
+  "b2bClients": 8
+}

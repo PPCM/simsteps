@@ -21,6 +21,7 @@ export async function seedIfEmpty(pool, dataDir) {
 
   // Chaque projet regroupe un entrepôt et le scénario qui le met en valeur
   const pairs = [
+    { warehouse: 'warehouse-pietons.json', scenario: 'scenario-pietons.json', project: 'Piétons' },
     { warehouse: 'warehouse-flux.json', scenario: 'scenario-flux.json', project: 'Flux complet' },
     { warehouse: 'warehouse-amr.json', scenario: 'scenario-amr.json', project: 'Robots mobiles' },
   ];

@@ -1,0 +1,175 @@
+{
+  "name": "Entrepôt piétons SimSteps",
+  "description": "Préparation à pied : 6 allées classiques de 204 emplacements au sol, 2 ateliers, point d'appel des opérateurs — aucun engin requis",
+  "dimensions": {
+    "width": 44,
+    "depth": 42
+  },
+  "corridors": {
+    "frontY": 4,
+    "backY": 38
+  },
+  "aisles": [
+    {
+      "id": "A1",
+      "x": 6,
+      "yStart": 7,
+      "yEnd": 35,
+      "bays": 17,
+      "zone": "Z1"
+    },
+    {
+      "id": "A2",
+      "x": 11,
+      "yStart": 7,
+      "yEnd": 35,
+      "bays": 17,
+      "zone": "Z1"
+    },
+    {
+      "id": "A3",
+      "x": 16,
+      "yStart": 7,
+      "yEnd": 35,
+      "bays": 17,
+      "zone": "Z2"
+    },
+    {
+      "id": "A4",
+      "x": 21,
+      "yStart": 7,
+      "yEnd": 35,
+      "bays": 17,
+      "zone": "Z2"
+    },
+    {
+      "id": "A5",
+      "x": 26,
+      "yStart": 7,
+      "yEnd": 35,
+      "bays": 17,
+      "zone": "Z3"
+    },
+    {
+      "id": "A6",
+      "x": 31,
+      "yStart": 7,
+      "yEnd": 35,
+      "bays": 17,
+      "zone": "Z3"
+    }
+  ],
+  "racks": [
+    {
+      "id": "R01",
+      "aisle": "A1",
+      "side": "gauche",
+      "levels": 1
+    },
+    {
+      "id": "R02",
+      "aisle": "A1",
+      "side": "droite",
+      "levels": 1
+    },
+    {
+      "id": "R03",
+      "aisle": "A2",
+      "side": "gauche",
+      "levels": 1
+    },
+    {
+      "id": "R04",
+      "aisle": "A2",
+      "side": "droite",
+      "levels": 1
+    },
+    {
+      "id": "R05",
+      "aisle": "A3",
+      "side": "gauche",
+      "levels": 1
+    },
+    {
+      "id": "R06",
+      "aisle": "A3",
+      "side": "droite",
+      "levels": 1
+    },
+    {
+      "id": "R07",
+      "aisle": "A4",
+      "side": "gauche",
+      "levels": 1
+    },
+    {
+      "id": "R08",
+      "aisle": "A4",
+      "side": "droite",
+      "levels": 1
+    },
+    {
+      "id": "R09",
+      "aisle": "A5",
+      "side": "gauche",
+      "levels": 1
+    },
+    {
+      "id": "R10",
+      "aisle": "A5",
+      "side": "droite",
+      "levels": 1
+    },
+    {
+      "id": "R11",
+      "aisle": "A6",
+      "side": "gauche",
+      "levels": 1
+    },
+    {
+      "id": "R12",
+      "aisle": "A6",
+      "side": "droite",
+      "levels": 1
+    }
+  ],
+  "workshops": [
+    {
+      "id": "AT1",
+      "label": "Atelier emballage 1",
+      "x": 9,
+      "y": 2
+    },
+    {
+      "id": "AT2",
+      "label": "Atelier emballage 2",
+      "x": 18,
+      "y": 2
+    }
+  ],
+  "shipping": {
+    "id": "EXP",
+    "label": "Expédition",
+    "x": 28,
+    "y": 2
+  },
+  "receiving": {
+    "id": "REC",
+    "label": "Réception",
+    "x": 36,
+    "y": 40
+  },
+  "parkings": [
+    {
+      "id": "PK1",
+      "label": "Point d'appel",
+      "x": 39,
+      "y": 2,
+      "width": 4,
+      "depth": 2,
+      "vehicles": [
+        "pieton"
+      ]
+    }
+  ]
+}
