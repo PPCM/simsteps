@@ -40,6 +40,23 @@ Les tests UI travaillent sur des entrepôts et projets jetables (noms
 suffixés `[test …]`, nettoyés après chaque test) : les données réelles de
 la base ne sont pas touchées.
 
+## Chart Helm : construction et validation
+
+Le chart vit dans `helm/simsteps/`. Ses dépendances (sous-chart
+PostgreSQL Bitnami) se vendorisent dans `helm/simsteps/charts/`
+(gitignoré) :
+
+```bash
+helm dependency build helm/simsteps   # télécharge le sous-chart PostgreSQL
+helm lint helm/simsteps               # validation statique
+helm template helm/simsteps           # rendu des manifestes (doit aboutir)
+```
+
+`helm template` échoue avec une erreur française explicite si aucun
+mode de base de données n'est configuré. À chaque release (tag
+`v*.*.*`), la CI aligne `Chart.yaml`, `values.yaml` et le README sur la
+version publiée par un commit sur `main`.
+
 ## Schéma des tables principales
 
 | Table | Colonnes principales | Rôle |
