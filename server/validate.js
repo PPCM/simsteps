@@ -5,6 +5,7 @@
 import { buildWarehouse } from '../sim/warehouse.js';
 import { STRATEGIES } from '../sim/strategies.js';
 import { DEFAULT_SCENARIO } from '../sim/engine.js';
+import { VEHICLES } from '../sim/vehicles.js';
 
 /**
  * Valide une définition d'entrepôt (format warehouse.json).
@@ -91,6 +92,24 @@ export function validateScenarioParams(params) {
       if (!STRATEGIES.has(value)) {
         errors.push(`stratégie inconnue : ${value} (disponibles : ${[...STRATEGIES.keys()].join(', ')})`);
       }
+    } else if (key === 'fleet') {
+      // Composition de flotte : { type d'engin: nombre }, total ≥ 1
+      if (value === null) continue;
+      if (typeof value !== 'object' || Array.isArray(value)) {
+        errors.push('« fleet » doit être un objet { type: nombre }');
+        continue;
+      }
+      let total = 0;
+      for (const [type, count] of Object.entries(value)) {
+        if (!(type in VEHICLES)) {
+          errors.push(`engin inconnu : ${type} (disponibles : ${Object.keys(VEHICLES).join(', ')})`);
+        } else if (!Number.isInteger(count) || count < 0 || count > 500) {
+          errors.push(`« fleet.${type} » doit être un entier entre 0 et 500`);
+        } else {
+          total += count;
+        }
+      }
+      if (total < 1) errors.push('« fleet » doit compter au moins un agent');
     } else if (key in NUMERIC_PARAMS) {
       const { min, max, integer } = NUMERIC_PARAMS[key];
       if (typeof value !== 'number' || Number.isNaN(value)) {

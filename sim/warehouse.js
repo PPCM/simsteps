@@ -41,6 +41,9 @@ export function corridorList(def) {
 }
 
 const EPS = 1e-6;
+// Défauts partagés avec l'éditeur et le rendu (web/public/js/layout.js)
+const DEFAULT_LANE_WIDTH = 1.4;
+const DEFAULT_LEVEL_HEIGHT = 2.0;
 
 // Projette un point sur l'axe d'un couloir (segment) et donne la distance
 function projectOnCorridor(corridor, px, py) {
@@ -72,14 +75,15 @@ export function buildWarehouse(spec) {
   const graph = new Graph();
   const corridors = corridorList(spec);
 
-  // --- Nœuds de baie par allée ---
+  // --- Nœuds de baie par allée (arêtes au gabarit du couloir d'allée) ---
   for (const aisle of spec.aisles) {
     const pitch = (aisle.yEnd - aisle.yStart) / (aisle.bays - 1);
+    const laneWidth = aisle.width ?? DEFAULT_LANE_WIDTH;
     let previous = null;
     for (let b = 0; b < aisle.bays; b++) {
       const nodeId = `${aisle.id}:b${b + 1}`;
       graph.addNode(nodeId, aisle.x, aisle.yStart + b * pitch);
-      if (previous) graph.addEdge(previous, nodeId);
+      if (previous) graph.addEdge(previous, nodeId, { width: laneWidth });
       previous = nodeId;
     }
   }
@@ -132,8 +136,9 @@ export function buildWarehouse(spec) {
     if (!before && !after) {
       throw new Error(`l'allée ${aisle.id} ne débouche sur aucun couloir`);
     }
-    if (before) graph.addEdge(addStation(before, aisle.x, before.y), `${aisle.id}:b1`);
-    if (after) graph.addEdge(addStation(after, aisle.x, after.y), `${aisle.id}:b${aisle.bays}`);
+    const laneWidth = aisle.width ?? DEFAULT_LANE_WIDTH;
+    if (before) graph.addEdge(addStation(before, aisle.x, before.y), `${aisle.id}:b1`, { width: laneWidth });
+    if (after) graph.addEdge(addStation(after, aisle.x, after.y), `${aisle.id}:b${aisle.bays}`, { width: laneWidth });
   }
 
   // --- Ateliers et zones : un nœud chacun, raccordé par projection
@@ -156,22 +161,15 @@ export function buildWarehouse(spec) {
   for (const corridor of corridors) {
     const list = stations.get(corridor.id).sort((a, b) => a.t - b.t);
     for (let i = 1; i < list.length; i++) {
-      graph.addEdge(list[i - 1].nodeId, list[i].nodeId);
+      graph.addEdge(list[i - 1].nodeId, list[i].nodeId, {
+        width: corridor.width ?? DEFAULT_LANE_WIDTH,
+      });
     }
   }
 
   // --- Connexité : tout le réseau doit être atteignable ---
   const start = shippings[0].id;
-  const reachable = new Set([start]);
-  const queue = [start];
-  while (queue.length > 0) {
-    for (const { to } of graph.neighbors(queue.pop())) {
-      if (!reachable.has(to)) {
-        reachable.add(to);
-        queue.push(to);
-      }
-    }
-  }
+  const reachable = graph.reachableFrom(start);
   for (const aisle of spec.aisles) {
     if (!reachable.has(`${aisle.id}:b1`)) {
       throw new Error(`réseau de circulation non connexe : l'allée ${aisle.id} est inaccessible depuis ${start}`);
@@ -189,6 +187,7 @@ export function buildWarehouse(spec) {
   for (const rack of spec.racks) {
     const aisle = aisleById.get(rack.aisle);
     if (!aisle) throw new Error(`Rack ${rack.id} : allée inconnue ${rack.aisle}`);
+    const levelHeight = rack.levelHeight ?? DEFAULT_LEVEL_HEIGHT;
     for (let b = 1; b <= aisle.bays; b++) {
       for (let level = 1; level <= rack.levels; level++) {
         const id = `${rack.id}-${String(b).padStart(2, '0')}-${level}`;
@@ -199,6 +198,7 @@ export function buildWarehouse(spec) {
           zone: aisle.zone,
           nodeId: `${aisle.id}:b${b}`,
           level,
+          levelHeight,
         });
       }
     }

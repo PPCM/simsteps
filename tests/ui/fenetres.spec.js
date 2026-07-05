@@ -35,6 +35,11 @@ test('replier les fenêtres laisse des barres de titre vivantes', async ({ page 
 test('déplacer une fenêtre et recharger restaure position et repli', async ({ page }) => {
   await openApp(page);
 
+  // Repliée d'abord : dépliée, la fenêtre occupe toute la hauteur du
+  // viewport de test et son axe vertical serait bloqué par les bornes
+  await page.locator('#winMain .win-toggle').click();
+  await expect(page.locator('#winMain .win-body')).toBeHidden();
+
   // Glisser la fenêtre principale par sa barre de titre
   const before = await page.locator('#winMain').boundingBox();
   await page.mouse.move(before.x + 60, before.y + 14);

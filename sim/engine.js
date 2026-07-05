@@ -11,6 +11,7 @@ import { mulberry32, randExponential } from './rng.js';
 import { makeOrder, drawProfile } from './orders.js';
 import { getStrategy } from './strategies.js';
 import { computeKpis } from './kpi.js';
+import { VEHICLES, fleetFromScenario } from './vehicles.js';
 
 /** Valeurs par défaut d'un scénario (tous les champs sont surchargables). */
 export const DEFAULT_SCENARIO = {
@@ -18,6 +19,7 @@ export const DEFAULT_SCENARIO = {
   seed: 1,
   durationHours: 2,
   operators: 5,
+  fleet: null, // { type: nombre } — prime sur operators (voir vehicles.js)
   ordersPerHour: 30,
   b2cShare: 0.7,
   strategy: 'orderByOrder',
@@ -64,19 +66,51 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   let nextMissionId = 1;
   let now = 0;
 
-  const operators = Array.from({ length: scenario.operators }, (_, i) => ({
-    id: `op-${i + 1}`,
-    nodeId: warehouse.shippingNodeId,
-    state: 'idle', // idle | moving | picking | dropping
-    mission: null,
-    stopIndex: 0,
-    dropIndex: 0,
-    targetNodeId: null,
-    distance: 0, // mètres parcourus
-    busyTime: 0, // secondes en mission
-    busySince: null,
-    linesPicked: 0,
-  }));
+  // Agents de la flotte : un profil d'engin par agent. Le piéton suit
+  // la vitesse du scénario (rétro-compatibilité de speedMps).
+  const operators = [];
+  for (const [vehicle, count] of fleetFromScenario(scenario)) {
+    const base = VEHICLES[vehicle];
+    const profile = vehicle === 'pieton'
+      ? { ...base, speedMps: scenario.speedMps, speedLoadedMps: scenario.speedMps }
+      : base;
+    for (let i = 0; i < count; i++) {
+      operators.push({
+        id: `op-${operators.length + 1}`,
+        vehicle,
+        profile,
+        nodeId: warehouse.shippingNodeId,
+        state: 'idle', // idle | moving | picking | dropping
+        mission: null,
+        stopIndex: 0,
+        dropIndex: 0,
+        targetNodeId: null,
+        distance: 0, // mètres parcourus
+        busyTime: 0, // secondes en mission
+        busySince: null,
+        linesPicked: 0,
+      });
+    }
+  }
+
+  // Nœuds atteignables par gabarit d'engin (une passe par largeur distincte)
+  const reachByWidth = new Map();
+  for (const op of operators) {
+    if (!reachByWidth.has(op.profile.aisleWidthM)) {
+      reachByWidth.set(
+        op.profile.aisleWidthM,
+        graph.reachableFrom(warehouse.shippingNodeId, op.profile.aisleWidthM)
+      );
+    }
+  }
+
+  // Un agent peut-il réaliser une mission ? Levée suffisante pour le
+  // niveau le plus haut, et tous les arrêts/déposes dans son gabarit.
+  function compatible(op, mission) {
+    if (mission.requiredLiftM > op.profile.liftM + 1e-9) return false;
+    const reach = reachByWidth.get(op.profile.aisleWidthM);
+    return mission.nodes.every((nodeId) => reach.has(nodeId));
+  }
 
   // --- Construction d'une mission à partir de lignes planifiées ---
 
@@ -122,7 +156,14 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       drops.push({ nodeId: nearest(warehouse.shippings).nodeId, lines: b2bLines });
     }
 
-    return { id: nextMissionId++, lines, stops, drops };
+    // Exigences de la mission pour l'affectation : hauteur de levée du
+    // niveau le plus haut et liste des nœuds à atteindre
+    const requiredLiftM = Math.max(
+      0, ...lines.map((l) => ((l.level ?? 1) - 1) * (l.levelHeight ?? 2))
+    );
+    const nodes = [...stops.map((s) => s.nodeId), ...drops.map((d) => d.nodeId)];
+
+    return { id: nextMissionId++, lines, stops, drops, requiredLiftM, nodes };
   }
 
   // --- Affectation des missions aux opérateurs inactifs ---
@@ -138,20 +179,39 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
           missionQueue.push(buildMission(lines));
         }
       }
-      const mission = missionQueue.shift();
-      // Affectation au plus proche : opérateur inactif le plus près du
-      // premier arrêt de la mission (distance à vol d'oiseau, heuristique)
-      const firstNode = mission.stops[0].nodeId;
-      let best = idle[0];
-      for (const op of idle) {
-        if (graph.distance(op.nodeId, firstNode) < graph.distance(best.nodeId, firstNode)) best = op;
+      // Première mission de la file réalisable par un agent inactif ;
+      // une mission irréalisable par toute la flotte est abandonnée
+      // (lignes marquées inaccessibles, commandes jamais terminées)
+      let assigned = false;
+      for (let m = 0; m < missionQueue.length; m++) {
+        const mission = missionQueue[m];
+        const candidates = idle.filter((op) => compatible(op, mission));
+        if (candidates.length === 0) {
+          if (!operators.some((op) => compatible(op, mission))) {
+            missionQueue.splice(m, 1);
+            m--;
+            for (const line of mission.lines) line.state = 'unreachable';
+          }
+          continue;
+        }
+        // Affectation au plus proche : agent compatible le plus près du
+        // premier arrêt (distance à vol d'oiseau, heuristique)
+        const firstNode = mission.stops[0].nodeId;
+        let best = candidates[0];
+        for (const op of candidates) {
+          if (graph.distance(op.nodeId, firstNode) < graph.distance(best.nodeId, firstNode)) best = op;
+        }
+        idle = idle.filter((o) => o !== best);
+        missionQueue.splice(m, 1);
+        best.mission = mission;
+        best.stopIndex = 0;
+        best.dropIndex = 0;
+        best.busySince = now;
+        travelTo(best, firstNode);
+        assigned = true;
+        break;
       }
-      idle = idle.filter((o) => o !== best);
-      best.mission = mission;
-      best.stopIndex = 0;
-      best.dropIndex = 0;
-      best.busySince = now;
-      travelTo(best, firstNode);
+      if (!assigned) break; // les missions restantes attendent un agent compatible
     }
   }
 
@@ -162,7 +222,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   const edgeTraffic = new Map();
 
   function travelTo(op, targetNodeId) {
-    const route = graph.shortestPath(op.nodeId, targetNodeId);
+    const route = graph.shortestPath(op.nodeId, targetNodeId, {
+      minWidth: op.profile.aisleWidthM,
+    });
     if (!route) throw new Error(`Aucun chemin de ${op.nodeId} vers ${targetNodeId}`);
     for (let i = 1; i < route.path.length; i++) {
       const key = [route.path[i - 1], route.path[i]].sort().join('|');
@@ -171,7 +233,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     op.state = 'moving';
     op.targetNodeId = targetNodeId;
     op.distance += route.distance;
-    const duration = route.distance / scenario.speedMps;
+    // En charge après le premier prélèvement de la mission
+    const loaded = op.mission !== null && op.stopIndex > 0;
+    const duration = route.distance / (loaded ? op.profile.speedLoadedMps : op.profile.speedMps);
     hooks.onState?.(op.id, 'moving', now);
     hooks.onTravel?.(op.id, route.path, now, route.distance, duration);
     queue.push(now + duration, 'opArrive', { opId: op.id });
@@ -204,7 +268,8 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
           aisleId: slot.aisleId,
           zone: slot.zone,
           level: slot.level,
-          state: 'pending', // pending | planned | picked | dropped
+          levelHeight: slot.levelHeight,
+          state: 'pending', // pending | planned | picked | dropped | unreachable
         };
       }),
     };

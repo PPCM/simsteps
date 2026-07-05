@@ -18,12 +18,14 @@ export class Graph {
    * distance euclidienne entre les nœuds.
    * @param {string} from
    * @param {string} to
-   * @param {{oneWay?: boolean}} [options] oneWay : sens unique from → to
+   * @param {{oneWay?: boolean, width?: number}} [options]
+   *        oneWay : sens unique from → to ; width : largeur praticable
+   *        de la voie en mètres (Infinity = sol libre, sans gabarit)
    */
-  addEdge(from, to, { oneWay = false } = {}) {
+  addEdge(from, to, { oneWay = false, width = Infinity } = {}) {
     const dist = this.distance(from, to);
-    this.#adjacency.get(from).push({ to, dist });
-    if (!oneWay) this.#adjacency.get(to).push({ to: from, dist });
+    this.#adjacency.get(from).push({ to, dist, width });
+    if (!oneWay) this.#adjacency.get(to).push({ to: from, dist, width });
   }
 
   neighbors(id) {
@@ -39,12 +41,60 @@ export class Graph {
   }
 
   /**
+   * Nœuds atteignables depuis une source, en n'empruntant que les
+   * arêtes d'au moins minWidth de large.
+   * @param {string} source
+   * @param {number} [minWidth]
+   * @returns {Set<string>}
+   */
+  reachableFrom(source, minWidth = 0) {
+    const reachable = new Set([source]);
+    const queue = [source];
+    while (queue.length > 0) {
+      for (const { to, width } of this.neighbors(queue.pop())) {
+        if (width < minWidth || reachable.has(to)) continue;
+        reachable.add(to);
+        queue.push(to);
+      }
+    }
+    return reachable;
+  }
+
+  /**
+   * Distances des plus courts chemins depuis une source vers tous les
+   * nœuds atteignables (Dijkstra).
+   * @param {string} source
+   * @returns {Map<string, number>}
+   */
+  distancesFrom(source) {
+    const dist = new Map([[source, 0]]);
+    const open = [{ id: source, d: 0 }];
+    while (open.length > 0) {
+      let best = 0;
+      for (let i = 1; i < open.length; i++) {
+        if (open[i].d < open[best].d) best = i;
+      }
+      const { id: current, d } = open.splice(best, 1)[0];
+      if (d > dist.get(current)) continue;
+      for (const { to, dist: edge } of this.neighbors(current)) {
+        const tentative = d + edge;
+        if (tentative < (dist.get(to) ?? Infinity)) {
+          dist.set(to, tentative);
+          open.push({ id: to, d: tentative });
+        }
+      }
+    }
+    return dist;
+  }
+
+  /**
    * Plus court chemin par A* (heuristique euclidienne, admissible).
    * @param {string} from
    * @param {string} to
+   * @param {{minWidth?: number}} [options] gabarit minimal des voies empruntées
    * @returns {{path: string[], distance: number} | null} null si inatteignable
    */
-  shortestPath(from, to) {
+  shortestPath(from, to, { minWidth = 0 } = {}) {
     if (!this.nodes.has(from) || !this.nodes.has(to)) {
       throw new Error(`Nœud inconnu : ${!this.nodes.has(from) ? from : to}`);
     }
@@ -77,8 +127,8 @@ export class Graph {
       if (closed.has(current)) continue;
       closed.add(current);
 
-      for (const { to: next, dist } of this.neighbors(current)) {
-        if (closed.has(next)) continue;
+      for (const { to: next, dist, width } of this.neighbors(current)) {
+        if (width < minWidth || closed.has(next)) continue;
         const tentative = gScore.get(current) + dist;
         if (tentative < (gScore.get(next) ?? Infinity)) {
           gScore.set(next, tentative);

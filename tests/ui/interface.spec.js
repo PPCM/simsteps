@@ -31,6 +31,17 @@ test('la page se charge et la relecture démarre', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test('la flotte d’engins se règle depuis l’onglet Piloter', async ({ page }) => {
+  const consoleErrors = await openApp(page);
+  // Ajoute 2 chariots rétractables à la flotte : la simulation se
+  // relance avec 7 agents (5 piétons + 2 engins)
+  const input = page.locator('#fleetInputs .field', { hasText: 'Chariot rétractable' }).locator('input');
+  await input.fill('2');
+  await input.blur();
+  await expect(page.locator('#status')).toContainText('7 opérateurs');
+  expect(consoleErrors).toEqual([]);
+});
+
 test('masquer les libellés puis en révéler un au clic', async ({ page }) => {
   const consoleErrors = await openApp(page);
   const stats = () => page.evaluate(() => window.simstepsDebug.labelStats());

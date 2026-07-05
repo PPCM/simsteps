@@ -147,10 +147,13 @@ Le détail des sections :
   « Annuler » restaure l'état d'entrée. Limites assumées : pas
   d'annulation fine, pas de redimensionnement à la souris, racks dérivés
   des allées (deux racks gauche/droite).
-- **Scénario** : choix du scénario de base, curseurs opérateurs / mix B2C /
-  cadence. Tout changement relance instantanément la simulation (elle
-  s'exécute dans le navigateur en quelques millisecondes) ; la relecture
-  repart de zéro.
+- **Scénario** : choix du scénario de base, curseurs opérateurs à pied /
+  mix B2C / cadence, et compteurs d'engins de manutention (transpalette,
+  gerbeur, frontal, rétractable, VNA, préparateur — l'infobulle rappelle
+  gabarit d'allée et hauteur de levée de chacun ; les engins sont rendus
+  en 3D à leur gabarit). Tout changement relance instantanément la
+  simulation (elle s'exécute dans le navigateur en quelques
+  millisecondes) ; la relecture repart de zéro.
 - **Enregistrer ce run en base** : fige les paramètres courants, les KPI et
   les trajets agrégés côté serveur, pour comparaison ultérieure.
 - **Affichage** : traînées de déplacement (une couleur par opérateur),
@@ -250,7 +253,8 @@ Tous facultatifs (défauts entre parenthèses) — voir
 |---|---|
 | `seed` (1) | Graine du générateur aléatoire — même graine, même run |
 | `durationHours` (2) | Durée simulée |
-| `operators` (5) | Nombre d'opérateurs |
+| `operators` (5) | Nombre d'opérateurs à pied (rétro-compatibilité) |
+| `fleet` (—) | Composition de flotte `{ type: nombre }` — types : `pieton`, `transpalette`, `gerbeur`, `frontal`, `retractable`, `vna`, `preparateur` ; prime sur `operators`. Chaque engin a ses vitesses à vide et en charge, sa hauteur de levée (borne les niveaux de rack accessibles) et son gabarit d'allée minimal — le routage n'emprunte que les voies assez larges : élargissez allées et couloirs en conséquence, sinon l'engin reste à quai et les lignes hors d'atteinte restent en attente |
 | `ordersPerHour` (30) | Cadence d'arrivée des commandes (processus de Poisson) |
 | `b2cShare` (0.7) | Part de commandes B2C (0 à 1) |
 | `strategy` (`orderByOrder`) | `orderByOrder` ou `zoneWave` |

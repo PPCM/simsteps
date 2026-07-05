@@ -143,18 +143,58 @@ test('les dépôts B2B partent à la zone d’expédition la plus proche', () =>
 });
 
 test('les niveaux hauts allongent le temps de prélèvement', () => {
-  // Même entrepôt, mêmes commandes : racks à 1 niveau contre 3 niveaux
+  // Racks à 3 niveaux servis par des préparateurs de commandes (levée
+  // 10 m) dans des allées à leur gabarit — les piétons, eux, ne
+  // peuvent pas atteindre les niveaux hauts (voir test suivant)
   const tall = structuredClone(spec);
   tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
-  const flat = runSimulation(buildWarehouse(spec), { ...BASE, seed: 7 });
-  const high = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7 });
-  // Plus d'emplacements (x3) : les tirages diffèrent, mais l'élévation
-  // doit peser sur l'occupation moyenne à volume de commandes équivalent.
-  // Test ciblé : un run avec surcoût d'élévation nul est identique à un
-  // run où tous les niveaux valent 1.
-  const noLift = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7, liftTimePerLevelSec: 0 });
-  const withLift = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7, liftTimePerLevelSec: 30 });
+  tall.aisles = tall.aisles.map((a) => ({ ...a, width: 2 }));
+  // Couloirs au gabarit de l'engin (les couloirs historiques font 1,4 m)
+  tall.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 3, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 3, orientation: 'horizontal' },
+  ];
+  const params = { ...BASE, seed: 7, fleet: { preparateur: 4 } };
+  const noLift = runSimulation(buildWarehouse(tall), { ...params, liftTimePerLevelSec: 0 });
+  const withLift = runSimulation(buildWarehouse(tall), { ...params, liftTimePerLevelSec: 30 });
   assert.ok(withLift.kpis.avgCycleTimeSec > noLift.kpis.avgCycleTimeSec,
     `cycle attendu plus long avec élévation : ${withLift.kpis.avgCycleTimeSec} vs ${noLift.kpis.avgCycleTimeSec}`);
-  assert.ok(flat.kpis.ordersCompleted > 0 && high.kpis.ordersCompleted > 0);
+  assert.ok(noLift.kpis.ordersCompleted > 0);
+});
+
+test('la flotte borne l’accessibilité : levée et gabarit d’allée', () => {
+  const tall = structuredClone(spec);
+  tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
+  // Piétons seuls (levée 1,9 m) : les lignes des niveaux 2-3 sont
+  // inaccessibles, une partie des commandes reste en attente
+  const walkers = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7 });
+  assert.ok(walkers.orders.some((o) => o.lines.some((l) => l.state === 'unreachable')),
+    'des lignes hautes doivent être inaccessibles aux piétons');
+  // Un frontal (3,4 m de gabarit) ne passe pas dans des allées de 1,4 m :
+  // aucune ligne en rack n'est réalisable
+  const forklift = runSimulation(buildWarehouse(spec), { ...BASE, seed: 7, fleet: { frontal: 3 } });
+  assert.equal(forklift.kpis.ordersCompleted, 0);
+  // Le VNA (1,6 m) passe dans des allées de 1,7 m et lève 14 m
+  const vnaSpec = structuredClone(tall);
+  vnaSpec.aisles = vnaSpec.aisles.map((a) => ({ ...a, width: 1.7 }));
+  vnaSpec.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 2, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 2, orientation: 'horizontal' },
+  ];
+  const vna = runSimulation(buildWarehouse(vnaSpec), { ...BASE, seed: 7, fleet: { vna: 3 } });
+  assert.ok(vna.kpis.ordersCompleted > 0);
+  assert.ok(!vna.orders.some((o) => o.lines.some((l) => l.state === 'unreachable')));
+});
+
+test('la flotte mixte reste déterministe et rétro-compatible', () => {
+  // fleet absent : operators = piétons, identique à l'ancien comportement
+  const legacy = runSimulation(warehouse, { ...BASE, seed: 11 });
+  const explicit = runSimulation(warehouse, { ...BASE, seed: 11, fleet: { pieton: BASE.operators } });
+  assert.deepEqual(legacy.kpis, explicit.kpis);
+  // Un transpalette (plus rapide à vide) change les résultats mais reste déterministe
+  const mixed = { ...BASE, seed: 11, fleet: { pieton: 2, transpalette: 2 } };
+  const a = runSimulation(warehouse, mixed);
+  const b = runSimulation(warehouse, mixed);
+  assert.deepEqual(a.kpis, b.kpis);
+  assert.ok(a.operators.some((o) => o.vehicle === 'transpalette'));
 });

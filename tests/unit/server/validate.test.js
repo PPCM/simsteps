@@ -112,3 +112,11 @@ test('les zones shipping/receiving acceptent un objet ou une liste non vide', ()
   noId.receiving = [{ label: 'Sans id', x: 1, y: 1 }];
   assert.ok(validateWarehouseDefinition(noId).some((e) => e.includes('receiving')));
 });
+
+test('le paramètre fleet est validé (types connus, entiers, total ≥ 1)', () => {
+  assert.deepEqual(validateScenarioParams({ fleet: { pieton: 2, retractable: 1 } }), []);
+  assert.ok(validateScenarioParams({ fleet: { drone: 2 } }).some((e) => e.includes('engin inconnu')));
+  assert.ok(validateScenarioParams({ fleet: { pieton: 1.5 } }).some((e) => e.includes('entier')));
+  assert.ok(validateScenarioParams({ fleet: { pieton: 0 } }).some((e) => e.includes('au moins un agent')));
+  assert.ok(validateScenarioParams({ fleet: [2] }).some((e) => e.includes('objet')));
+});

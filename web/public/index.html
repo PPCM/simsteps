@@ -276,9 +276,13 @@
         <select id="scenario"></select>
       </label>
       <label class="field">
-        <span class="field-head"><span>Opérateurs</span><output id="opCountVal"></output></span>
-        <input type="range" id="opCount" min="1" max="20" step="1">
+        <span class="field-head"><span>Opérateurs à pied</span><output id="opCountVal"></output></span>
+        <input type="range" id="opCount" min="0" max="20" step="1">
       </label>
+      <div class="field">
+        <span class="field-head"><span>Engins de manutention</span></span>
+        <div class="props-grid" id="fleetInputs"></div>
+      </div>
       <label class="field">
         <span class="field-head"><span>Mix B2C</span><output id="b2cShareVal"></output></span>
         <input type="range" id="b2cShare" min="0" max="100" step="5">

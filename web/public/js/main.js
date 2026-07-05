@@ -7,6 +7,7 @@
 
 import { buildWarehouse, facilityList } from '/sim/warehouse.js';
 import { runSimulation, DEFAULT_SCENARIO } from '/sim/engine.js';
+import { VEHICLES } from '/sim/vehicles.js';
 import { createWarehouseScene } from './scene.js';
 import { createRecorder } from './timeline.js';
 import { createOperatorLayer } from './operators.js';
@@ -44,7 +45,8 @@ const els = {
   editAddCorridor: $('editAddCorridor'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
-  scenario: $('scenario'), opCount: $('opCount'), b2cShare: $('b2cShare'), orderRate: $('orderRate'),
+  scenario: $('scenario'), opCount: $('opCount'), fleetInputs: $('fleetInputs'),
+  b2cShare: $('b2cShare'), orderRate: $('orderRate'),
   opCountVal: $('opCountVal'), b2cShareVal: $('b2cShareVal'), orderRateVal: $('orderRateVal'),
   toggleTrails: $('toggleTrails'), toggleHeatmap: $('toggleHeatmap'),
   toggleLabels: $('toggleLabels'),
@@ -167,9 +169,37 @@ try {
     return scenarios.find((s) => s.id === Number(els.scenario.value));
   }
 
+  // Compteurs d'engins de manutention, générés depuis le catalogue
+  // (le piéton est piloté par le curseur Opérateurs)
+  const fleetEls = new Map();
+  for (const [type, profile] of Object.entries(VEHICLES)) {
+    if (type === 'pieton') continue;
+    const label = document.createElement('label');
+    label.className = 'field';
+    label.title = `Gabarit d'allée min. ${profile.aisleWidthM} m · levée ${profile.liftM} m`;
+    const head = document.createElement('span');
+    head.className = 'field-head';
+    head.innerHTML = `<span>${profile.label}</span>`;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.max = '50';
+    input.step = '1';
+    input.value = '0';
+    label.append(head, input);
+    els.fleetInputs.append(label);
+    fleetEls.set(type, input);
+  }
+
   function sliderValues() {
+    const fleet = { pieton: Number(els.opCount.value) };
+    for (const [type, input] of fleetEls) {
+      const count = Number(input.value);
+      if (count > 0) fleet[type] = count;
+    }
     return {
       operators: Number(els.opCount.value),
+      fleet,
       b2cShare: Number(els.b2cShare.value) / 100,
       ordersPerHour: Number(els.orderRate.value),
     };
@@ -180,7 +210,10 @@ try {
   }
 
   function setSliders(params) {
-    els.opCount.value = params.operators;
+    els.opCount.value = params.fleet?.pieton ?? params.operators;
+    for (const [type, input] of fleetEls) {
+      input.value = params.fleet?.[type] ?? 0;
+    }
     els.b2cShare.value = Math.round(params.b2cShare * 100);
     els.orderRate.value = params.ordersPerHour;
     refreshSliderLabels();
@@ -196,6 +229,15 @@ try {
     els.orderRateVal.textContent = `${els.orderRate.value} cmd/h`;
   }
 
+  // Une flotte vide n'a pas de sens : garantit au moins un agent
+  function ensureFleet() {
+    const engins = [...fleetEls.values()].reduce((sum, input) => sum + Number(input.value), 0);
+    if (Number(els.opCount.value) + engins === 0) {
+      els.opCount.value = 1;
+      refreshSliderLabels();
+    }
+  }
+
   // Recharge un entrepôt et reconstruit la scène statique
   async function loadWarehouse(id) {
     warehouseId = id;
@@ -208,6 +250,7 @@ try {
   // --- Exécution d'un run et construction des couches 3D ---
   function runCurrent() {
     sim?.dispose();
+    ensureFleet();
     const params = currentParams();
     const merged = { ...DEFAULT_SCENARIO, ...params };
     const durationSec = merged.durationHours * 3600;
@@ -218,7 +261,8 @@ try {
     const tracks = recorder.finish(warehouse.shippingNodeId);
     sampler.finish(durationSec, result.orders, result.operators);
 
-    const operators = createOperatorLayer(scene, tracks);
+    const vehicleByOp = new Map(result.operators.map((op) => [op.id, op.vehicle]));
+    const operators = createOperatorLayer(scene, tracks, vehicleByOp);
     const trails = createTrailLayer(scene, tracks);
     const heatmap = createHeatmapLayer(scene, warehouse.graph, result.traffic);
     trails.setVisible(els.toggleTrails.checked);
@@ -239,8 +283,11 @@ try {
     };
     simTime = 0;
     setPlaying(true);
+    const agents = merged.fleet
+      ? Object.values(merged.fleet).reduce((sum, count) => sum + count, 0)
+      : merged.operators;
     els.status.textContent =
-      `${definition.name} — ${slotCount(definition)} empl. · ${merged.operators} opérateurs`;
+      `${definition.name} — ${slotCount(definition)} empl. · ${agents} opérateurs`;
   }
 
   // --- KPI en direct ---
@@ -293,6 +340,9 @@ try {
   for (const slider of [els.opCount, els.b2cShare, els.orderRate]) {
     slider.addEventListener('input', refreshSliderLabels);
     slider.addEventListener('change', runCurrent);
+  }
+  for (const input of fleetEls.values()) {
+    input.addEventListener('change', runCurrent);
   }
   els.toggleTrails.addEventListener('change', () => {
     if (!sim) return;
@@ -496,7 +546,8 @@ try {
 
   // Éléments neutralisés pendant l'édition
   const editLocked = [
-    els.play, els.playMini, ...speedButtons, els.scenario, els.opCount, els.b2cShare, els.orderRate,
+    els.play, els.playMini, ...speedButtons, els.scenario, els.opCount, ...fleetEls.values(),
+    els.b2cShare, els.orderRate,
     els.saveRun, els.project, els.projectName, els.projectCreate, els.projectUpdate,
     els.projectDelete, els.warehouse, els.warehouseEdit, els.warehouseCreate,
     els.warehouseDuplicate, els.warehouseDelete, els.cmpA, els.cmpB, els.cmpRun,

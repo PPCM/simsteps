@@ -44,6 +44,14 @@ test('mergeProjectParams : priorité curseurs > extras > scénario', () => {
   assert.equal(params.b2cShare, 0.5);
 });
 
-test('les clés de curseurs couvrent exactement les trois sliders du panneau', () => {
-  assert.deepEqual(SLIDER_KEYS, ['operators', 'b2cShare', 'ordersPerHour']);
+test('les clés de curseurs couvrent les contrôles du panneau (flotte comprise)', () => {
+  assert.deepEqual(SLIDER_KEYS, ['operators', 'fleet', 'b2cShare', 'ordersPerHour']);
+});
+
+test('splitSettings range la flotte côté curseurs', () => {
+  const { sliders, extras } = splitSettings({
+    fleet: { pieton: 2, vna: 1 }, strategy: 'zoneWave', operators: 2,
+  });
+  assert.deepEqual(sliders, { fleet: { pieton: 2, vna: 1 }, operators: 2 });
+  assert.deepEqual(extras, { strategy: 'zoneWave' });
 });

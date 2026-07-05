@@ -74,9 +74,14 @@ KPIs.
    heights with level beams in the 3D render, rack fields on the aisle
    panel (racks stay aisle-derived; the `type` field is deferred to the
    typology work alongside replenishment).
-2. **Vehicle fleet** (core) — profile catalog, `fleet` scenario field,
-   gauge-filtered A*, compatible assignment, loaded/unloaded speeds, simple
-   3D silhouettes, per-type KPIs.
+2. **Vehicle fleet** (core) — **done (v0.4.x)**: 7-profile catalog
+   (`sim/vehicles.js`), `fleet` scenario field (legacy `operators` =
+   walkers), gauge-filtered A* (edge widths from aisles/corridors),
+   lift-height mission compatibility (fleet-impossible missions marked
+   unreachable), loaded/unloaded speeds, per-family 3D silhouettes and
+   fleet counters in the Piloter tab. Deferred: per-type KPIs (needs a
+   dedicated UI surface) and carrying capacity (needs strategy-side trip
+   sizing).
 3. **SKUs & slotting** — ABC rotation classes, order lines drawn by
    rotation (80/15/5), slotting strategies (random / by class near docks /
    imported), distance-per-line KPI.
