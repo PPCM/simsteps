@@ -442,42 +442,44 @@
     <div id="editTop">
       <div class="edit-titlebar">
         <span class="edit-crumb">Édition · <b id="editTitle"></b></span>
+        <button class="action" id="editUndo" title="Annuler la dernière modification (Ctrl+Z)" disabled>↶ Annuler</button>
+        <button class="action" id="editRedo" title="Rétablir la modification annulée (Ctrl+Y)" disabled>↷ Rétablir</button>
         <span class="spacer"></span>
         <button class="action" id="editCancel">Quitter sans enregistrer</button>
-        <button class="action primary" id="editSave">Enregistrer</button>
+        <button class="action primary" id="editSave" title="Enregistrer l'entrepôt (Ctrl+S)">Enregistrer</button>
       </div>
       <div class="ribbon" role="toolbar" aria-label="Création et modification d'éléments">
         <div class="ribbon-group">
           <div class="ribbon-tools">
-            <button class="tool" id="editAddAisle" title="Ajouter une allée et ses racks"><b>▤</b><small>Allée</small></button>
-            <button class="tool" id="editAddCorridor" title="Ajouter un couloir de circulation"><b>═</b><small>Couloir</small></button>
+            <button class="tool" id="editAddAisle" title="Ajouter une allée et ses racks (1)"><b>▤</b><small>Allée</small></button>
+            <button class="tool" id="editAddCorridor" title="Ajouter un couloir de circulation (2)"><b>═</b><small>Couloir</small></button>
           </div>
           <span class="ribbon-caption">Structure</span>
         </div>
         <div class="ribbon-sep"></div>
         <div class="ribbon-group">
           <div class="ribbon-tools">
-            <button class="tool" id="editAddWorkshop" title="Ajouter un atelier d'emballage"><b>▦</b><small>Atelier</small></button>
-            <button class="tool" id="editAddShipping" title="Ajouter une zone d'expédition"><b>⬒</b><small>Expédition</small></button>
-            <button class="tool" id="editAddReceiving" title="Ajouter une zone de réception"><b>⬓</b><small>Réception</small></button>
-            <button class="tool" id="editAddParking" title="Ajouter un parking d'agents"><b>◫</b><small>Parking</small></button>
-            <button class="tool" id="editAddBuffer" title="Ajouter une zone tampon"><b>▧</b><small>Tampon</small></button>
+            <button class="tool" id="editAddWorkshop" title="Ajouter un atelier d'emballage (3)"><b>▦</b><small>Atelier</small></button>
+            <button class="tool" id="editAddShipping" title="Ajouter une zone d'expédition (4)"><b>⬒</b><small>Expédition</small></button>
+            <button class="tool" id="editAddReceiving" title="Ajouter une zone de réception (5)"><b>⬓</b><small>Réception</small></button>
+            <button class="tool" id="editAddParking" title="Ajouter un parking d'agents (6)"><b>◫</b><small>Parking</small></button>
+            <button class="tool" id="editAddBuffer" title="Ajouter une zone tampon (7)"><b>▧</b><small>Tampon</small></button>
           </div>
           <span class="ribbon-caption">Zones</span>
         </div>
         <div class="ribbon-sep"></div>
         <div class="ribbon-group">
           <div class="ribbon-tools">
-            <button class="tool" id="editAddObstacle" title="Ajouter un obstacle (poteau, bureau…)"><b>▪</b><small>Obstacle</small></button>
-            <button class="tool" id="editAddConveyor" title="Ajouter un convoyeur (exige tampon et atelier)"><b>⇢</b><small>Convoyeur</small></button>
+            <button class="tool" id="editAddObstacle" title="Ajouter un obstacle — poteau, bureau… (8)"><b>▪</b><small>Obstacle</small></button>
+            <button class="tool" id="editAddConveyor" title="Ajouter un convoyeur — exige tampon et atelier (9)"><b>⇢</b><small>Convoyeur</small></button>
           </div>
           <span class="ribbon-caption">Flux</span>
         </div>
         <div class="ribbon-sep"></div>
         <div class="ribbon-group">
           <div class="ribbon-tools">
-            <button class="tool" id="editDuplicate" title="Dupliquer la sélection"><b>⧉</b><small>Dupliquer</small></button>
-            <button class="tool danger" id="editRemoveSelection" title="Supprimer la sélection"><b>✕</b><small>Supprimer</small></button>
+            <button class="tool" id="editDuplicate" title="Dupliquer la sélection (Ctrl+D)"><b>⧉</b><small>Dupliquer</small></button>
+            <button class="tool danger" id="editRemoveSelection" title="Supprimer la sélection (Suppr)"><b>✕</b><small>Supprimer</small></button>
           </div>
           <span class="ribbon-caption">Modifier</span>
         </div>
@@ -499,7 +501,7 @@
       <span id="editCoords" class="mono">—</span>
       <span class="mono">Accrochage : 1 m</span>
       <span id="editValidity" class="mono ok">✓ Plan valide</span>
-      <span class="edit-hint">Glisser un élément : déplacer · Clic dans le vide : orbite</span>
+      <span class="edit-hint">Glisser un élément : déplacer · Clic dans le vide : orbite · Échap : désélectionner</span>
     </div>
   </div>
 

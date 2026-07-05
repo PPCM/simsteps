@@ -29,6 +29,7 @@ import {
 import { createEditorControls } from './editor/controls.js';
 import { renderSelection, renderGlobals, renderErrors, renderTree } from './editor/panel.js';
 import { buildTree } from './editor/tree.js';
+import { createHistory } from './editor/history.js';
 import { kpiSummaryText } from './panels.js';
 import { setupWindow, setupTabs } from './windows.js';
 
@@ -44,7 +45,7 @@ const els = {
   warehouseDelete: $('warehouseDelete'), warehouseStatus: $('warehouseStatus'),
   editChrome: $('editChrome'), editTree: $('editTree'),
   editTitle: $('editTitle'), editCoords: $('editCoords'), editValidity: $('editValidity'),
-  editDuplicate: $('editDuplicate'),
+  editDuplicate: $('editDuplicate'), editUndo: $('editUndo'), editRedo: $('editRedo'),
   selProps: $('selProps'), globalProps: $('globalProps'),
   editAddAisle: $('editAddAisle'), editAddWorkshop: $('editAddWorkshop'),
   editAddShipping: $('editAddShipping'), editAddReceiving: $('editAddReceiving'),
@@ -635,8 +636,20 @@ try {
   // circulation est invalide (l'erreur s'affiche, Enregistrer se
   // bloque) : seules les erreurs géométriques — qui rendraient le plan
   // inconstructible — figent la scène sur le dernier état sain.
-  function applyWorkingDef(next, { recenter = false } = {}) {
+  // Historique annuler/rétablir : les opérations du modèle sont pures,
+  // chaque application empile la définition quittée (sauf undo/redo)
+  const editHistory = createHistory();
+  function refreshHistoryButtons() {
+    els.editUndo.disabled = !editHistory.canUndo();
+    els.editRedo.disabled = !editHistory.canRedo();
+  }
+
+  function applyWorkingDef(next, { recenter = false, record = true } = {}) {
+    if (record && workingDef !== null && next !== workingDef) {
+      editHistory.push(workingDef);
+    }
     workingDef = next;
+    refreshHistoryButtons();
     els.editTitle.textContent = workingDef.name;
     const errors = validateDefinition(workingDef, buildWarehouse);
     renderErrors(els.editErrors, errors);
@@ -735,6 +748,8 @@ try {
     // Normalisation : zones en listes et dimensions par défaut explicites
     workingDef = normalizeDefinition(definition);
     selection = null;
+    editHistory.reset();
+    refreshHistoryButtons();
     setEditingUI(true);
     editorControls.setEnabled(true);
     els.editTitle.textContent = workingDef.name;
@@ -822,6 +837,62 @@ try {
       renderErrors(els.editErrors, [error.message]);
     }
   });
+  // Annuler/rétablir : applique un état d'historique — la sélection
+  // survit si son élément existe encore dans cet état
+  function applyHistoryState(def) {
+    if (def === null) return;
+    if (selection !== null) {
+      const list = def[LIST_KEYS[selection.type]] ?? [];
+      const items = Array.isArray(list) ? list : [list];
+      if (!items.some((e) => e.id === selection.id)) selection = null;
+    }
+    applyWorkingDef(def, { record: false });
+  }
+  els.editUndo.addEventListener('click', () => applyHistoryState(editHistory.undo(workingDef)));
+  els.editRedo.addEventListener('click', () => applyHistoryState(editHistory.redo(workingDef)));
+
+  // Raccourcis clavier du mode édition (rappelés dans les infobulles) —
+  // inactifs pendant la saisie dans un champ du dock
+  const CREATION_KEYS = {
+    1: 'editAddAisle', 2: 'editAddCorridor', 3: 'editAddWorkshop',
+    4: 'editAddShipping', 5: 'editAddReceiving', 6: 'editAddParking',
+    7: 'editAddBuffer', 8: 'editAddObstacle', 9: 'editAddConveyor',
+  };
+  window.addEventListener('keydown', (event) => {
+    if (!editing) return;
+    const tag = event.target?.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (event.ctrlKey || event.metaKey) {
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        els.editUndo.click();
+      } else if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        els.editRedo.click();
+      } else if (key === 'd') {
+        event.preventDefault();
+        els.editDuplicate.click();
+      } else if (key === 's') {
+        event.preventDefault();
+        els.editSave.click();
+      }
+      return;
+    }
+    if (event.key === 'Delete') {
+      els.editRemoveSelection.click();
+      return;
+    }
+    if (event.key === 'Escape') {
+      selection = null;
+      editorControls.setSelection(null);
+      refreshEditPanels();
+      return;
+    }
+    const tool = CREATION_KEYS[event.key];
+    if (tool !== undefined) els[tool].click();
+  });
+
   els.editRemoveSelection.addEventListener('click', () => {
     if (!selection) {
       renderErrors(els.editErrors, ['Aucun élément sélectionné.']);

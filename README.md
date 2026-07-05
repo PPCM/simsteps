@@ -136,7 +136,9 @@ Le détail des sections :
     tampon ; Flux : obstacle, convoyeur) et les actions Modifier
     (« Dupliquer » copie la sélection sous un identifiant libre, décalée
     de 2 m, racks compris pour une allée ; « Supprimer »), avec
-    « Enregistrer » et « Quitter sans enregistrer » à droite ;
+    « ↶ Annuler » / « ↷ Rétablir » près du titre (historique complet de
+    la session d'édition) et « Enregistrer » / « Quitter sans
+    enregistrer » à droite ;
   - **dock à droite** : l'arborescence « Structure » (les éléments
     groupés par type avec leur résumé — baies et niveaux d'une allée,
     orientation et longueur d'un couloir… ; un clic sélectionne sans
@@ -150,6 +152,14 @@ Le détail des sections :
   - **barre d'état en bas** : coordonnées du pointeur sur le sol, pas
     d'accrochage, état de validation en continu (« ✓ Plan valide » ou
     le nombre d'erreurs en rouge) et rappel des gestes.
+
+  Raccourcis clavier (chacun rappelé dans l'infobulle de son bouton) :
+  **1 à 9** ajoutent les éléments dans l'ordre du ruban (allée, couloir,
+  atelier, expédition, réception, parking, tampon, obstacle, convoyeur),
+  **Ctrl+Z** / **Ctrl+Y** annulent et rétablissent, **Ctrl+D** duplique
+  la sélection, **Suppr** la supprime, **Ctrl+S** enregistre et
+  **Échap** désélectionne. Les raccourcis s'effacent pendant la saisie
+  dans un champ.
 
   Dans la scène : cliquer un élément le sélectionne, glisser le déplace
   par pas d'un mètre — le bord gauche/avant s'aligne sur le carroyage au
@@ -165,8 +175,8 @@ Le détail des sections :
   « Enregistrer » valide et persiste la définition (modification en
   place : tous les projets qui référencent l'entrepôt la voient),
   « Quitter sans enregistrer » restaure l'état d'entrée. Limites
-  assumées : pas d'annulation fine, pas de redimensionnement à la
-  souris, racks dérivés des allées (deux racks gauche/droite).
+  assumées : pas de redimensionnement à la souris, racks dérivés des
+  allées (deux racks gauche/droite).
 - **Scénario** : choix du scénario de base, curseurs opérateurs à pied /
   mix B2C / cadence, et compteurs d'engins de manutention (transpalette,
   gerbeur, frontal, rétractable, VNA, préparateur — l'infobulle rappelle

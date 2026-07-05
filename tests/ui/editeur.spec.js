@@ -401,6 +401,42 @@ test('l’arborescence sélectionne et le ruban duplique', async ({ page, reques
   expect(definition.racks.filter((r) => r.aisle === copyId)).toHaveLength(2);
 });
 
+test('annuler/rétablir et raccourcis clavier', async ({ page }) => {
+  // Boutons d'historique inertes à l'entrée, raccourcis dans les infobulles
+  await expect(page.locator('#editUndo')).toBeDisabled();
+  await expect(page.locator('#editRedo')).toBeDisabled();
+  await expect(page.locator('#editAddAisle')).toHaveAttribute('title', /\(1\)$/);
+  await expect(page.locator('#editDuplicate')).toHaveAttribute('title', /Ctrl\+D/);
+  await expect(page.locator('#editRemoveSelection')).toHaveAttribute('title', /Suppr/);
+  await expect(page.locator('#editUndo')).toHaveAttribute('title', /Ctrl\+Z/);
+  await expect(page.locator('#editSave')).toHaveAttribute('title', /Ctrl\+S/);
+
+  // « 1 » ajoute une allée, Ctrl+Z l'annule, Ctrl+Y la rétablit
+  const aisleRows = page.locator('#editTree details[data-type="aisle"] .tree-item');
+  const before = await aisleRows.count();
+  await page.keyboard.press('1');
+  await expect(aisleRows).toHaveCount(before + 1);
+  await expect(page.locator('#editUndo')).toBeEnabled();
+  await page.keyboard.press('Control+z');
+  await expect(aisleRows).toHaveCount(before);
+  await expect(page.locator('#editRedo')).toBeEnabled();
+  await page.keyboard.press('Control+y');
+  await expect(aisleRows).toHaveCount(before + 1);
+
+  // Échap désélectionne : les propriétés de l'entrepôt reviennent
+  await aisleRows.last().click();
+  await expect(page.locator('#selProps .placeholder')).toHaveText(/^Allée A\d+/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#globalProps')).toBeVisible();
+
+  // Suppr efface la sélection courante (reprise via l'arborescence)
+  await aisleRows.last().click();
+  await page.keyboard.press('Delete');
+  await expect(aisleRows).toHaveCount(before);
+
+  await page.locator('#editCancel').click();
+});
+
 test('la barre d’état signale les erreurs et suit le pointeur', async ({ page }) => {
   // bays = 1 sur une allée : la barre d'état passe au rouge
   await selectInScene(page, 'Allée');
