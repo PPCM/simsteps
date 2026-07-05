@@ -49,9 +49,12 @@ Priority: dimensions and levels first; typology once replenishment exists.
 
 ## 3. Missing warehouse concepts
 
-Zones and infrastructure: docks with doors and scheduled trucks, staging /
-consolidation area (bounded capacity), block stacking, cross-docking,
-charging area, obstacles (columns, offices), conveyors/sorter, mezzanine.
+Zones and infrastructure: docks with doors and scheduled trucks, **buffer /
+drop zone** (« zone tampon » : picked goods staged next to the packing
+workshops, decoupling picking pace from packing pace — implies a packer
+role distinct from the picker), staging / consolidation area (bounded
+capacity), block stacking, cross-docking, charging area, obstacles
+(columns, offices), conveyors/sorter, mezzanine.
 
 Missing characteristics on existing objects: building clear height; aisle
 one-way flag, dedicated vehicle (VNA), served levels; corridor one-way /
@@ -72,8 +75,10 @@ KPIs.
 3. **SKUs & slotting** — ABC rotation classes, order lines drawn by
    rotation (80/15/5), slotting strategies (random / by class near docks /
    imported), distance-per-line KPI.
-4. **Inbound flows** — docks with N doors, scheduled trucks, putaway
-   missions, threshold-based replenishment reserve → picking, staging with
+4. **Inbound flows and process zones** — docks with N doors, scheduled
+   trucks, putaway missions, threshold-based replenishment reserve →
+   picking, buffer/drop zones feeding the packing workshops (pickers drop
+   there, packers consume — two decoupled agent roles), staging with
    capacity.
 5. **Advanced circulation** — one-way lanes (graph already supports
    `oneWay`), pedestrian vs vehicle lanes, edge capacity and queues, VNA
