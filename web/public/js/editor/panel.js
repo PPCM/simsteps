@@ -28,6 +28,11 @@ const FACILITY_FIELDS = [
   ['width', 'Largeur', 'number'],
   ['depth', 'Profondeur', 'number'],
 ];
+const PARKING_FIELDS = [
+  ...FACILITY_FIELDS,
+  // Types d'engins admis, séparés par des virgules ; vide = tous
+  ['vehicles', 'Engins admis (vide : tous)', 'text'],
+];
 
 // Zones d'expédition/réception : objet unique (format historique) ou liste
 const asList = (value) => (Array.isArray(value) ? value : [value]);
@@ -134,7 +139,8 @@ export function renderSelection(container, def, selection, onChange) {
       : selection.type === 'parking'
         ? (def.parkings ?? []).find((p) => p.id === selection.id)
         : asList(def[selection.type]).find((z) => z.id === selection.id);
-    if (facility) renderFields(container, FACILITY_FIELDS, facility, onChange, selection.type);
+    const fields = selection.type === 'parking' ? PARKING_FIELDS : FACILITY_FIELDS;
+    if (facility) renderFields(container, fields, facility, onChange, selection.type);
   }
 }
 

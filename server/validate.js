@@ -48,10 +48,12 @@ export function validateWarehouseDefinition(def) {
     : Boolean(value && value.id));
   if (!zoneOk(def.shipping)) errors.push('« shipping » est requis (zone ou liste non vide de zones)');
   if (!zoneOk(def.receiving)) errors.push('« receiving » est requis (zone ou liste non vide de zones)');
-  // Parkings d'agents : liste optionnelle de zones { id … }
+  // Parkings d'agents : liste optionnelle de zones { id, vehicles? }
   if (def.parkings !== undefined
-      && (!Array.isArray(def.parkings) || !def.parkings.every((p) => p && p.id))) {
-    errors.push('« parkings » doit être une liste de zones { id … }');
+      && (!Array.isArray(def.parkings) || !def.parkings.every((p) => p && p.id
+        && (p.vehicles === undefined
+          || (Array.isArray(p.vehicles) && p.vehicles.every((t) => t in VEHICLES)))))) {
+    errors.push('« parkings » doit être une liste de zones { id … } (vehicles : liste de types d\'engins connus)');
   }
   if (errors.length > 0) return errors;
 

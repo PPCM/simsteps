@@ -72,8 +72,10 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   let nextMissionId = 1;
   let now = 0;
 
-  // Agents de la flotte : un profil d'engin par agent. Le piéton suit
-  // la vitesse du scénario (rétro-compatibilité de speedMps).
+  // Entités de la flotte : les piétons sont les opérateurs (humains),
+  // les autres types sont du matériel garé — un engin ne se déplace que
+  // conduit par un opérateur venu le chercher à pied. Le piéton suit la
+  // vitesse du scénario (rétro-compatibilité de speedMps).
   const operators = [];
   for (const [vehicle, count] of fleetFromScenario(scenario)) {
     const base = VEHICLES[vehicle];
@@ -88,7 +90,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         nodeId: warehouse.shippingNodeId,
         startNodeId: warehouse.shippingNodeId, // parking affecté (voir plus bas)
         returning: false, // retour au parking en cours
-        state: 'idle', // idle | moving | picking | dropping
+        state: 'idle', // idle | moving | picking | dropping | driving (humain monté)
         mission: null,
         stopIndex: 0,
         dropIndex: 0,
@@ -97,9 +99,15 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         busyTime: 0, // secondes en mission
         busySince: null,
         linesPicked: 0,
+        // Couplage opérateur ↔ engin
+        mounting: null, // humain : engin vers lequel il marche
+        driving: null, // humain : engin qu'il conduit
+        driver: null, // engin : opérateur au volant
+        reservedBy: null, // engin : opérateur en route pour le prendre
       });
     }
   }
+  const humans = operators.filter((o) => o.vehicle === 'pieton');
 
   // Nœuds atteignables par gabarit d'engin (une passe par largeur distincte)
   const reachByWidth = new Map();
@@ -112,13 +120,14 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     }
   }
 
-  // Stationnement : chaque agent démarre au parking atteignable le plus
-  // proche de l'expédition pour son gabarit (à défaut, l'expédition) et
-  // y retournera à l'inactivité
+  // Stationnement : chaque entité démarre au parking atteignable le
+  // plus proche de l'expédition qui admet son type d'engin (à défaut,
+  // l'expédition) et y retournera à l'inactivité
   for (const op of operators) {
     const reach = reachByWidth.get(op.profile.aisleWidthM);
     let best = null;
     for (const parking of warehouse.parkings) {
+      if (parking.vehicles !== undefined && !parking.vehicles.includes(op.vehicle)) continue;
       if (!reach.has(parking.nodeId)) continue;
       const d = graph.distance(warehouse.shippingNodeId, parking.nodeId);
       if (best === null || d < best.d) best = { nodeId: parking.nodeId, d };
@@ -129,12 +138,20 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     }
   }
 
-  // Un agent peut-il réaliser une mission ? Levée suffisante pour le
+  // Une entité peut-elle réaliser une mission ? Levée suffisante pour le
   // niveau le plus haut, et tous les arrêts/déposes dans son gabarit.
   function compatible(op, mission) {
     if (mission.requiredLiftM > op.profile.liftM + 1e-9) return false;
     const reach = reachByWidth.get(op.profile.aisleWidthM);
     return mission.nodes.every((nodeId) => reach.has(nodeId));
+  }
+
+  // Capacités du piéton de référence : décide si une mission est
+  // faisable à pied (sinon elle exige un engin, donc un conducteur)
+  const walkerReach = graph.reachableFrom(warehouse.shippingNodeId, VEHICLES.pieton.aisleWidthM);
+  function footCompatible(requiredLiftM, nodes) {
+    return requiredLiftM <= VEHICLES.pieton.liftM + 1e-9
+      && nodes.every((nodeId) => walkerReach.has(nodeId));
   }
 
   // --- Construction d'une mission à partir de lignes planifiées ---
@@ -188,55 +205,91 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     );
     const nodes = [...stops.map((s) => s.nodeId), ...drops.map((d) => d.nodeId)];
 
-    return { id: nextMissionId++, lines, stops, drops, requiredLiftM, nodes };
+    return {
+      id: nextMissionId++,
+      lines,
+      stops,
+      drops,
+      requiredLiftM,
+      nodes,
+      footCompatible: footCompatible(requiredLiftM, nodes),
+    };
   }
 
   // --- Affectation des missions aux opérateurs inactifs ---
 
+  // Lance l'exécution d'une mission par une entité (humain à pied ou
+  // engin déjà conduit)
+  function startMission(op, mission) {
+    op.mission = mission;
+    op.stopIndex = 0;
+    op.dropIndex = 0;
+    if (op.busySince === null) op.busySince = now;
+    travelTo(op, mission.stops[0].nodeId);
+  }
+
+  // Le plus proche d'un nœud, à vol d'oiseau (heuristique d'affectation)
+  function nearestOf(candidates, nodeId) {
+    let best = candidates[0];
+    for (const op of candidates) {
+      if (graph.distance(op.nodeId, nodeId) < graph.distance(best.nodeId, nodeId)) best = op;
+    }
+    return best;
+  }
+
   function tryAssign() {
-    let idle = operators.filter((o) => o.state === 'idle');
-    while (idle.length > 0) {
+    while (true) {
+      const idleHumans = humans.filter((o) => o.state === 'idle');
+      if (idleHumans.length === 0) break;
       if (missionQueue.length === 0) {
-        const planned = strategy.plan(orders, idle.length, { waveSize: scenario.waveSize });
+        const planned = strategy.plan(orders, idleHumans.length, { waveSize: scenario.waveSize });
         if (planned.length === 0) break;
         for (const lines of planned) {
           for (const line of lines) line.state = 'planned';
           missionQueue.push(buildMission(lines));
         }
       }
-      // Première mission de la file réalisable par un agent inactif ;
-      // une mission irréalisable par toute la flotte est abandonnée
-      // (lignes marquées inaccessibles, commandes jamais terminées)
       let assigned = false;
       for (let m = 0; m < missionQueue.length; m++) {
         const mission = missionQueue[m];
-        const candidates = idle.filter((op) => compatible(op, mission));
-        if (candidates.length === 0) {
-          if (!operators.some((op) => compatible(op, mission))) {
+        // 1) Mission faisable à pied : l'opérateur le plus proche y va
+        if (mission.footCompatible) {
+          const best = nearestOf(idleHumans, mission.stops[0].nodeId);
+          missionQueue.splice(m, 1);
+          startMission(best, mission);
+          assigned = true;
+          break;
+        }
+        // 2) Mission exigeant un engin : un opérateur libre marche
+        //    jusqu'à un engin libre compatible et le conduit
+        const machine = operators.find((o) => o.vehicle !== 'pieton'
+          && o.state === 'idle' && o.reservedBy === null && compatible(o, mission));
+        if (machine) {
+          const driver = nearestOf(idleHumans, machine.nodeId);
+          const walkReach = reachByWidth.get(driver.profile.aisleWidthM);
+          if (walkReach.has(machine.nodeId)) {
             missionQueue.splice(m, 1);
-            m--;
-            for (const line of mission.lines) line.state = 'unreachable';
+            machine.reservedBy = driver;
+            machine.mission = mission; // en attente du conducteur
+            driver.mounting = machine;
+            driver.busySince = now;
+            travelTo(driver, machine.nodeId);
+            assigned = true;
+            break;
           }
-          continue;
+          continue; // engin injoignable à pied : la mission attendra
         }
-        // Affectation au plus proche : agent compatible le plus près du
-        // premier arrêt (distance à vol d'oiseau, heuristique)
-        const firstNode = mission.stops[0].nodeId;
-        let best = candidates[0];
-        for (const op of candidates) {
-          if (graph.distance(op.nodeId, firstNode) < graph.distance(best.nodeId, firstNode)) best = op;
+        // 3) Irréalisable par toute la flotte (aucun engin compatible,
+        //    ou aucun opérateur pour le conduire) : abandon définitif
+        const anyMachine = operators.some((o) => o.vehicle !== 'pieton' && compatible(o, mission));
+        if (!anyMachine || humans.length === 0) {
+          missionQueue.splice(m, 1);
+          m--;
+          for (const line of mission.lines) line.state = 'unreachable';
         }
-        idle = idle.filter((o) => o !== best);
-        missionQueue.splice(m, 1);
-        best.mission = mission;
-        best.stopIndex = 0;
-        best.dropIndex = 0;
-        best.busySince = now;
-        travelTo(best, firstNode);
-        assigned = true;
-        break;
+        // sinon : les engins compatibles sont occupés, la mission attend
       }
-      if (!assigned) break; // les missions restantes attendent un agent compatible
+      if (!assigned) break;
     }
   }
 
@@ -309,11 +362,55 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     if (next <= durationSec) queue.push(next, 'orderArrival');
   }
 
+  // L'engin rendu à son parking : le conducteur redescend et rentre à
+  // pied à son point d'appel
+  function dismount(machine) {
+    machine.state = 'idle';
+    hooks.onState?.(machine.id, 'idle', now);
+    const driver = machine.driver;
+    machine.driver = null;
+    driver.driving = null;
+    driver.nodeId = machine.nodeId;
+    if (driver.nodeId !== driver.startNodeId) {
+      driver.returning = true;
+      travelTo(driver, driver.startNodeId);
+    } else {
+      driver.busyTime += now - driver.busySince;
+      driver.busySince = null;
+      driver.state = 'idle';
+      hooks.onState?.(driver.id, 'idle', now);
+    }
+    tryAssign(); // l'engin libéré (et peut-être l'opérateur) peuvent resservir
+  }
+
   function onOpArrive(op) {
     op.nodeId = op.targetNodeId;
+    if (op.mounting !== null) {
+      // L'opérateur atteint l'engin : il monte et la mission démarre
+      const machine = op.mounting;
+      op.mounting = null;
+      op.driving = machine;
+      machine.driver = op;
+      machine.reservedBy = null;
+      op.state = 'driving';
+      hooks.onState?.(op.id, 'driving', now);
+      const mission = machine.mission;
+      machine.mission = null;
+      startMission(machine, mission);
+      return;
+    }
     if (op.returning) {
-      // Arrivée au parking : l'agent redevient disponible
+      // Arrivée au parking ou au point d'appel
       op.returning = false;
+      if (op.vehicle !== 'pieton' && op.driver !== null) {
+        dismount(op);
+        return;
+      }
+      if (op.busySince !== null) {
+        // Fin d'épisode de conduite : l'opérateur est rentré à pied
+        op.busyTime += now - op.busySince;
+        op.busySince = null;
+      }
       op.state = 'idle';
       hooks.onState?.(op.id, 'idle', now);
       tryAssign();
@@ -367,15 +464,32 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     if (op.dropIndex < op.mission.drops.length) {
       travelTo(op, op.mission.drops[op.dropIndex].nodeId);
     } else {
-      // Mission terminée : l'opérateur redevient disponible
+      // Mission terminée
       op.busyTime += now - op.busySince;
       op.busySince = null;
       op.mission = null;
+      if (op.vehicle !== 'pieton') {
+        // L'engin enchaîne une mission qui l'exige encore, sans que le
+        // conducteur redescende ; sinon il rentre se garer
+        const next = missionQueue.findIndex((m) => !m.footCompatible && compatible(op, m));
+        if (next >= 0) {
+          const mission = missionQueue.splice(next, 1)[0];
+          startMission(op, mission);
+          return;
+        }
+        if (op.nodeId !== op.startNodeId) {
+          op.returning = true;
+          travelTo(op, op.startNodeId);
+        } else {
+          dismount(op);
+        }
+        return;
+      }
       op.state = 'idle';
       hooks.onState?.(op.id, 'idle', now);
       tryAssign();
-      // Toujours inactif après l'affectation : retour au parking (trajet
-      // à vide, hors temps de mission — il compte dans la distance)
+      // Toujours inactif après l'affectation : retour au point d'appel
+      // (trajet à vide, hors temps de mission — il compte dans la distance)
       if (op.state === 'idle' && op.nodeId !== op.startNodeId) {
         op.returning = true;
         travelTo(op, op.startNodeId);

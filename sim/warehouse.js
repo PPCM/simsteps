@@ -213,7 +213,9 @@ export function buildWarehouse(spec) {
     workshops: spec.workshops.map((w) => ({ id: w.id, label: w.label, nodeId: w.id })),
     shippings: shippings.map((s) => ({ id: s.id, label: s.label, nodeId: s.id })),
     receivings: receivings.map((r) => ({ id: r.id, label: r.label, nodeId: r.id })),
-    parkings: parkings.map((p) => ({ id: p.id, label: p.label, nodeId: p.id })),
+    parkings: parkings.map((p) => ({
+      id: p.id, label: p.label, nodeId: p.id, vehicles: p.vehicles,
+    })),
     // Première zone de chaque type : point de départ des opérateurs et
     // compatibilité avec les consommateurs mono-zone (relecture)
     shippingNodeId: shippings[0].id,

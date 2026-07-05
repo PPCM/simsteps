@@ -154,7 +154,8 @@ test('les niveaux hauts allongent le temps de prélèvement', () => {
     { id: 'C1', x: 0, y: 4, length: 44, width: 3, orientation: 'horizontal' },
     { id: 'C2', x: 0, y: 38, length: 44, width: 3, orientation: 'horizontal' },
   ];
-  const params = { ...BASE, seed: 7, fleet: { preparateur: 4 } };
+  // Deux opérateurs conduisent les préparateurs pour les niveaux hauts
+  const params = { ...BASE, seed: 7, fleet: { pieton: 2, preparateur: 2 } };
   const noLift = runSimulation(buildWarehouse(tall), { ...params, liftTimePerLevelSec: 0 });
   const withLift = runSimulation(buildWarehouse(tall), { ...params, liftTimePerLevelSec: 30 });
   assert.ok(withLift.kpis.avgCycleTimeSec > noLift.kpis.avgCycleTimeSec,
@@ -170,20 +171,54 @@ test('la flotte borne l’accessibilité : levée et gabarit d’allée', () => 
   const walkers = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7 });
   assert.ok(walkers.orders.some((o) => o.lines.some((l) => l.state === 'unreachable')),
     'des lignes hautes doivent être inaccessibles aux piétons');
-  // Un frontal (3,4 m de gabarit) ne passe pas dans des allées de 1,4 m :
-  // aucune ligne en rack n'est réalisable
-  const forklift = runSimulation(buildWarehouse(spec), { ...BASE, seed: 7, fleet: { frontal: 3 } });
-  assert.equal(forklift.kpis.ordersCompleted, 0);
-  // Le VNA (1,6 m) passe dans des allées de 1,7 m et lève 14 m
+  // Un frontal (3,4 m de gabarit) ne passe pas dans des allées de
+  // 1,4 m : les lignes hautes restent inaccessibles même avec conducteur
+  const forklift = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7, fleet: { pieton: 1, frontal: 3 } });
+  assert.ok(forklift.orders.some((o) => o.lines.some((l) => l.state === 'unreachable')));
+  // Une flotte sans opérateur ne conduit rien : aucune commande traitée
+  const noDriver = runSimulation(buildWarehouse(spec), { ...BASE, seed: 7, fleet: { frontal: 3 } });
+  assert.equal(noDriver.kpis.ordersCompleted, 0);
+  // Le VNA (1,6 m) passe dans des allées de 1,7 m et lève 14 m —
+  // conduit par un opérateur venu à pied
   const vnaSpec = structuredClone(tall);
   vnaSpec.aisles = vnaSpec.aisles.map((a) => ({ ...a, width: 1.7 }));
   vnaSpec.corridors = [
     { id: 'C1', x: 0, y: 4, length: 44, width: 2, orientation: 'horizontal' },
     { id: 'C2', x: 0, y: 38, length: 44, width: 2, orientation: 'horizontal' },
   ];
-  const vna = runSimulation(buildWarehouse(vnaSpec), { ...BASE, seed: 7, fleet: { vna: 3 } });
+  const vna = runSimulation(buildWarehouse(vnaSpec), { ...BASE, seed: 7, fleet: { pieton: 1, vna: 2 } });
   assert.ok(vna.kpis.ordersCompleted > 0);
   assert.ok(!vna.orders.some((o) => o.lines.some((l) => l.state === 'unreachable')));
+  // Les engins ont bien travaillé, conduits par l'opérateur
+  assert.ok(vna.operators.some((o) => o.vehicle === 'vna' && o.linesPicked > 0));
+});
+
+test('un engin mobilise un opérateur : marche aller, conduite, retour', () => {
+  const tall = structuredClone(spec);
+  tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
+  tall.aisles = tall.aisles.map((a) => ({ ...a, width: 2 }));
+  tall.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 3, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 3, orientation: 'horizontal' },
+  ];
+  // Parking réservé au préparateur, à l'opposé de l'expédition
+  tall.parkings = [{ id: 'PK1', label: 'Parking engins', x: 4, y: 40, vehicles: ['preparateur'] }];
+  const states = [];
+  const { operators } = runSimulation(
+    buildWarehouse(tall),
+    { ...BASE, seed: 7, ordersPerHour: 10, fleet: { pieton: 1, preparateur: 1 } },
+    { onState: (opId, state, t) => states.push({ opId, state, t }) }
+  );
+  const human = operators.find((o) => o.vehicle === 'pieton');
+  const machine = operators.find((o) => o.vehicle === 'preparateur');
+  // Le parking filtré : l'engin y démarre, pas l'humain (type non admis)
+  assert.equal(machine.startNodeId, 'PK1');
+  assert.equal(human.startNodeId, warehouse.shippingNodeId);
+  // L'humain est passé par l'état « driving » (monté sur l'engin)
+  assert.ok(states.some((s) => s.opId === human.id && s.state === 'driving'));
+  // L'engin a travaillé et son conducteur a cumulé du temps occupé
+  assert.ok(machine.linesPicked > 0);
+  assert.ok(human.busyTime > 0);
 });
 
 test('la flotte mixte reste déterministe et rétro-compatible', () => {

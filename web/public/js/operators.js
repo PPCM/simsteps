@@ -76,6 +76,8 @@ export function createOperatorLayer(scene, tracks, vehicles = new Map()) {
         entry.mesh.position.z = y;
         const state = stateAt(entry.track, t);
         if (state !== entry.lastState) {
+          // Un opérateur au volant est dans la cabine : capsule masquée
+          entry.mesh.visible = state !== 'driving';
           const color = STATE_COLORS[state] ?? STATE_COLORS.idle;
           entry.mesh.material.color.setHex(color);
           entry.mesh.material.emissive.setHex(color);

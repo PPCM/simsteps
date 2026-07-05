@@ -82,9 +82,14 @@ KPIs.
    walkers), gauge-filtered A* (edge widths from aisles/corridors),
    lift-height mission compatibility (fleet-impossible missions marked
    unreachable), loaded/unloaded speeds, per-family 3D silhouettes and
-   fleet counters in the Piloter tab. Deferred: per-type KPIs (needs a
-   dedicated UI surface) and carrying capacity (needs strategy-side trip
-   sizing).
+   fleet counters in the Piloter tab. Extended with **operator/vehicle
+   decoupling**: walkers are the human pool; other types are parked
+   equipment that only moves when an operator walks to it, drives it
+   (chaining vehicle-requiring missions), returns it to its parking and
+   walks back — the driver is hidden while mounted, busy for the whole
+   episode. Parkings can restrict admitted vehicle types (`vehicles`).
+   Deferred: per-type KPIs (needs a dedicated UI surface) and carrying
+   capacity (needs strategy-side trip sizing).
 3. **SKUs & slotting** — **done (v0.4.x)**: one reference per slot with
    ABC rotation classes (20/30/50 % of slots drawing 80/15/5 % of
    lines, `sim/skus.js`), `slotting` scenario parameter (`aleatoire` |

@@ -78,6 +78,10 @@ export function snapEdge(center, half) {
 // Arrondi au millimètre : élimine le bruit flottant des conversions
 const mm = (v) => Math.round(v * 1000) / 1000;
 
+// Types d'engins connus — synchronisé avec sim/vehicles.js (ce module
+// pur ne peut pas importer /sim/ depuis les tests Node)
+const VEHICLE_TYPES = ['pieton', 'transpalette', 'gerbeur', 'frontal', 'retractable', 'vna', 'preparateur'];
+
 /**
  * Valeur affichée dans le panneau pour un champ : les coordonnées des
  * zones sont exprimées en bords (gauche/avant), entiers après
@@ -85,9 +89,12 @@ const mm = (v) => Math.round(v * 1000) / 1000;
  * affichent directement leur étendue de baies (entière).
  */
 export function displayValue(kind, element, key) {
-  if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving') {
+  if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving' || kind === 'parking') {
     if (key === 'x') return mm(element.x - zoneHalfWidth(element));
     if (key === 'y') return mm(element.y - zoneHalfDepth(element));
+  }
+  if (kind === 'parking' && key === 'vehicles') {
+    return (element.vehicles ?? []).join(', ');
   }
   return element[key];
 }
@@ -97,9 +104,14 @@ export function displayValue(kind, element, key) {
  * à une saisie du panneau (bord → centre pour les zones).
  */
 export function modelValue(kind, element, key, value) {
-  if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving') {
+  if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving' || kind === 'parking') {
     if (key === 'x') return mm(value + zoneHalfWidth(element));
     if (key === 'y') return mm(value + zoneHalfDepth(element));
+  }
+  if (kind === 'parking' && key === 'vehicles') {
+    // Liste saisie en texte : « vna, frontal » — vide = tous les types
+    const types = value.split(',').map((t) => t.trim()).filter((t) => t !== '');
+    return types.length > 0 ? types : undefined;
   }
   return value;
 }
@@ -546,6 +558,11 @@ export function updateFacility(def, kind, id, props) {
   for (const key of ['id', 'label', 'x', 'y', 'width', 'depth']) {
     if (props[key] !== undefined) facility[key] = props[key];
   }
+  // Engins admis (parkings) : la clé peut être effacée (undefined = tous)
+  if (kind === 'parking' && 'vehicles' in props) {
+    if (props.vehicles === undefined) delete facility.vehicles;
+    else facility.vehicles = props.vehicles;
+  }
   return next;
 }
 
@@ -653,6 +670,17 @@ export function validateDefinition(def, buildWarehouse) {
     }
     if (aisle.x < 0 || aisle.x > width) {
       errors.push(`allée ${aisle.id} : x hors du sol`);
+    }
+  }
+  for (const p of parkings) {
+    if (p.vehicles === undefined) continue;
+    if (p.vehicles.length === 0) {
+      errors.push(`parking ${p.id} : « vehicles » vide (omettre le champ pour admettre tous les engins)`);
+    }
+    for (const type of p.vehicles) {
+      if (!VEHICLE_TYPES.includes(type)) {
+        errors.push(`parking ${p.id} : type d'engin inconnu « ${type} » (disponibles : ${VEHICLE_TYPES.join(', ')})`);
+      }
     }
   }
   for (const f of [...def.workshops, ...shippings, ...receivings, ...parkings]) {

@@ -232,8 +232,10 @@ pathfinding des opérateurs utilise A* sur ce graphe.
   "receiving": [{ "id": "REC", "label": "Réception", "x": 36, "y": 40 }],
   // Parkings d'agents (facultatif) : chaque agent démarre au parking
   // atteignable le plus proche pour son gabarit et y retourne à
-  // l'inactivité ; sans parking, départ à l'expédition
-  "parkings": [{ "id": "PK1", "label": "Parking engins", "x": 4, "y": 40 }]
+  // l'inactivité ; sans parking, départ à l'expédition. `vehicles`
+  // (facultatif) restreint les types admis (absent = tous)
+  "parkings": [{ "id": "PK1", "label": "Parking engins", "x": 4, "y": 40,
+                 "vehicles": ["retractable", "vna"] }]
 }
 ```
 
@@ -260,7 +262,7 @@ Tous facultatifs (défauts entre parenthèses) — voir
 | `seed` (1) | Graine du générateur aléatoire — même graine, même run |
 | `durationHours` (2) | Durée simulée |
 | `operators` (5) | Nombre d'opérateurs à pied (rétro-compatibilité) |
-| `fleet` (—) | Composition de flotte `{ type: nombre }` — types : `pieton`, `transpalette`, `gerbeur`, `frontal`, `retractable`, `vna`, `preparateur` ; prime sur `operators`. Chaque engin a ses vitesses à vide et en charge, sa hauteur de levée (borne les niveaux de rack accessibles) et son gabarit d'allée minimal — le routage n'emprunte que les voies assez larges : élargissez allées et couloirs en conséquence, sinon l'engin reste à quai et les lignes hors d'atteinte restent en attente |
+| `fleet` (—) | Composition de flotte `{ type: nombre }` — types : `pieton`, `transpalette`, `gerbeur`, `frontal`, `retractable`, `vna`, `preparateur` ; prime sur `operators`. Les **piétons sont les opérateurs** (humains) ; les autres types sont du **matériel garé** : une mission faisable à pied part directement, une mission exigeant un engin mobilise un opérateur qui marche jusqu'à l'engin, le conduit (missions enchaînées sans redescendre), le ramène à son parking et rentre à pied. Chaque engin a ses vitesses à vide/en charge, sa hauteur de levée (borne les niveaux de rack accessibles) et son gabarit d'allée minimal — élargissez allées et couloirs en conséquence. Sans piéton, aucun engin ne bouge |
 | `ordersPerHour` (30) | Cadence d'arrivée des commandes (processus de Poisson) |
 | `b2cShare` (0.7) | Part de commandes B2C (0 à 1) |
 | `strategy` (`orderByOrder`) | `orderByOrder` ou `zoneWave` |
