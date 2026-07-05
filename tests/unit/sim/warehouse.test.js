@@ -111,3 +111,46 @@ test('un réseau non connexe est refusé à la construction', () => {
   ];
   assert.throws(() => buildWarehouse(broken), /non connexe/);
 });
+
+test('un couloir à sens unique oriente ses arêtes', () => {
+  // Couloir avant en sens unique +x : l'aller passe par lui, le retour
+  // remonte une allée et redescend par le couloir arrière (connexité
+  // forte assurée par les allées bidirectionnelles)
+  const oneWaySpec = structuredClone(spec);
+  oneWaySpec.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, orientation: 'horizontal', oneWay: 'positif' },
+    { id: 'C2', x: 0, y: 38, length: 44, orientation: 'horizontal' },
+  ];
+  const w = buildWarehouse(oneWaySpec);
+  // Entre la première et la dernière allée : l'aller suit le couloir
+  // avant, le retour doit remonter par le couloir arrière
+  const first = `${oneWaySpec.aisles[0].id}:b1`;
+  const last = `${oneWaySpec.aisles[oneWaySpec.aisles.length - 1].id}:b1`;
+  const aller = w.graph.shortestPath(first, last).distance;
+  const retour = w.graph.shortestPath(last, first).distance;
+  assert.ok(retour > aller, `retour ${retour} devrait dépasser l'aller ${aller}`);
+});
+
+test('des sens uniques sans retour possible sont rejetés', () => {
+  // Expédition à l'ouest, les deux couloirs vers +x : tout est
+  // atteignable à l'aller mais rien ne peut revenir vers l'ouest
+  const trapped = structuredClone(spec);
+  trapped.shipping = [{ id: 'EXP', label: 'Expédition', x: 2, y: 2 }];
+  trapped.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, orientation: 'horizontal', oneWay: 'positif' },
+    { id: 'C2', x: 0, y: 38, length: 44, orientation: 'horizontal', oneWay: 'positif' },
+  ];
+  assert.throws(() => buildWarehouse(trapped), /sens uniques incohérents/);
+});
+
+test('les valeurs oneWay et access invalides sont rejetées', () => {
+  const bad = structuredClone(spec);
+  bad.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, orientation: 'horizontal', oneWay: 'gauche' },
+    { id: 'C2', x: 0, y: 38, length: 44, orientation: 'horizontal' },
+  ];
+  assert.throws(() => buildWarehouse(bad), /oneWay/);
+  bad.corridors[0].oneWay = undefined;
+  bad.corridors[0].access = 'robots';
+  assert.throws(() => buildWarehouse(bad), /access/);
+});

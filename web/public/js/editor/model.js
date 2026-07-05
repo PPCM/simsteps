@@ -94,6 +94,10 @@ export function displayValue(kind, element, key) {
     if (key === 'x') return mm(element.x - zoneHalfWidth(element));
     if (key === 'y') return mm(element.y - zoneHalfDepth(element));
   }
+  if (kind === 'corridor') {
+    if (key === 'oneWay') return element.oneWay ?? 'non';
+    if (key === 'access') return element.access ?? 'mixte';
+  }
   return element[key];
 }
 
@@ -309,9 +313,15 @@ export function updateCorridor(def, corridorId, props) {
   next.corridors = corridorsAsList(next);
   const corridor = corridorOf(next, corridorId);
   const wasHorizontal = corridor.orientation !== 'vertical';
-  for (const key of ['id', 'label', 'x', 'y', 'length', 'width', 'orientation']) {
+  for (const key of ['id', 'label', 'x', 'y', 'length', 'width', 'orientation', 'access']) {
     if (props[key] !== undefined) corridor[key] = props[key];
   }
+  // Sens unique : « non » (défaut) signifie l'absence du champ
+  if ('oneWay' in props) {
+    if (props.oneWay === undefined || props.oneWay === 'non') delete corridor.oneWay;
+    else corridor.oneWay = props.oneWay;
+  }
+  if (corridor.access === 'mixte') delete corridor.access;
   const horizontal = corridor.orientation !== 'vertical';
   if (horizontal !== wasHorizontal) {
     // Pivot autour du centre du segment

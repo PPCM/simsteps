@@ -87,3 +87,19 @@ test('le gabarit filtre les arêtes : chemin, atteignabilité, distances', () =>
   const dist = g.distancesFrom('a');
   assert.equal(dist.get('c'), 20);
 });
+
+test('les voies réservées filtrent par classe d’agent', () => {
+  const g = new Graph();
+  g.addNode('a', 0, 0);
+  g.addNode('b', 10, 0);
+  g.addNode('c', 20, 0);
+  g.addEdge('a', 'b', { access: 'pietons' });
+  g.addEdge('b', 'c', { access: 'engins' });
+  // Sans classe : tout passe (validation de connexité)
+  assert.equal(g.shortestPath('a', 'c').distance, 20);
+  // Piéton bloqué par la voie engins, engin bloqué par la voie piétons
+  assert.equal(g.shortestPath('a', 'c', { kind: 'pietons' }), null);
+  assert.equal(g.shortestPath('a', 'c', { kind: 'engins' }), null);
+  assert.deepEqual([...g.reachableFrom('a', 0, 'pietons')].sort(), ['a', 'b']);
+  assert.deepEqual([...g.reachableFrom('a', 0, 'engins')].sort(), ['a']);
+});

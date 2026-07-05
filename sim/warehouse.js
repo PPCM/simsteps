@@ -160,18 +160,43 @@ export function buildWarehouse(spec) {
   }
 
   // --- Chaînage des stations de chaque couloir par abscisse curviligne ---
+  // Sens unique éventuel (oneWay : 'positif' = vers +x/+y, 'negatif' =
+  // vers −x/−y) et classe d'agents admise (access)
   for (const corridor of corridors) {
+    const oneWay = corridor.oneWay ?? null;
+    if (oneWay !== null && oneWay !== 'positif' && oneWay !== 'negatif') {
+      throw new Error(`couloir ${corridor.id} : « oneWay » doit valoir positif ou negatif`);
+    }
+    const access = corridor.access ?? 'mixte';
+    if (!['mixte', 'pietons', 'engins'].includes(access)) {
+      throw new Error(`couloir ${corridor.id} : « access » doit valoir mixte, pietons ou engins`);
+    }
     const list = stations.get(corridor.id).sort((a, b) => a.t - b.t);
     for (let i = 1; i < list.length; i++) {
-      graph.addEdge(list[i - 1].nodeId, list[i].nodeId, {
-        width: corridor.width ?? DEFAULT_LANE_WIDTH,
-      });
+      const options = { width: corridor.width ?? DEFAULT_LANE_WIDTH, access, oneWay: oneWay !== null };
+      if (oneWay === 'negatif') graph.addEdge(list[i].nodeId, list[i - 1].nodeId, options);
+      else graph.addEdge(list[i - 1].nodeId, list[i].nodeId, options);
     }
   }
 
-  // --- Connexité : tout le réseau doit être atteignable ---
+  // --- Connexité : tout le réseau doit être atteignable ET permettre
+  // le retour (connexité forte, les sens uniques peuvent la briser) ---
   const start = shippings[0].id;
   const reachable = graph.reachableFrom(start);
+  const reverse = new Map([...graph.nodes.keys()].map((id) => [id, []]));
+  for (const id of graph.nodes.keys()) {
+    for (const { to } of graph.neighbors(id)) reverse.get(to).push(id);
+  }
+  const canReturn = new Set([start]);
+  const returnQueue = [start];
+  while (returnQueue.length > 0) {
+    for (const from of reverse.get(returnQueue.pop())) {
+      if (!canReturn.has(from)) {
+        canReturn.add(from);
+        returnQueue.push(from);
+      }
+    }
+  }
   for (const aisle of spec.aisles) {
     if (!reachable.has(`${aisle.id}:b1`)) {
       throw new Error(`réseau de circulation non connexe : l'allée ${aisle.id} est inaccessible depuis ${start}`);
@@ -180,6 +205,16 @@ export function buildWarehouse(spec) {
   for (const f of facilities) {
     if (!reachable.has(f.id)) {
       throw new Error(`réseau de circulation non connexe : la zone ${f.id} est inaccessible depuis ${start}`);
+    }
+  }
+  for (const aisle of spec.aisles) {
+    if (!canReturn.has(`${aisle.id}:b1`)) {
+      throw new Error(`sens uniques incohérents : impossible de revenir de l'allée ${aisle.id} vers ${start}`);
+    }
+  }
+  for (const f of facilities) {
+    if (!canReturn.has(f.id)) {
+      throw new Error(`sens uniques incohérents : impossible de revenir de la zone ${f.id} vers ${start}`);
     }
   }
 

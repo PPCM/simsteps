@@ -53,6 +53,10 @@ const CORRIDOR_FIELDS = [
   ['length', 'Longueur', 'number'],
   ['width', 'Largeur', 'number'],
   ['orientation', 'Orientation', 'select', ['horizontal', 'vertical']],
+  // Sens de circulation le long de l'axe (+x/+y ou −x/−y) et classe
+  // d'agents admise sur la voie
+  ['oneWay', 'Sens unique', 'select', ['non', 'positif', 'negatif']],
+  ['access', 'Accès', 'select', ['mixte', 'pietons', 'engins']],
 ];
 
 const TYPE_LABELS = {
@@ -152,7 +156,7 @@ export function renderSelection(container, def, selection, onChange) {
   container.append(title);
   if (selection.type === 'corridor') {
     const corridor = asList(def.corridors).find((c) => c.id === selection.id);
-    if (corridor) renderFields(container, CORRIDOR_FIELDS, corridor, onChange);
+    if (corridor) renderFields(container, CORRIDOR_FIELDS, corridor, onChange, 'corridor');
   } else if (selection.type === 'aisle') {
     const aisle = def.aisles.find((a) => a.id === selection.id);
     // Les racks sont dérivés de l'allée : leurs réglages s'éditent ici

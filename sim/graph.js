@@ -18,14 +18,15 @@ export class Graph {
    * distance euclidienne entre les nœuds.
    * @param {string} from
    * @param {string} to
-   * @param {{oneWay?: boolean, width?: number}} [options]
+   * @param {{oneWay?: boolean, width?: number, access?: string}} [options]
    *        oneWay : sens unique from → to ; width : largeur praticable
-   *        de la voie en mètres (Infinity = sol libre, sans gabarit)
+   *        de la voie en mètres (Infinity = sol libre, sans gabarit) ;
+   *        access : classe d'agents admise ('mixte' | 'pietons' | 'engins')
    */
-  addEdge(from, to, { oneWay = false, width = Infinity } = {}) {
+  addEdge(from, to, { oneWay = false, width = Infinity, access = 'mixte' } = {}) {
     const dist = this.distance(from, to);
-    this.#adjacency.get(from).push({ to, dist, width });
-    if (!oneWay) this.#adjacency.get(to).push({ to: from, dist, width });
+    this.#adjacency.get(from).push({ to, dist, width, access });
+    if (!oneWay) this.#adjacency.get(to).push({ to: from, dist, width, access });
   }
 
   neighbors(id) {
@@ -42,17 +43,19 @@ export class Graph {
 
   /**
    * Nœuds atteignables depuis une source, en n'empruntant que les
-   * arêtes d'au moins minWidth de large.
+   * arêtes d'au moins minWidth de large et ouvertes à la classe donnée.
    * @param {string} source
    * @param {number} [minWidth]
+   * @param {string|null} [kind] 'pietons' | 'engins' | null (toutes voies)
    * @returns {Set<string>}
    */
-  reachableFrom(source, minWidth = 0) {
+  reachableFrom(source, minWidth = 0, kind = null) {
     const reachable = new Set([source]);
     const queue = [source];
     while (queue.length > 0) {
-      for (const { to, width } of this.neighbors(queue.pop())) {
+      for (const { to, width, access } of this.neighbors(queue.pop())) {
         if (width < minWidth || reachable.has(to)) continue;
+        if (kind !== null && access !== 'mixte' && access !== kind) continue;
         reachable.add(to);
         queue.push(to);
       }
@@ -91,10 +94,11 @@ export class Graph {
    * Plus court chemin par A* (heuristique euclidienne, admissible).
    * @param {string} from
    * @param {string} to
-   * @param {{minWidth?: number}} [options] gabarit minimal des voies empruntées
+   * @param {{minWidth?: number, kind?: string|null}} [options]
+   *        gabarit minimal et classe d'agent (filtre des voies réservées)
    * @returns {{path: string[], distance: number} | null} null si inatteignable
    */
-  shortestPath(from, to, { minWidth = 0 } = {}) {
+  shortestPath(from, to, { minWidth = 0, kind = null } = {}) {
     if (!this.nodes.has(from) || !this.nodes.has(to)) {
       throw new Error(`Nœud inconnu : ${!this.nodes.has(from) ? from : to}`);
     }
@@ -127,8 +131,9 @@ export class Graph {
       if (closed.has(current)) continue;
       closed.add(current);
 
-      for (const { to: next, dist, width } of this.neighbors(current)) {
+      for (const { to: next, dist, width, access } of this.neighbors(current)) {
         if (width < minWidth || closed.has(next)) continue;
+        if (kind !== null && access !== 'mixte' && access !== kind) continue;
         const tentative = gScore.get(current) + dist;
         if (tentative < (gScore.get(next) ?? Infinity)) {
           gScore.set(next, tentative);

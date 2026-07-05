@@ -349,3 +349,28 @@ test('tampon + emballeurs : le picking est découplé de l’emballage', () => {
   assert.ok(packed.kpis.avgCycleTimeSec > noPack.kpis.avgCycleTimeSec,
     `cycle attendu plus long avec emballage : ${packed.kpis.avgCycleTimeSec} vs ${noPack.kpis.avgCycleTimeSec}`);
 });
+
+test('une voie réservée aux piétons bloque les engins', () => {
+  // Réseau large praticable par un rétractable, mais couloir arrière
+  // réservé aux piétons : les allées ne débouchant que sur lui restent
+  // inaccessibles à l'engin (test via un entrepôt 3 niveaux : les
+  // missions hautes exigent l'engin)
+  const tall = structuredClone(spec);
+  tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
+  tall.aisles = tall.aisles.map((a) => ({ ...a, width: 2.8 }));
+  tall.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 3, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 3, orientation: 'horizontal' },
+  ];
+  const open = runSimulation(buildWarehouse(tall), {
+    ...BASE, seed: 13, fleet: { pieton: 2, retractable: 1 },
+  });
+  assert.ok(!open.orders.some((o) => o.lines.some((l) => l.state === 'unreachable')));
+  const restricted = structuredClone(tall);
+  restricted.corridors = restricted.corridors.map((c) => ({ ...c, access: 'pietons' }));
+  const closed = runSimulation(buildWarehouse(restricted), {
+    ...BASE, seed: 13, fleet: { pieton: 2, retractable: 1 },
+  });
+  // L'engin ne peut plus circuler : les lignes hautes sont inaccessibles
+  assert.ok(closed.orders.some((o) => o.lines.some((l) => l.state === 'unreachable')));
+});

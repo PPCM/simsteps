@@ -208,13 +208,17 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   const humans = operators.filter((o) => o.vehicle === 'pieton' && o.role !== 'packer');
   const packerPool = operators.filter((o) => o.role === 'packer');
 
-  // Nœuds atteignables par gabarit d'engin (une passe par largeur distincte)
+  // Nœuds atteignables par gabarit et classe d'agent (les voies
+  // réservées filtrent piétons et engins) — une passe par couple distinct
+  const kindOf = (op) => (op.vehicle === 'pieton' ? 'pietons' : 'engins');
   const reachByWidth = new Map();
+  const reachOf = (op) => reachByWidth.get(`${op.profile.aisleWidthM}|${kindOf(op)}`);
   for (const op of operators) {
-    if (!reachByWidth.has(op.profile.aisleWidthM)) {
+    const key = `${op.profile.aisleWidthM}|${kindOf(op)}`;
+    if (!reachByWidth.has(key)) {
       reachByWidth.set(
-        op.profile.aisleWidthM,
-        graph.reachableFrom(warehouse.shippingNodeId, op.profile.aisleWidthM)
+        key,
+        graph.reachableFrom(warehouse.shippingNodeId, op.profile.aisleWidthM, kindOf(op))
       );
     }
   }
@@ -224,7 +228,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   // l'expédition) et y retournera à l'inactivité
   for (const op of operators) {
     if (op.role === 'packer') continue; // point d'appel : son atelier
-    const reach = reachByWidth.get(op.profile.aisleWidthM);
+    const reach = reachOf(op);
     let best = null;
     for (const parking of warehouse.parkings) {
       if (parking.vehicles !== undefined && !parking.vehicles.includes(op.vehicle)) continue;
@@ -242,13 +246,13 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   // niveau le plus haut, et tous les arrêts/déposes dans son gabarit.
   function compatible(op, mission) {
     if (mission.requiredLiftM > op.profile.liftM + 1e-9) return false;
-    const reach = reachByWidth.get(op.profile.aisleWidthM);
+    const reach = reachOf(op);
     return mission.nodes.every((nodeId) => reach.has(nodeId));
   }
 
   // Capacités du piéton de référence : décide si une mission est
   // faisable à pied (sinon elle exige un engin, donc un conducteur)
-  const walkerReach = graph.reachableFrom(warehouse.shippingNodeId, VEHICLES.pieton.aisleWidthM);
+  const walkerReach = graph.reachableFrom(warehouse.shippingNodeId, VEHICLES.pieton.aisleWidthM, 'pietons');
   function footCompatible(requiredLiftM, nodes) {
     return requiredLiftM <= VEHICLES.pieton.liftM + 1e-9
       && nodes.every((nodeId) => walkerReach.has(nodeId));
@@ -466,7 +470,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
           && o.state === 'idle' && o.reservedBy === null && compatible(o, mission));
         if (machine) {
           const driver = nearestOf(idleHumans, machine.nodeId);
-          const walkReach = reachByWidth.get(driver.profile.aisleWidthM);
+          const walkReach = reachOf(driver);
           if (walkReach.has(machine.nodeId)) {
             missionQueue.splice(m, 1);
             machine.reservedBy = driver;
@@ -508,6 +512,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   function travelTo(op, targetNodeId) {
     const route = graph.shortestPath(op.nodeId, targetNodeId, {
       minWidth: op.profile.aisleWidthM,
+      kind: kindOf(op),
     });
     if (!route) throw new Error(`Aucun chemin de ${op.nodeId} vers ${targetNodeId}`);
     for (let i = 1; i < route.path.length; i++) {
