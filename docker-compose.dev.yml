@@ -1,0 +1,8 @@
+# Surcharge de développement : construit l'image depuis le code local
+# (sous un nom distinct pour ne pas masquer l'image publiée).
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  app:
+    build: .
+    image: simsteps-dev
+    pull_policy: never

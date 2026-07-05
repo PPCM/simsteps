@@ -1,6 +1,8 @@
 // Configuration des tests UI Playwright (tests/ui/). Ils s'exécutent
 // contre la pile Docker (app + PostgreSQL) : si elle tourne déjà, elle
-// est réutilisée, sinon « docker compose up » est lancé automatiquement.
+// est réutilisée, sinon elle est lancée EN CONSTRUISANT l'image depuis
+// le code local (surcharge docker-compose.dev.yml) — les tests doivent
+// exercer le code de travail, pas l'image publiée sur Docker Hub.
 // Séparés des tests unitaires : `npm test` reste sans navigateur ni base.
 
 import { defineConfig } from '@playwright/test';
@@ -19,7 +21,7 @@ export default defineConfig({
     launchOptions: { args: ['--enable-unsafe-swiftshader'] },
   },
   webServer: {
-    command: 'docker compose up',
+    command: 'docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build',
     url: (process.env.BASE_URL ?? 'http://localhost:3000') + '/health',
     reuseExistingServer: true,
     timeout: 120_000,

@@ -1,6 +1,9 @@
 services:
   app:
-    build: .
+    # Image officielle publiée sur Docker Hub (multi-arch) : aucune
+    # compilation locale au démarrage rapide. Pour travailler sur le
+    # code, construire l'image locale via docker-compose.dev.yml.
+    image: ppcm/simsteps:latest
     ports:
       - "${PORT:-3000}:3000"
     environment:
