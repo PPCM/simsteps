@@ -174,6 +174,25 @@ export function createWarehouseScene(canvas, definition) {
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial);
       edges.position.copy(mesh.position);
       aisleGroup.add(edges);
+
+      // Lisses : un cadre par niveau intermédiaire, pour lire la hauteur
+      if (box.levels > 1) {
+        const beamPositions = [];
+        const x0 = box.x - box.width / 2;
+        const x1 = box.x + box.width / 2;
+        const z0 = box.z - box.depth / 2;
+        const z1 = box.z + box.depth / 2;
+        for (let level = 1; level < box.levels; level++) {
+          const y = level * box.levelHeight;
+          beamPositions.push(
+            x0, y, z0, x1, y, z0, x1, y, z0, x1, y, z1,
+            x1, y, z1, x0, y, z1, x0, y, z1, x0, y, z0
+          );
+        }
+        const beamGeometry = new THREE.BufferGeometry();
+        beamGeometry.setAttribute('position', new THREE.Float32BufferAttribute(beamPositions, 3));
+        aisleGroup.add(new THREE.LineSegments(beamGeometry, edgeMaterial));
+      }
     });
     for (const aisle of aisleLabels(def)) {
       const label = makeTextSprite(aisle.id, { color: '#9aa3ad', worldHeight: 1.1 });

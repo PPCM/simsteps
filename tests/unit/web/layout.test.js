@@ -18,7 +18,9 @@ test('rackBoxes produit un volume par rack, contenu dans le sol', () => {
   for (const box of boxes) {
     assert.ok(box.x - box.width / 2 >= 0 && box.x + box.width / 2 <= 44, `rack ${box.id} hors sol en x`);
     assert.ok(box.z - box.depth / 2 >= 0 && box.z + box.depth / 2 <= 42, `rack ${box.id} hors sol en z`);
-    assert.ok(box.height >= 2.4);
+    // Hauteur = niveaux × hauteur de niveau (défaut 2 m)
+    assert.equal(box.height, box.levels * box.levelHeight);
+    assert.ok(box.height >= 2);
   }
 });
 
@@ -155,4 +157,17 @@ test('corridorJunctions repère croisements et extrémités coïncidentes', () =
   assert.deepEqual(points, ['10,38', '10,4', '44,38']);
   // Format historique : deux couloirs parallèles, aucune jonction
   assert.deepEqual(corridorJunctions(def), []);
+});
+
+test('rackBoxes respecte hauteur de niveau et profondeur par rack', () => {
+  const custom = structuredClone(def);
+  custom.racks[0] = { ...custom.racks[0], levels: 3, levelHeight: 2.5, depth: 2 };
+  const box = rackBoxes(custom).find((b) => b.id === custom.racks[0].id);
+  assert.equal(box.height, 7.5);
+  assert.equal(box.width, 2);
+  assert.equal(box.levels, 3);
+  assert.equal(box.levelHeight, 2.5);
+  // Le rack plus profond s'écarte davantage de l'axe de l'allée
+  const aisle = custom.aisles[0];
+  assert.ok(Math.abs(box.x - aisle.x) > Math.abs(rackBoxes(def)[0].x - aisle.x));
 });

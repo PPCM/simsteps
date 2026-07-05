@@ -65,6 +65,7 @@ const NUMERIC_PARAMS = {
   b2cShare: { min: 0, max: 1 },
   speedMps: { min: 0.1, max: 10 },
   pickTimePerLineSec: { min: 0, max: 3600 },
+  liftTimePerLevelSec: { min: 0, max: 3600 },
   dropTimeSec: { min: 0, max: 3600 },
   waveSize: { min: 1, max: 10000, integer: true },
   b2bClients: { min: 1, max: 100000, integer: true },

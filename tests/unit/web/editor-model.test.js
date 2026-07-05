@@ -405,3 +405,30 @@ test('changer la longueur re-borne le segment dans le sol', () => {
   assert.equal(longer.length, 30);
   assert.ok(longer.x + longer.length <= def.dimensions.width);
 });
+
+test('updateAisle règle les racks de l’allée (niveaux, hauteur, profondeur)', () => {
+  const next = updateAisle(normalizeDefinition(def), 'A1', {
+    levels: 4, levelHeight: 1.8, rackDepth: 2.2,
+  });
+  const racks = next.racks.filter((r) => r.aisle === 'A1');
+  assert.equal(racks.length, 2);
+  for (const rack of racks) {
+    assert.equal(rack.levels, 4);
+    assert.equal(rack.levelHeight, 1.8);
+    assert.equal(rack.depth, 2.2);
+  }
+  // Les autres allées ne bougent pas
+  assert.ok(next.racks.filter((r) => r.aisle === 'A2').every((r) => r.levels === 1));
+  assert.deepEqual(validateDefinition(next, buildWarehouse), []);
+});
+
+test('validateDefinition contrôle niveaux et hauteur sous plafond', () => {
+  const badLevels = updateAisle(def, 'A1', { levels: 0 });
+  assert.ok(validateDefinition(badLevels, buildWarehouse).some((e) => e.includes('levels')));
+  // 4 niveaux × 2 m = 8 m > plafond de 6 m
+  const lowCeiling = updateGlobals(updateAisle(normalizeDefinition(def), 'A1', { levels: 4 }), { height: 6 });
+  assert.ok(validateDefinition(lowCeiling, buildWarehouse).some((e) => e.includes('plafond')));
+  // Plafond suffisant : valide
+  const highCeiling = updateGlobals(updateAisle(normalizeDefinition(def), 'A1', { levels: 4 }), { height: 10 });
+  assert.deepEqual(validateDefinition(highCeiling, buildWarehouse), []);
+});

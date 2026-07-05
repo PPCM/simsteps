@@ -183,6 +183,43 @@ test('glisser un couloir le déplace au mètre, borné dans le sol', async ({ pa
   await page.locator('#editCancel').click();
 });
 
+test('les racks d’une allée se règlent depuis son panneau', async ({ page, request, baseURL }) => {
+  const label = await selectInScene(page, 'Allée');
+  const aisleId = label.replace('Allée ', '');
+  const setField = async (name, value) => {
+    const input = page.locator('#selProps .field', { hasText: name }).first().locator('input');
+    await input.fill(String(value));
+    await input.blur();
+  };
+  await setField('Niveaux de rack', 3);
+  await setField('Hauteur de niveau', 2.5);
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+
+  // Les pavés des racks de l'allée culminent à 3 × 2,5 = 7,5 m
+  const heights = await page.evaluate((id) => {
+    const out = [];
+    window.simstepsDebug.scene.traverse((o) => {
+      if (o.parent?.userData?.type === 'aisle' && o.parent.userData.id === id
+          && o.geometry?.parameters?.height !== undefined && o.isMesh) {
+        out.push(o.geometry.parameters.height);
+      }
+    });
+    return out;
+  }, aisleId);
+  expect(heights).toEqual([7.5, 7.5]);
+
+  // Enregistrement : les deux racks de l'allée sont persistés
+  await page.locator('#editSave').click();
+  await expect(page.locator('#warehouseStatus')).toHaveText('Entrepôt enregistré.');
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  const racks = definition.racks.filter((r) => r.aisle === aisleId);
+  expect(racks).toHaveLength(2);
+  for (const rack of racks) {
+    expect(rack.levels).toBe(3);
+    expect(rack.levelHeight).toBe(2.5);
+  }
+});
+
 test('un réseau invalide reste visible, signalé et non enregistrable', async ({ page }) => {
   // Nouveau couloir, déplacé par champs près de la réception : elle s'y
   // raccorde et devient inaccessible → réseau non connexe. La scène doit

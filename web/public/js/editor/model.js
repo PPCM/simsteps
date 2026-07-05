@@ -3,9 +3,11 @@
 // Chaque opération clone la définition et retourne le clone : la
 // définition d'origine n'est jamais mutée. Module sans DOM ni Three.js.
 
-// Dimensions par défaut, identiques à layout.js : largeur du couloir
-// d'une allée (entre ses deux racks de 1,4 m) et emprise des zones au sol
-const RACK_WIDTH = 1.4;
+// Dimensions par défaut, identiques à layout.js : profondeur et hauteur
+// de niveau des racks, largeur du couloir d'une allée (entre ses deux
+// racks) et emprise des zones au sol
+const DEFAULT_RACK_DEPTH = 1.4;
+const DEFAULT_LEVEL_HEIGHT = 2.0;
 const DEFAULT_AISLE_WIDTH = 1.4;
 const DEFAULT_ZONE_WIDTH = 4.8;
 const DEFAULT_ZONE_DEPTH = 3;
@@ -22,10 +24,15 @@ function corridorsAsList(def) {
     { id: 'C2', label: 'Couloir arrière', x: 0, y: corridors.backY, length: def.dimensions.width, width: DEFAULT_AISLE_WIDTH, orientation: 'horizontal' },
   ];
 }
-// Demi-emprise latérale d'une allée (couloir + un rack de chaque côté),
-// arrondie au millimètre pour des bornes de drag sans bruit flottant
-const aisleHalfWidth = (aisle) =>
-  Math.round(((aisle?.width ?? DEFAULT_AISLE_WIDTH) + 2 * RACK_WIDTH) * 500) / 1000;
+// Demi-emprise latérale d'une allée (couloir + le rack le plus profond
+// de chaque côté), arrondie au millimètre pour des bornes sans bruit
+function aisleHalfWidth(def, aisle) {
+  const depths = def.racks
+    .filter((r) => r.aisle === aisle?.id)
+    .map((r) => r.depth ?? DEFAULT_RACK_DEPTH);
+  const deepest = depths.length > 0 ? Math.max(...depths) : DEFAULT_RACK_DEPTH;
+  return Math.round(((aisle?.width ?? DEFAULT_AISLE_WIDTH) + 2 * deepest) * 500) / 1000;
+}
 const zoneHalfWidth = (f) => (f?.width ?? DEFAULT_ZONE_WIDTH) / 2;
 const zoneHalfDepth = (f) => (f?.depth ?? DEFAULT_ZONE_DEPTH) / 2;
 
@@ -40,6 +47,9 @@ const zoneHalfDepth = (f) => (f?.depth ?? DEFAULT_ZONE_DEPTH) / 2;
 export function normalizeDefinition(def) {
   const next = structuredClone(def);
   next.aisles = next.aisles.map((a) => ({ width: DEFAULT_AISLE_WIDTH, ...a }));
+  next.racks = next.racks.map((r) => ({
+    depth: DEFAULT_RACK_DEPTH, levelHeight: DEFAULT_LEVEL_HEIGHT, ...r,
+  }));
   const zone = (z) => ({ width: DEFAULT_ZONE_WIDTH, depth: DEFAULT_ZONE_DEPTH, ...z });
   next.workshops = next.workshops.map(zone);
   next.shipping = asList(next.shipping).map(zone);
@@ -95,7 +105,7 @@ export function modelValue(kind, element, key, value) {
 
 /** Borne l'axe x d'une allée pour que ses racks restent dans le sol. */
 export function clampAisleX(def, x, aisle) {
-  const half = aisleHalfWidth(aisle);
+  const half = aisleHalfWidth(def, aisle);
   return clamp(x, half, def.dimensions.width - half);
 }
 
@@ -122,7 +132,7 @@ export function moveAisle(def, aisleId, { x, yStart }) {
   const length = aisle.yEnd - aisle.yStart;
   // En x, flanc extérieur du rack gauche aligné sur la grille ; en y,
   // début de baies au mètre entier (les champs Début/Fin restent entiers)
-  if (x !== undefined) aisle.x = clampAisleX(next, snapEdge(x, aisleHalfWidth(aisle)), aisle);
+  if (x !== undefined) aisle.x = clampAisleX(next, snapEdge(x, aisleHalfWidth(next, aisle)), aisle);
   if (yStart !== undefined) {
     aisle.yStart = clampAisleY(next, snapToGrid(yStart), length);
     aisle.yEnd = aisle.yStart + length;
@@ -335,11 +345,14 @@ export function addAisle(def) {
     : { id, x: clampAisleX(next, 5), yStart: 3, yEnd: Math.max(5, next.dimensions.depth - 3), bays: 5, zone: 'Z1', width: DEFAULT_AISLE_WIDTH };
   next.aisles.push(aisle);
   const rackIds = next.racks.map((r) => r.id);
-  const levels = next.racks[next.racks.length - 1]?.levels ?? 1;
+  const lastRack = next.racks[next.racks.length - 1];
+  const levels = lastRack?.levels ?? 1;
+  const levelHeight = lastRack?.levelHeight ?? DEFAULT_LEVEL_HEIGHT;
+  const rackDepth = lastRack?.depth ?? DEFAULT_RACK_DEPTH;
   for (const side of ['gauche', 'droite']) {
     const rackId = nextId('R', rackIds, 2);
     rackIds.push(rackId);
-    next.racks.push({ id: rackId, aisle: id, side, levels });
+    next.racks.push({ id: rackId, aisle: id, side, levels, levelHeight, depth: rackDepth });
   }
   return next;
 }
@@ -450,14 +463,22 @@ export function removeWorkshop(def, workshopId) {
 
 /**
  * Met à jour les propriétés d'une allée (id, zone, bays, yStart, yEnd,
- * width). Le renommage d'id est propagé aux racks de l'allée.
+ * width) et de ses racks (levels, levelHeight, rackDepth — appliqués
+ * aux deux racks, dérivés de l'allée). Le renommage d'id est propagé
+ * aux racks.
  * @returns {object} nouvelle définition
  */
 export function updateAisle(def, aisleId, props) {
   const next = structuredClone(def);
   const aisle = next.aisles.find((a) => a.id === aisleId);
   if (!aisle) throw new Error(`Allée inconnue : ${aisleId}`);
-  const { id, zone, bays, yStart, yEnd, width } = props;
+  const { id, zone, bays, yStart, yEnd, width, levels, levelHeight, rackDepth } = props;
+  for (const rack of next.racks) {
+    if (rack.aisle !== aisle.id) continue;
+    if (levels !== undefined) rack.levels = levels;
+    if (levelHeight !== undefined) rack.levelHeight = levelHeight;
+    if (rackDepth !== undefined) rack.depth = rackDepth;
+  }
   if (id !== undefined && id !== aisle.id) {
     for (const rack of next.racks) {
       if (rack.aisle === aisle.id) rack.aisle = id;
@@ -487,7 +508,8 @@ export function updateFacility(def, kind, id, props) {
 }
 
 /**
- * Met à jour les propriétés globales (name, description, dimensions).
+ * Met à jour les propriétés globales (name, description, dimensions —
+ * height est la hauteur sous plafond, optionnelle, qui borne les racks).
  * Les couloirs sont des objets à part entière et se modifient via
  * moveCorridor / updateCorridor.
  * @returns {object} nouvelle définition
@@ -498,6 +520,7 @@ export function updateGlobals(def, props) {
   if (props.description !== undefined) next.description = props.description;
   if (props.width !== undefined) next.dimensions.width = props.width;
   if (props.depth !== undefined) next.dimensions.depth = props.depth;
+  if (props.height !== undefined) next.dimensions.height = props.height;
   return next;
 }
 
@@ -557,6 +580,21 @@ export function validateDefinition(def, buildWarehouse) {
     'identifiant de zone',
     errors
   );
+  for (const rack of def.racks) {
+    if (!Number.isInteger(rack.levels) || rack.levels < 1) {
+      errors.push(`rack ${rack.id} : « levels » doit être un entier ≥ 1`);
+      continue;
+    }
+    if ((rack.levelHeight !== undefined && !(rack.levelHeight > 0))
+        || (rack.depth !== undefined && !(rack.depth > 0))) {
+      errors.push(`rack ${rack.id} : hauteur de niveau et profondeur doivent être des nombres positifs`);
+      continue;
+    }
+    const rackHeight = rack.levels * (rack.levelHeight ?? DEFAULT_LEVEL_HEIGHT);
+    if (def.dimensions.height !== undefined && rackHeight > def.dimensions.height) {
+      errors.push(`rack ${rack.id} : ${rackHeight} m dépasse la hauteur sous plafond (${def.dimensions.height} m)`);
+    }
+  }
   for (const aisle of def.aisles) {
     if (!Number.isInteger(aisle.bays) || aisle.bays < 2) {
       errors.push(`allée ${aisle.id} : « bays » doit être un entier ≥ 2`);
@@ -620,8 +658,8 @@ export function minimalDefinition() {
     ],
     aisles: [{ id: 'A1', x: 8, yStart: 6, yEnd: 14, bays: 5, zone: 'Z1', width: 1.4 }],
     racks: [
-      { id: 'R01', aisle: 'A1', side: 'gauche', levels: 1 },
-      { id: 'R02', aisle: 'A1', side: 'droite', levels: 1 },
+      { id: 'R01', aisle: 'A1', side: 'gauche', levels: 1, levelHeight: 2, depth: 1.4 },
+      { id: 'R02', aisle: 'A1', side: 'droite', levels: 1, levelHeight: 2, depth: 1.4 },
     ],
     workshops: [{ id: 'AT1', label: 'Atelier 1', x: 5, y: 1.5, width: 4.8, depth: 3 }],
     shipping: [{ id: 'EXP', label: 'Expédition', x: 12, y: 1.5, width: 4.8, depth: 3 }],

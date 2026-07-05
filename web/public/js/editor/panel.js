@@ -15,6 +15,10 @@ const AISLE_FIELDS = [
   ['yStart', 'Début (y)', 'number'],
   ['yEnd', 'Fin (y)', 'number'],
   ['width', 'Largeur couloir', 'number'],
+  // Racks de l'allée (appliqué aux deux côtés)
+  ['levels', 'Niveaux de rack', 'number'],
+  ['levelHeight', 'Hauteur de niveau', 'number'],
+  ['rackDepth', 'Profondeur racks', 'number'],
 ];
 const FACILITY_FIELDS = [
   ['id', 'Identifiant', 'text'],
@@ -31,6 +35,7 @@ const GLOBAL_FIELDS = [
   ['name', 'Nom', 'text'],
   ['width', 'Largeur (x)', 'number'],
   ['depth', 'Profondeur (y)', 'number'],
+  ['height', 'Hauteur plafond (z)', 'number'],
 ];
 
 const CORRIDOR_FIELDS = [
@@ -112,7 +117,16 @@ export function renderSelection(container, def, selection, onChange) {
     if (corridor) renderFields(container, CORRIDOR_FIELDS, corridor, onChange);
   } else if (selection.type === 'aisle') {
     const aisle = def.aisles.find((a) => a.id === selection.id);
-    if (aisle) renderFields(container, AISLE_FIELDS, aisle, onChange, 'aisle');
+    // Les racks sont dérivés de l'allée : leurs réglages s'éditent ici
+    const rack = def.racks.find((r) => r.aisle === selection.id);
+    if (aisle) {
+      renderFields(container, AISLE_FIELDS, {
+        ...aisle,
+        levels: rack?.levels,
+        levelHeight: rack?.levelHeight,
+        rackDepth: rack?.depth,
+      }, onChange, 'aisle');
+    }
   } else {
     const facility = selection.type === 'workshop'
       ? def.workshops.find((w) => w.id === selection.id)
@@ -133,6 +147,7 @@ export function renderGlobals(container, def, onChange) {
     name: def.name,
     width: def.dimensions.width,
     depth: def.dimensions.depth,
+    height: def.dimensions.height,
   }, onChange);
 }
 

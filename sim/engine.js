@@ -23,6 +23,7 @@ export const DEFAULT_SCENARIO = {
   strategy: 'orderByOrder',
   speedMps: 1.2,
   pickTimePerLineSec: 12,
+  liftTimePerLevelSec: 6, // surcoût par niveau au-dessus du premier
   dropTimeSec: 20,
   waveSize: 20,
   b2bClients: 8,
@@ -202,6 +203,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
           nodeId: slot.nodeId,
           aisleId: slot.aisleId,
           zone: slot.zone,
+          level: slot.level,
           state: 'pending', // pending | planned | picked | dropped
         };
       }),
@@ -219,11 +221,15 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   function onOpArrive(op) {
     op.nodeId = op.targetNodeId;
     if (op.stopIndex < op.mission.stops.length) {
-      // Arrivée à un emplacement : prélèvement de toutes les lignes de l'arrêt
+      // Arrivée à un emplacement : prélèvement de toutes les lignes de
+      // l'arrêt, avec surcoût d'élévation pour les niveaux hauts
       const stop = op.mission.stops[op.stopIndex];
       op.state = 'picking';
       hooks.onState?.(op.id, 'picking', now);
-      queue.push(now + stop.lines.length * scenario.pickTimePerLineSec, 'opPickDone', { opId: op.id });
+      const duration = stop.lines.reduce((sum, line) => sum
+        + scenario.pickTimePerLineSec
+        + ((line.level ?? 1) - 1) * scenario.liftTimePerLevelSec, 0);
+      queue.push(now + duration, 'opPickDone', { opId: op.id });
     } else {
       // Arrivée à une cible de dépose
       op.state = 'dropping';

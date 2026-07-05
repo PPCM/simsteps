@@ -3,8 +3,11 @@
 // Convention : les coordonnées (x, y) du plan de l'entrepôt deviennent
 // (x, z) dans la scène 3D, la hauteur est portée par l'axe Y.
 
-const RACK_WIDTH = 1.4;
 const RACK_MARGIN = 0.9; // dépassement au-delà des baies en bout d'allée
+// Défauts des racks (surchargables par rack) : profondeur (extension
+// perpendiculaire à l'allée) et hauteur d'un niveau de stockage
+export const DEFAULT_RACK_DEPTH = 1.4;
+export const DEFAULT_LEVEL_HEIGHT = 2.0;
 // Largeur par défaut du couloir d'une allée (entre ses deux racks) et
 // dimensions par défaut des zones au sol — surchargables par élément
 export const DEFAULT_AISLE_WIDTH = 1.4;
@@ -20,7 +23,10 @@ export function floorSize(def) {
 
 /**
  * Volumes des racks : un pavé par rack, positionné le long de son allée.
- * @returns {Array<{id: string, x: number, z: number, width: number, depth: number, height: number}>}
+ * La hauteur vaut niveaux × hauteur de niveau ; la profondeur du rack
+ * (extension perpendiculaire à l'allée) est propre à chaque rack.
+ * @returns {Array<{id: string, x: number, z: number, width: number, depth: number,
+ *                  height: number, levels: number, levelHeight: number}>}
  *          x/z : centre du pavé au sol
  */
 export function rackBoxes(def) {
@@ -30,17 +36,21 @@ export function rackBoxes(def) {
     if (!aisle) throw new Error(`Rack ${rack.id} : allée inconnue ${rack.aisle}`);
     // Racks de part et d'autre du couloir de circulation de l'allée
     const half = (aisle.width ?? DEFAULT_AISLE_WIDTH) / 2;
-    const offsets = { gauche: -half - RACK_WIDTH, droite: half };
+    const rackDepth = rack.depth ?? DEFAULT_RACK_DEPTH;
+    const levelHeight = rack.levelHeight ?? DEFAULT_LEVEL_HEIGHT;
+    const offsets = { gauche: -half - rackDepth, droite: half };
     const offset = offsets[rack.side];
     if (offset === undefined) throw new Error(`Rack ${rack.id} : côté inconnu ${rack.side}`);
     const depth = aisle.yEnd - aisle.yStart + 2 * RACK_MARGIN;
     return {
       id: rack.id,
-      x: aisle.x + offset + RACK_WIDTH / 2,
+      x: aisle.x + offset + rackDepth / 2,
       z: (aisle.yStart + aisle.yEnd) / 2,
-      width: RACK_WIDTH,
+      width: rackDepth,
       depth,
-      height: Math.max(2.4, 1 + rack.levels * 1.2),
+      height: rack.levels * levelHeight,
+      levels: rack.levels,
+      levelHeight,
     };
   });
 }

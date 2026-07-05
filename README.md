@@ -141,6 +141,9 @@ Le détail des sections :
   circulation entre les zones.
   « Enregistrer » valide et persiste la définition (modification en
   place : tous les projets qui référencent l'entrepôt la voient),
+  Les racks se règlent depuis le panneau de leur allée (niveaux, hauteur
+  de niveau, profondeur — appliqués aux deux côtés) ; la hauteur sous
+  plafond, dans les propriétés globales, borne leur élévation.
   « Annuler » restaure l'état d'entrée. Limites assumées : pas
   d'annulation fine, pas de redimensionnement à la souris, racks dérivés
   des allées (deux racks gauche/droite).
@@ -186,6 +189,7 @@ pathfinding des opérateurs utilise A* sur ce graphe.
 ```jsonc
 {
   "name": "Mon entrepôt",
+  // height (facultatif) : hauteur sous plafond, borne la hauteur des racks
   "dimensions": { "width": 44, "depth": 42 },      // mètres au sol
   // Réseau de couloirs : segments horizontaux (le long de x) ou
   // verticaux (le long de y), partant de (x, y) sur `length` mètres.
@@ -203,8 +207,12 @@ pathfinding des opérateurs utilise A* sur ce graphe.
     { "id": "A1", "x": 6, "yStart": 7, "yEnd": 35, "bays": 17, "zone": "Z1", "width": 1.4 }
   ],
   "racks": [
-    // Un rack par côté d'allée ; levels : niveaux picking par baie.
-    // Emplacements générés : R01-01-1 … R01-17-1 (rack-baie-niveau)
+    // Un rack par côté d'allée ; levels : niveaux de stockage par baie ;
+    // levelHeight (facultatif, 2 m) : hauteur d'un niveau ; depth
+    // (facultatif, 1.4 m) : profondeur du rack perpendiculaire à l'allée.
+    // Emplacements générés : R01-01-1 … R01-17-1 (rack-baie-niveau) ;
+    // prélever en hauteur coûte liftTimePerLevelSec par niveau au-delà
+    // du premier.
     { "id": "R01", "aisle": "A1", "side": "gauche", "levels": 1 },
     { "id": "R02", "aisle": "A1", "side": "droite", "levels": 1 }
   ],
@@ -249,6 +257,7 @@ Tous facultatifs (défauts entre parenthèses) — voir
 | `waveSize` (20) | Taille max d'une vague (stratégie `zoneWave`) |
 | `speedMps` (1.2) | Vitesse de marche (m/s) |
 | `pickTimePerLineSec` (12) | Temps de prélèvement par ligne |
+| `liftTimePerLevelSec` (6) | Surcoût d'élévation par niveau de rack au-delà du premier |
 | `dropTimeSec` (20) | Temps de dépose |
 | `b2bClients` (8) | Taille du portefeuille clients B2B |
 

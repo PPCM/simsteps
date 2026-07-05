@@ -67,8 +67,13 @@ KPIs.
 
 ## 4. Six-phase plan
 
-1. **Parametric racks** (foundation) — level height, depth, type; clear
-   height; pick time by level; editor fields; defaults = current behavior.
+1. **Parametric racks** (foundation) — **done (v0.4.x)**: per-rack
+   `levelHeight` (default 2 m) and `depth` (default 1.4 m), optional
+   building clear height (`dimensions.height`) bounding rack heights,
+   pick time by level (`liftTimePerLevelSec` scenario parameter), real
+   heights with level beams in the 3D render, rack fields on the aisle
+   panel (racks stay aisle-derived; the `type` field is deferred to the
+   typology work alongside replenishment).
 2. **Vehicle fleet** (core) — profile catalog, `fleet` scenario field,
    gauge-filtered A*, compatible assignment, loaded/unloaded speeds, simple
    3D silhouettes, per-type KPIs.

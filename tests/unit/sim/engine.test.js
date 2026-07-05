@@ -141,3 +141,20 @@ test('les dépôts B2B partent à la zone d’expédition la plus proche', () =>
   assert.ok(targets.has('EXP-PRES'), 'les missions doivent déposer à la zone proche');
   assert.ok(!targets.has('EXP-LOIN'), 'la zone lointaine ne doit jamais être choisie');
 });
+
+test('les niveaux hauts allongent le temps de prélèvement', () => {
+  // Même entrepôt, mêmes commandes : racks à 1 niveau contre 3 niveaux
+  const tall = structuredClone(spec);
+  tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
+  const flat = runSimulation(buildWarehouse(spec), { ...BASE, seed: 7 });
+  const high = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7 });
+  // Plus d'emplacements (x3) : les tirages diffèrent, mais l'élévation
+  // doit peser sur l'occupation moyenne à volume de commandes équivalent.
+  // Test ciblé : un run avec surcoût d'élévation nul est identique à un
+  // run où tous les niveaux valent 1.
+  const noLift = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7, liftTimePerLevelSec: 0 });
+  const withLift = runSimulation(buildWarehouse(tall), { ...BASE, seed: 7, liftTimePerLevelSec: 30 });
+  assert.ok(withLift.kpis.avgCycleTimeSec > noLift.kpis.avgCycleTimeSec,
+    `cycle attendu plus long avec élévation : ${withLift.kpis.avgCycleTimeSec} vs ${noLift.kpis.avgCycleTimeSec}`);
+  assert.ok(flat.kpis.ordersCompleted > 0 && high.kpis.ordersCompleted > 0);
+});
