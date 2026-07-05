@@ -53,6 +53,7 @@ const TYPE_LABELS = {
   workshop: 'Atelier',
   shipping: 'Expédition',
   receiving: 'Réception',
+  parking: 'Parking',
   corridor: 'Couloir',
 };
 
@@ -130,7 +131,9 @@ export function renderSelection(container, def, selection, onChange) {
   } else {
     const facility = selection.type === 'workshop'
       ? def.workshops.find((w) => w.id === selection.id)
-      : asList(def[selection.type]).find((z) => z.id === selection.id);
+      : selection.type === 'parking'
+        ? (def.parkings ?? []).find((p) => p.id === selection.id)
+        : asList(def[selection.type]).find((z) => z.id === selection.id);
     if (facility) renderFields(container, FACILITY_FIELDS, facility, onChange, selection.type);
   }
 }

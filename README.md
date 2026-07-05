@@ -133,8 +133,10 @@ Le détail des sections :
   (baies, zone, identifiants, largeur/profondeur — chaque élément est
   redimensionnable), les propriétés globales (nom, dimensions), et
   l'ajout/la suppression d'allées, d'ateliers, de zones d'expédition ou
-  de réception et de couloirs (au moins un couloir et une zone de
-  chaque type doivent rester). Les couloirs sont des objets à part
+  de réception, de couloirs et de parkings d'agents (au moins un
+  couloir et une zone d'expédition/réception doivent rester ; les
+  parkings sont optionnels — placez-les en bordure, hors des flux,
+  proches des quais). Les couloirs sont des objets à part
   entière : position, longueur, largeur et orientation
   (horizontal/vertical, menu déroulant) modifiables, connexion
   automatique aux croisements — de quoi dessiner de vrais chemins de
@@ -227,7 +229,11 @@ pathfinding des opérateurs utilise A* sur ce graphe.
   // Une zone unique (objet) ou une liste de zones ; mêmes width/depth
   // facultatifs que les ateliers
   "shipping":  [{ "id": "EXP", "label": "Expédition", "x": 28, "y": 2 }],
-  "receiving": [{ "id": "REC", "label": "Réception", "x": 36, "y": 40 }]
+  "receiving": [{ "id": "REC", "label": "Réception", "x": 36, "y": 40 }],
+  // Parkings d'agents (facultatif) : chaque agent démarre au parking
+  // atteignable le plus proche pour son gabarit et y retourne à
+  // l'inactivité ; sans parking, départ à l'expédition
+  "parkings": [{ "id": "PK1", "label": "Parking engins", "x": 4, "y": 40 }]
 }
 ```
 

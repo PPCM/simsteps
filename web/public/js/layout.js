@@ -74,6 +74,7 @@ export function zonePatches(def) {
     ...def.workshops.map((w) => patch(w, 'workshop')),
     ...asList(def.shipping).map((s) => patch(s, 'shipping')),
     ...asList(def.receiving).map((r) => patch(r, 'receiving')),
+    ...(def.parkings ?? []).map((p) => patch(p, 'parking')),
   ];
 }
 

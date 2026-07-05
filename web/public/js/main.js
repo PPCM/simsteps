@@ -19,7 +19,8 @@ import { slotCount } from './layout.js';
 import { splitSettings, buildSettings, mergeProjectParams } from './projects.js';
 import {
   moveAisle, moveFacility, moveCorridor, addAisle, removeAisle, addWorkshop, removeWorkshop,
-  addShipping, addReceiving, removeZone, addCorridor, removeCorridor, updateCorridor,
+  addShipping, addReceiving, removeZone, addParking, removeParking,
+  addCorridor, removeCorridor, updateCorridor,
   updateAisle, updateFacility, updateGlobals, validateDefinition,
   duplicateDefinition, minimalDefinition, normalizeDefinition,
 } from './editor/model.js';
@@ -42,7 +43,7 @@ const els = {
   editPanel: $('editPanel'), selProps: $('selProps'), globalProps: $('globalProps'),
   editAddAisle: $('editAddAisle'), editAddWorkshop: $('editAddWorkshop'),
   editAddShipping: $('editAddShipping'), editAddReceiving: $('editAddReceiving'),
-  editAddCorridor: $('editAddCorridor'),
+  editAddCorridor: $('editAddCorridor'), editAddParking: $('editAddParking'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
   scenario: $('scenario'), opCount: $('opCount'), fleetInputs: $('fleetInputs'),
@@ -260,7 +261,9 @@ try {
     const recorder = createRecorder(warehouse.graph);
     const sampler = createKpiSampler(20);
     const result = runSimulation(warehouse, params, { ...recorder.hooks, ...sampler.hooks });
-    const tracks = recorder.finish(warehouse.shippingNodeId);
+    const tracks = recorder.finish(
+      result.operators.map((op) => ({ id: op.id, startNodeId: op.startNodeId }))
+    );
     sampler.finish(durationSec, result.orders, result.operators);
 
     const vehicleByOp = new Map(result.operators.map((op) => [op.id, op.vehicle]));
@@ -567,9 +570,9 @@ try {
   }
 
   function findFacility(def, kind, id) {
-    return kind === 'workshop'
-      ? def.workshops.find((w) => w.id === id)
-      : facilityList(def[kind]).find((z) => z.id === id);
+    if (kind === 'workshop') return def.workshops.find((w) => w.id === id);
+    if (kind === 'parking') return (def.parkings ?? []).find((p) => p.id === id);
+    return facilityList(def[kind]).find((z) => z.id === id);
   }
 
   function renderSelectionPanel() {
@@ -719,6 +722,11 @@ try {
     selection = { type: 'corridor', id: next.corridors[next.corridors.length - 1].id };
     applyWorkingDef(next);
   });
+  els.editAddParking.addEventListener('click', () => {
+    const next = addParking(workingDef);
+    selection = { type: 'parking', id: next.parkings[next.parkings.length - 1].id };
+    applyWorkingDef(next);
+  });
   els.editRemoveSelection.addEventListener('click', () => {
     if (!selection) {
       renderErrors(els.editErrors, ['Aucun élément sélectionné.']);
@@ -729,6 +737,7 @@ try {
       if (selection.type === 'corridor') next = removeCorridor(workingDef, selection.id);
       else if (selection.type === 'aisle') next = removeAisle(workingDef, selection.id);
       else if (selection.type === 'workshop') next = removeWorkshop(workingDef, selection.id);
+      else if (selection.type === 'parking') next = removeParking(workingDef, selection.id);
       else next = removeZone(workingDef, selection.type, selection.id);
       selection = null;
       applyWorkingDef(next);

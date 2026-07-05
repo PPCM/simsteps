@@ -53,8 +53,11 @@ Zones and infrastructure: docks with doors and scheduled trucks, **buffer /
 drop zone** (« zone tampon » : picked goods staged next to the packing
 workshops, decoupling picking pace from packing pace — implies a packer
 role distinct from the picker), staging / consolidation area (bounded
-capacity), block stacking, cross-docking, charging area, obstacles
-(columns, offices), conveyors/sorter, mezzanine.
+capacity), block stacking, cross-docking, charging area (a first step
+shipped: optional `parkings` zones — agents start at the nearest
+gauge-reachable parking and return there when idle; charging semantics
+still belong to phase 6), obstacles (columns, offices),
+conveyors/sorter, mezzanine.
 
 Missing characteristics on existing objects: building clear height; aisle
 one-way flag, dedicated vehicle (VNA), served levels; corridor one-way /

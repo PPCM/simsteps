@@ -45,13 +45,16 @@ export function createRecorder(graph) {
     },
 
     /**
-     * Clôture l'enregistrement : fixe la position initiale des opérateurs.
-     * @param {string} startNodeId nœud de départ (expédition)
+     * Clôture l'enregistrement : crée les pistes des agents jamais
+     * partis et fixe la position initiale de chacun (son parking, ou
+     * l'expédition à défaut).
+     * @param {Array<{id: string, startNodeId: string}>} agents
      */
-    finish(startNodeId) {
-      const start = graph.nodes.get(startNodeId);
-      for (const t of tracks.values()) {
-        t.start = [start.x, start.y];
+    finish(agents) {
+      for (const agent of agents) {
+        const t = track(agent.id);
+        const node = graph.nodes.get(agent.startNodeId);
+        t.start = [node.x, node.y];
       }
       return tracks;
     },

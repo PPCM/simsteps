@@ -16,6 +16,8 @@ import {
   addWorkshop,
   removeWorkshop,
   addShipping,
+  addParking,
+  removeParking,
   addReceiving,
   removeZone,
   updateAisle,
@@ -431,4 +433,24 @@ test('validateDefinition contrôle niveaux et hauteur sous plafond', () => {
   // Plafond suffisant : valide
   const highCeiling = updateGlobals(updateAisle(normalizeDefinition(def), 'A1', { levels: 4 }), { height: 10 });
   assert.deepEqual(validateDefinition(highCeiling, buildWarehouse), []);
+});
+
+test('addParking / removeParking : zone optionnelle, zéro autorisé', () => {
+  const norm = normalizeDefinition(def);
+  assert.deepEqual(norm.parkings, []);
+  const added = addParking(norm);
+  assert.equal(added.parkings.length, 1);
+  assert.equal(added.parkings[0].id, 'PK1');
+  assert.ok(added.parkings[0].label.startsWith('Parking'));
+  assert.deepEqual(validateDefinition(added, buildWarehouse), []);
+  // Redimensionnement et déplacement comme toute zone
+  const resized = updateFacility(added, 'parking', 'PK1', { width: 6, depth: 4 });
+  assert.equal(resized.parkings[0].width, 6);
+  const moved = moveFacility(resized, 'parking', 'PK1', { x: 0, y: 0 });
+  assert.equal(moved.parkings[0].x, 3);
+  // Suppression jusqu'à zéro : valide (repli sur l'expédition)
+  const removed = removeParking(added, 'PK1');
+  assert.deepEqual(removed.parkings, []);
+  assert.deepEqual(validateDefinition(removed, buildWarehouse), []);
+  assert.throws(() => removeParking(removed, 'PK1'), /Parking inconnu/);
 });

@@ -209,3 +209,22 @@ test('le rangement ABC réduit la distance par ligne', () => {
   assert.ok(abc.kpis.distancePerLineM < random.kpis.distancePerLineM,
     `ABC attendu plus court : ${abc.kpis.distancePerLineM} vs ${random.kpis.distancePerLineM}`);
 });
+
+test('les agents démarrent au parking et y retournent à l’inactivité', () => {
+  const parked = structuredClone(spec);
+  parked.parkings = [{ id: 'PK1', label: 'Parking 1', x: 4, y: 40 }];
+  const w = buildWarehouse(parked);
+  const { operators, orders } = runSimulation(w, { ...BASE, seed: 5, ordersPerHour: 6 });
+  // Départ affecté au parking
+  for (const op of operators) assert.equal(op.startNodeId, 'PK1');
+  // À la fin d'une journée calme, les agents actifs sont rentrés se garer
+  const worked = operators.filter((o) => o.linesPicked > 0 && o.state === 'idle');
+  assert.ok(worked.length > 0);
+  for (const op of worked) assert.equal(op.nodeId, 'PK1');
+  assert.ok(orders.some((o) => o.completedAt !== null));
+});
+
+test('sans parking, comportement historique (départ à l’expédition)', () => {
+  const { operators } = runSimulation(warehouse, { ...BASE, seed: 5 });
+  for (const op of operators) assert.equal(op.startNodeId, warehouse.shippingNodeId);
+});

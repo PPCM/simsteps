@@ -280,6 +280,17 @@ test('changer la taille du sol recadre la caméra sur le nouveau terrain', async
   await page.locator('#editCancel').click();
 });
 
+test('ajouter un parking d’agents et l’enregistrer', async ({ page, request, baseURL }) => {
+  await page.locator('#editAddParking').click();
+  await expect(page.locator('#selProps .placeholder')).toHaveText('Parking PK1');
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+  await page.locator('#editSave').click();
+  await expect(page.locator('#warehouseStatus')).toHaveText('Entrepôt enregistré.');
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  expect(definition.parkings).toHaveLength(1);
+  expect(definition.parkings[0].id).toBe('PK1');
+});
+
 test('ajouter et redimensionner une zone d’expédition', async ({ page, request, baseURL }) => {
   // Ajout : la zone est créée et sélectionnée automatiquement
   await page.locator('#editAddShipping').click();

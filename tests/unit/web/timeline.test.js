@@ -20,7 +20,7 @@ function recordedTrack() {
   recorder.hooks.onTravel('op-1', ['a', 'b', 'c'], 10, 7, 7);
   recorder.hooks.onState('op-1', 'picking', 17);
   recorder.hooks.onState('op-1', 'idle', 29);
-  return recorder.finish('exp').get('op-1');
+  return recorder.finish([{ id: 'op-1', startNodeId: 'exp' }]).get('op-1');
 }
 
 test('avant le premier déplacement, l’opérateur est à son point de départ', () => {
@@ -55,7 +55,7 @@ test('l’état suit les transitions enregistrées', () => {
 test('un déplacement de durée nulle place directement à destination', () => {
   const recorder = createRecorder(graph);
   recorder.hooks.onTravel('op-1', ['a'], 5, 0, 0);
-  const track = recorder.finish('exp').get('op-1');
+  const track = recorder.finish([{ id: 'op-1', startNodeId: 'exp' }]).get('op-1');
   assert.deepEqual(positionAt(track, 5), { x: 0, y: 0 });
   assert.deepEqual(positionAt(track, 6), { x: 0, y: 0 });
 });
@@ -64,7 +64,7 @@ test('plusieurs segments successifs se relisent dans l’ordre', () => {
   const recorder = createRecorder(graph);
   recorder.hooks.onTravel('op-1', ['a', 'b'], 0, 3, 3);
   recorder.hooks.onTravel('op-1', ['b', 'c'], 10, 4, 4);
-  const track = recorder.finish('exp').get('op-1');
+  const track = recorder.finish([{ id: 'op-1', startNodeId: 'exp' }]).get('op-1');
   assert.deepEqual(positionAt(track, 5), { x: 3, y: 0 }); // pause en b
   assert.deepEqual(positionAt(track, 12), { x: 3, y: 2 }); // en route vers c
 });

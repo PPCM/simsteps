@@ -86,6 +86,8 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         vehicle,
         profile,
         nodeId: warehouse.shippingNodeId,
+        startNodeId: warehouse.shippingNodeId, // parking affecté (voir plus bas)
+        returning: false, // retour au parking en cours
         state: 'idle', // idle | moving | picking | dropping
         mission: null,
         stopIndex: 0,
@@ -107,6 +109,23 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         op.profile.aisleWidthM,
         graph.reachableFrom(warehouse.shippingNodeId, op.profile.aisleWidthM)
       );
+    }
+  }
+
+  // Stationnement : chaque agent démarre au parking atteignable le plus
+  // proche de l'expédition pour son gabarit (à défaut, l'expédition) et
+  // y retournera à l'inactivité
+  for (const op of operators) {
+    const reach = reachByWidth.get(op.profile.aisleWidthM);
+    let best = null;
+    for (const parking of warehouse.parkings) {
+      if (!reach.has(parking.nodeId)) continue;
+      const d = graph.distance(warehouse.shippingNodeId, parking.nodeId);
+      if (best === null || d < best.d) best = { nodeId: parking.nodeId, d };
+    }
+    if (best !== null) {
+      op.startNodeId = best.nodeId;
+      op.nodeId = best.nodeId;
     }
   }
 
@@ -292,6 +311,14 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
 
   function onOpArrive(op) {
     op.nodeId = op.targetNodeId;
+    if (op.returning) {
+      // Arrivée au parking : l'agent redevient disponible
+      op.returning = false;
+      op.state = 'idle';
+      hooks.onState?.(op.id, 'idle', now);
+      tryAssign();
+      return;
+    }
     if (op.stopIndex < op.mission.stops.length) {
       // Arrivée à un emplacement : prélèvement de toutes les lignes de
       // l'arrêt, avec surcoût d'élévation pour les niveaux hauts
@@ -347,6 +374,12 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       op.state = 'idle';
       hooks.onState?.(op.id, 'idle', now);
       tryAssign();
+      // Toujours inactif après l'affectation : retour au parking (trajet
+      // à vide, hors temps de mission — il compte dans la distance)
+      if (op.state === 'idle' && op.nodeId !== op.startNodeId) {
+        op.returning = true;
+        travelTo(op, op.startNodeId);
+      }
     }
   }
 

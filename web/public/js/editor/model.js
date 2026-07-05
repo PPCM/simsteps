@@ -54,6 +54,7 @@ export function normalizeDefinition(def) {
   next.workshops = next.workshops.map(zone);
   next.shipping = asList(next.shipping).map(zone);
   next.receiving = asList(next.receiving).map(zone);
+  next.parkings = (next.parkings ?? []).map(zone);
   next.corridors = corridorsAsList(next).map((c) => ({
     width: DEFAULT_AISLE_WIDTH, orientation: 'horizontal', label: c.id, ...c,
   }));
@@ -151,6 +152,11 @@ function facilityOf(def, kind, id) {
     const zone = asList(def[kind]).find((z) => z.id === id);
     if (!zone) throw new Error(`Zone inconnue : ${id}`);
     return zone;
+  }
+  if (kind === 'parking') {
+    const parking = (def.parkings ?? []).find((p) => p.id === id);
+    if (!parking) throw new Error(`Parking inconnu : ${id}`);
+    return parking;
   }
   throw new Error(`Type d'élément inconnu : ${kind}`);
 }
@@ -432,6 +438,42 @@ export function addReceiving(def) {
 }
 
 /**
+ * Ajoute un parking d'agents (stationnement/point d'appel) près du
+ * dernier — les agents y démarrent et y retournent à l'inactivité.
+ * @returns {object} nouvelle définition
+ */
+export function addParking(def) {
+  const next = structuredClone(def);
+  const list = next.parkings ?? [];
+  const last = list[list.length - 1];
+  const id = nextId('PK', list.map((p) => p.id));
+  const width = last?.width ?? DEFAULT_ZONE_WIDTH;
+  const depth = last?.depth ?? DEFAULT_ZONE_DEPTH;
+  const x = clamp(snapEdge((last?.x ?? 4) + width + 2, width / 2), width / 2, next.dimensions.width - width / 2);
+  const y = clamp(
+    snapEdge(last?.y ?? next.dimensions.depth - 2, depth / 2),
+    depth / 2, next.dimensions.depth - depth / 2
+  );
+  list.push({ id, label: `Parking ${id.slice(2)}`, x, y, width, depth });
+  next.parkings = list;
+  return next;
+}
+
+/**
+ * Supprime un parking (les parkings sont optionnels : zéro autorisé —
+ * les agents retombent alors sur l'expédition).
+ * @returns {object} nouvelle définition
+ */
+export function removeParking(def, parkingId) {
+  if (!(def.parkings ?? []).some((p) => p.id === parkingId)) {
+    throw new Error(`Parking inconnu : ${parkingId}`);
+  }
+  const next = structuredClone(def);
+  next.parkings = next.parkings.filter((p) => p.id !== parkingId);
+  return next;
+}
+
+/**
  * Supprime une zone d'expédition ou de réception. Refuse de supprimer
  * la dernière de son type (le moteur exige au moins une de chaque).
  * @returns {object} nouvelle définition
@@ -571,12 +613,13 @@ export function validateDefinition(def, buildWarehouse) {
   }
   const shippings = asList(def.shipping);
   const receivings = asList(def.receiving);
+  const parkings = def.parkings ?? [];
   if (shippings.length === 0) errors.push('au moins une zone d’expédition est requise');
   if (receivings.length === 0) errors.push('au moins une zone de réception est requise');
   checkUnique(def.aisles.map((a) => a.id), 'identifiant d’allée', errors);
   checkUnique(def.racks.map((r) => r.id), 'identifiant de rack', errors);
   checkUnique(
-    [...def.workshops, ...shippings, ...receivings].map((z) => z.id),
+    [...def.workshops, ...shippings, ...receivings, ...parkings].map((z) => z.id),
     'identifiant de zone',
     errors
   );
@@ -612,7 +655,7 @@ export function validateDefinition(def, buildWarehouse) {
       errors.push(`allée ${aisle.id} : x hors du sol`);
     }
   }
-  for (const f of [...def.workshops, ...shippings, ...receivings]) {
+  for (const f of [...def.workshops, ...shippings, ...receivings, ...parkings]) {
     if ((f.width !== undefined && !(f.width > 0)) || (f.depth !== undefined && !(f.depth > 0))) {
       errors.push(`zone ${f.id} : largeur et profondeur doivent être des nombres positifs`);
       continue;
