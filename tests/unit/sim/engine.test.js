@@ -329,3 +329,23 @@ test('les flux sont déterministes et absents du mode historique', () => {
   assert.equal(legacy.kpis.replenishments, undefined);
   assert.equal(legacy.kpis.stockouts, undefined);
 });
+
+test('tampon + emballeurs : le picking est découplé de l’emballage', () => {
+  const buffered = structuredClone(spec);
+  buffered.buffers = [{ id: 'TP1', label: 'Tampon emballage', x: 14, y: 40 }];
+  const w = buildWarehouse(buffered);
+  const params = { ...BASE, seed: 9, b2cShare: 1, packers: 2 };
+  const packed = runSimulation(w, params);
+  // Les emballeurs existent, travaillent, et les commandes aboutissent
+  const packers = packed.operators.filter((o) => o.role === 'packer');
+  assert.equal(packers.length, 2);
+  assert.ok(packers.some((p) => p.busyTime > 0), 'les emballeurs doivent travailler');
+  assert.ok(packed.kpis.ordersCompleted > 0);
+  // Sans zone tampon, packers est ignoré : aucun emballeur créé
+  const legacy = runSimulation(warehouse, params);
+  assert.equal(legacy.operators.filter((o) => o.role === 'packer').length, 0);
+  // L'étape d'emballage allonge le cycle moyen à demande identique
+  const noPack = runSimulation(w, { ...params, packers: 0 });
+  assert.ok(packed.kpis.avgCycleTimeSec > noPack.kpis.avgCycleTimeSec,
+    `cycle attendu plus long avec emballage : ${packed.kpis.avgCycleTimeSec} vs ${noPack.kpis.avgCycleTimeSec}`);
+});

@@ -168,7 +168,45 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       });
     }
   }
-  const humans = operators.filter((o) => o.vehicle === 'pieton');
+  // Emballeurs : rôle à part (piétons rattachés aux ateliers), actifs
+  // seulement si l'entrepôt a des zones tampon — sinon la dépose à
+  // l'atelier termine la commande comme avant
+  const usePacking = warehouse.buffers.length > 0 && scenario.packers > 0;
+  const walkerProfile = {
+    ...VEHICLES.pieton,
+    speedMps: scenario.speedMps,
+    speedLoadedMps: scenario.speedMps,
+  };
+  if (usePacking) {
+    for (let i = 0; i < scenario.packers; i++) {
+      const workshop = warehouse.workshops[i % warehouse.workshops.length];
+      operators.push({
+        id: `op-${operators.length + 1}`,
+        vehicle: 'pieton',
+        role: 'packer',
+        profile: walkerProfile,
+        nodeId: workshop.nodeId,
+        startNodeId: workshop.nodeId,
+        returning: false,
+        state: 'idle',
+        mission: null,
+        job: null, // { phase: 'toBuffer' | 'toWorkshop', lines, workshopNodeId }
+        stopIndex: 0,
+        dropIndex: 0,
+        targetNodeId: null,
+        distance: 0,
+        busyTime: 0,
+        busySince: null,
+        linesPicked: 0,
+        mounting: null,
+        driving: null,
+        driver: null,
+        reservedBy: null,
+      });
+    }
+  }
+  const humans = operators.filter((o) => o.vehicle === 'pieton' && o.role !== 'packer');
+  const packerPool = operators.filter((o) => o.role === 'packer');
 
   // Nœuds atteignables par gabarit d'engin (une passe par largeur distincte)
   const reachByWidth = new Map();
@@ -185,6 +223,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   // plus proche de l'expédition qui admet son type d'engin (à défaut,
   // l'expédition) et y retournera à l'inactivité
   for (const op of operators) {
+    if (op.role === 'packer') continue; // point d'appel : son atelier
     const reach = reachByWidth.get(op.profile.aisleWidthM);
     let best = null;
     for (const parking of warehouse.parkings) {
@@ -253,7 +292,12 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     );
     const drops = [];
     if (b2cLines.length > 0) {
-      drops.push({ nodeId: nearest(warehouse.workshops).nodeId, lines: b2cLines });
+      // Avec emballeurs : dépose au tampon, l'atelier emballera ensuite
+      drops.push({
+        nodeId: nearest(usePacking ? warehouse.buffers : warehouse.workshops).nodeId,
+        lines: b2cLines,
+        packing: usePacking,
+      });
     }
     if (b2bLines.length > 0) {
       drops.push({ nodeId: nearest(warehouse.shippings).nodeId, lines: b2bLines });
@@ -342,6 +386,24 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       placePallet({ pickSlotId: drawSlot() });
     }
     scheduleNextTruck();
+  }
+
+  // --- Emballage : dépose au tampon → l'emballeur ramène à l'atelier ---
+
+  const packJobs = []; // travaux d'emballage en attente d'un emballeur
+  function tryAssignPackers() {
+    while (packJobs.length > 0) {
+      const idle = packerPool.filter((p) => p.state === 'idle');
+      if (idle.length === 0) break;
+      const job = packJobs.shift();
+      const packer = nearestOf(idle, job.bufferNodeId);
+      // Le poste d'emballage : l'atelier le plus proche du tampon
+      const workshop = warehouse.workshops.reduce((best, w) =>
+        graph.distance(w.nodeId, job.bufferNodeId) < graph.distance(best.nodeId, job.bufferNodeId) ? w : best);
+      packer.job = { phase: 'toBuffer', lines: job.lines, workshopNodeId: workshop.nodeId };
+      packer.busySince = now;
+      travelTo(packer, job.bufferNodeId);
+    }
   }
 
   const truckRatePerSec = scenario.inboundTrucksPerDay / 86400;
@@ -563,6 +625,21 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       startMission(machine, mission);
       return;
     }
+    if (op.role === 'packer' && op.job !== null) {
+      if (op.job.phase === 'toBuffer') {
+        // Au tampon : récupération du travail à emballer
+        op.state = 'picking';
+        hooks.onState?.(op.id, 'picking', now);
+        queue.push(now + scenario.dropTimeSec, 'opPickDone', { opId: op.id });
+      } else {
+        // Au poste : emballage (une durée par commande distincte)
+        op.state = 'dropping';
+        hooks.onState?.(op.id, 'dropping', now);
+        const orderCount = new Set(op.job.lines.map((l) => l.orderId)).size;
+        queue.push(now + orderCount * scenario.packTimePerOrderSec, 'opDropDone', { opId: op.id });
+      }
+      return;
+    }
     if (op.returning) {
       // Arrivée au parking ou au point d'appel
       op.returning = false;
@@ -610,6 +687,11 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   }
 
   function onOpPickDone(op) {
+    if (op.role === 'packer' && op.job !== null) {
+      op.job.phase = 'toWorkshop';
+      travelTo(op, op.job.workshopNodeId);
+      return;
+    }
     const stop = op.mission.stops[op.stopIndex];
     if (op.mission.kind === 'replenish') {
       // Palette descendue : la réserve se libère, une palette à quai
@@ -627,7 +709,37 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     }
   }
 
+  // Termine des lignes déposées et clôt les commandes complètes
+  function completeLines(lines) {
+    const touchedOrders = new Set();
+    for (const line of lines) {
+      line.state = 'dropped';
+      touchedOrders.add(line.orderId);
+    }
+    for (const orderId of touchedOrders) {
+      const order = orders[orderId - 1];
+      if (order.completedAt === null && order.lines.every((l) => l.state === 'dropped')) {
+        order.completedAt = now;
+      }
+    }
+  }
+
   function onOpDropDone(op) {
+    if (op.role === 'packer' && op.job !== null) {
+      // Emballage terminé : les commandes du travail sont finalisées
+      completeLines(op.job.lines);
+      op.job = null;
+      op.busyTime += now - op.busySince;
+      op.busySince = null;
+      op.state = 'idle';
+      hooks.onState?.(op.id, 'idle', now);
+      tryAssignPackers();
+      if (op.state === 'idle' && op.nodeId !== op.startNodeId) {
+        op.returning = true;
+        travelTo(op, op.startNodeId);
+      }
+      return;
+    }
     const drop = op.mission.drops[op.dropIndex];
     if (op.mission.kind === 'replenish') {
       // La palette recharge l'emplacement picking
@@ -642,17 +754,14 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       counters.putaways++;
       maybeReplenish(columnOfReserve.get(drop.slotId));
     }
-    const touchedOrders = new Set();
-    for (const line of drop.lines ?? []) {
-      line.state = 'dropped';
-      touchedOrders.add(line.orderId);
-    }
-    // Une commande est terminée quand toutes ses lignes sont déposées
-    for (const orderId of touchedOrders) {
-      const order = orders[orderId - 1];
-      if (order.completedAt === null && order.lines.every((l) => l.state === 'dropped')) {
-        order.completedAt = now;
-      }
+    if (drop.packing) {
+      // Dépose au tampon : les lignes attendent l'emballage
+      for (const line of drop.lines) line.state = 'staged';
+      packJobs.push({ lines: drop.lines, bufferNodeId: drop.nodeId });
+      tryAssignPackers();
+    } else {
+      // Une commande est terminée quand toutes ses lignes sont déposées
+      completeLines(drop.lines ?? []);
     }
     op.dropIndex++;
     if (op.dropIndex < op.mission.drops.length) {
