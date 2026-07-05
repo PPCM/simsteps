@@ -49,6 +49,7 @@ const els = {
   editAddBuffer: $('editAddBuffer'), editAddObstacle: $('editAddObstacle'),
   editAddConveyor: $('editAddConveyor'),
   replenishment: $('replenishment'), inboundTrucks: $('inboundTrucks'), packers: $('packers'),
+  corridorExclusion: $('corridorExclusion'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
   scenario: $('scenario'), opCount: $('opCount'), fleetInputs: $('fleetInputs'),
@@ -212,6 +213,7 @@ try {
       replenishment: els.replenishment.checked,
       inboundTrucksPerDay: Number(els.inboundTrucks.value),
       packers: Number(els.packers.value),
+      corridorExclusion: els.corridorExclusion.checked,
     };
   }
 
@@ -230,6 +232,7 @@ try {
     els.replenishment.checked = params.replenishment === true;
     els.inboundTrucks.value = params.inboundTrucksPerDay ?? 0;
     els.packers.value = params.packers ?? 0;
+    els.corridorExclusion.checked = params.corridorExclusion === true;
     refreshSliderLabels();
   }
 
@@ -363,7 +366,7 @@ try {
     input.addEventListener('change', runCurrent);
   }
   els.slotting.addEventListener('change', runCurrent);
-  for (const control of [els.replenishment, els.inboundTrucks, els.packers]) {
+  for (const control of [els.replenishment, els.inboundTrucks, els.packers, els.corridorExclusion]) {
     control.addEventListener('change', runCurrent);
   }
   els.toggleTrails.addEventListener('change', () => {
@@ -570,6 +573,7 @@ try {
   const editLocked = [
     els.play, els.playMini, ...speedButtons, els.scenario, els.opCount, ...fleetEls.values(),
     els.b2cShare, els.orderRate, els.slotting, els.replenishment, els.inboundTrucks, els.packers,
+    els.corridorExclusion,
     els.saveRun, els.project, els.projectName, els.projectCreate, els.projectUpdate,
     els.projectDelete, els.warehouse, els.warehouseEdit, els.warehouseCreate,
     els.warehouseDuplicate, els.warehouseDelete, els.cmpA, els.cmpB, els.cmpRun,

@@ -41,6 +41,8 @@ export const DEFAULT_SCENARIO = {
   packers: 0, // emballeurs (exige des zones tampon dans l'entrepôt)
   packTimePerOrderSec: 60, // emballage d'une commande au poste
   agvAutonomyHours: 4, // autonomie de batterie des engins automatisés
+  // --- Circulation (phase 5) ---
+  corridorExclusion: false, // exclusivité de croisement étendue aux tronçons de couloir
 };
 
 // Sous ce niveau de batterie, un engin automatisé rentre se recharger ;
@@ -167,8 +169,8 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         busySince: null,
         linesPicked: 0,
         route: null, // itinéraire en cours (tronçons)
-        heldAisle: null, // allée verrouillée par cet engin
-        waitTime: 0, // attente cumulée aux entrées d'allées
+        heldSegment: null, // segment (allée, tronçon) verrouillé par cet engin
+        waitTime: 0, // attente cumulée aux entrées de segments
         battery: 1, // niveau de batterie (engins automatisés seulement)
         chargeTime: 0, // temps passé en recharge
         chargingSince: null,
@@ -211,7 +213,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         busySince: null,
         linesPicked: 0,
         route: null,
-        heldAisle: null,
+        heldSegment: null,
         waitTime: 0,
         battery: 1,
         chargeTime: 0,
@@ -567,21 +569,41 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   // stocké avec chaque run pour la heatmap et le diagramme spaghetti
   const edgeTraffic = new Map();
 
-  // --- Exclusivité d'allée (congestion) ---
-  // Un engin dont le gabarit dépasse la moitié de la largeur du couloir
-  // d'allée ne peut pas y être croisé : il verrouille l'allée qu'il
+  // --- Exclusivité de segment (congestion) ---
+  // Un engin dont le gabarit dépasse la moitié de la largeur d'un
+  // segment ne peut pas y être croisé : il verrouille le segment qu'il
   // traverse, les autres agents (piétons compris) attendent aux
-  // extrémités. Les piétons ne verrouillent jamais. Sans engin de ce
-  // gabarit dans la flotte, aucune allée n'est verrouillable et les
-  // déplacements restent d'un seul tenant (comportement historique).
-  const aisleWidthById = new Map(warehouse.aisles.map((a) => [a.id, a.width ?? 1.4]));
-  function needsLock(op, aisleId) {
+  // extrémités en file FIFO. Les piétons ne verrouillent jamais. Les
+  // segments sont les allées (toujours) et, si le scénario active
+  // corridorExclusion, chaque arête étroite hors allée (tronçons de
+  // couloir, débouchés). Sans engin au gabarit critique dans la flotte,
+  // rien n'est verrouillable et les déplacements restent d'un seul
+  // tenant (comportement historique).
+  const segmentWidth = new Map(warehouse.aisles.map((a) => [a.id, a.width ?? 1.4]));
+  function needsLock(op, segmentId) {
     return op.vehicle !== 'pieton'
-      && op.profile.aisleWidthM > aisleWidthById.get(aisleId) / 2 + 1e-9;
+      && op.profile.aisleWidthM > segmentWidth.get(segmentId) / 2 + 1e-9;
   }
   const lockableAisles = new Set();
-  for (const aisleId of aisleWidthById.keys()) {
-    if (operators.some((op) => needsLock(op, aisleId))) lockableAisles.add(aisleId);
+  for (const aisle of warehouse.aisles) {
+    if (operators.some((op) => needsLock(op, aisle.id))) lockableAisles.add(aisle.id);
+  }
+  // Arêtes verrouillables par le plus large engin de la flotte, en clé
+  // canonique "a|b" — celles des allées verrouillables sont couvertes
+  // par le verrou d'allée, qui prime dans segmentForStep
+  const lockableEdges = new Set();
+  if (scenario.corridorExclusion === true) {
+    const maxGauge = Math.max(0, ...operators
+      .filter((op) => op.vehicle !== 'pieton')
+      .map((op) => op.profile.aisleWidthM));
+    for (const nodeId of graph.nodes.keys()) {
+      for (const { to, width } of graph.neighbors(nodeId)) {
+        if (!(maxGauge > width / 2 + 1e-9)) continue;
+        const key = nodeId < to ? `${nodeId}|${to}` : `${to}|${nodeId}`;
+        lockableEdges.add(key);
+        segmentWidth.set(key, width);
+      }
+    }
   }
   // Segment d'un nœud : l'allée verrouillable qui le porte, sinon null
   function segmentOf(nodeId) {
@@ -590,25 +612,34 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     const aisleId = nodeId.slice(0, sep);
     return lockableAisles.has(aisleId) ? aisleId : null;
   }
-  const aisleLocks = new Map(); // allée → { holder, queue: [{ op, since }] }
-  function lockFor(aisleId) {
-    if (!aisleLocks.has(aisleId)) aisleLocks.set(aisleId, { holder: null, queue: [] });
-    return aisleLocks.get(aisleId);
+  // Segment verrouillable d'un pas d'itinéraire : l'allée du nœud
+  // d'arrivée, sinon l'arête elle-même si elle est verrouillable
+  function segmentForStep(fromId, toId) {
+    const aisle = segmentOf(toId);
+    if (aisle !== null) return aisle;
+    if (lockableEdges.size === 0) return null;
+    const key = fromId < toId ? `${fromId}|${toId}` : `${toId}|${fromId}`;
+    return lockableEdges.has(key) ? key : null;
+  }
+  const segmentLocks = new Map(); // segment → { holder, queue: [{ op, since }] }
+  function lockFor(segmentId) {
+    if (!segmentLocks.has(segmentId)) segmentLocks.set(segmentId, { holder: null, queue: [] });
+    return segmentLocks.get(segmentId);
   }
 
-  function releaseAisle(op) {
-    const lock = lockFor(op.heldAisle);
-    const aisleId = op.heldAisle;
-    op.heldAisle = null;
+  function releaseSegment(op) {
+    const lock = lockFor(op.heldSegment);
+    const segmentId = op.heldSegment;
+    op.heldSegment = null;
     lock.holder = null;
     // Réveil de la file : les piétons en tête passent, le premier
-    // verrouilleur reprend le verrou et referme l'allée
+    // verrouilleur reprend le verrou et referme le segment
     while (lock.queue.length > 0 && lock.holder === null) {
       const { op: waiter, since } = lock.queue.shift();
       waiter.waitTime += now - since;
-      if (needsLock(waiter, aisleId)) {
+      if (needsLock(waiter, segmentId)) {
         lock.holder = waiter.id;
-        waiter.heldAisle = aisleId;
+        waiter.heldSegment = segmentId;
       }
       startLeg(waiter, { resumed: true });
     }
@@ -631,8 +662,8 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   }
 
   // Lance le prochain tronçon de l'itinéraire : jusqu'à l'entrée ou la
-  // sortie d'une allée verrouillable (ou l'arrivée). L'attente à
-  // l'entrée d'une allée tenue se fait en file FIFO.
+  // sortie d'un segment verrouillable (ou l'arrivée). L'attente à
+  // l'entrée d'un segment tenu se fait en file FIFO.
   function startLeg(op, { resumed = false } = {}) {
     const { path } = op.route;
     const index = op.route.index;
@@ -646,10 +677,10 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       queue.push(now, 'opArrive', { opId: op.id });
       return;
     }
-    const target = segmentOf(path[index + 1]);
-    // Quitte l'allée tenue dès le départ du tronçon suivant
-    if (op.heldAisle !== null && target !== op.heldAisle) releaseAisle(op);
-    if (target !== null && op.heldAisle !== target && !resumed) {
+    const target = segmentForStep(path[index], path[index + 1]);
+    // Quitte le segment tenu dès le départ du tronçon suivant
+    if (op.heldSegment !== null && target !== op.heldSegment) releaseSegment(op);
+    if (target !== null && op.heldSegment !== target && !resumed) {
       const lock = lockFor(target);
       if (lock.holder !== null && lock.holder !== op.id) {
         op.state = 'waiting';
@@ -659,11 +690,11 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       }
       if (needsLock(op, target)) {
         lock.holder = op.id;
-        op.heldAisle = target;
+        op.heldSegment = target;
       }
     }
     let j = index + 1;
-    while (j + 1 < path.length && segmentOf(path[j + 1]) === target) j++;
+    while (j + 1 < path.length && segmentForStep(path[j], path[j + 1]) === target) j++;
     let legDistance = 0;
     for (let i = index + 1; i <= j; i++) {
       legDistance += graph.distance(path[i - 1], path[i]);
@@ -1070,7 +1101,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
 
   const kpis = {
     ...computeKpis({ orders, operators, durationSec }),
-    // Attente cumulée aux entrées d'allées verrouillées (congestion)
+    // Attente cumulée aux entrées de segments verrouillés (congestion)
     waitingTimeSec: operators.reduce((sum, op) => sum + op.waitTime, 0),
     // Recharge cumulée des engins automatisés
     chargingTimeSec: operators.reduce((sum, op) => sum + op.chargeTime, 0),

@@ -66,6 +66,11 @@ test('la flotte d’engins se règle depuis l’onglet Piloter', async ({ page }
   await page.locator('[data-speed="60"]').click();
   await expect(page.locator('#kpi-distline')).not.toHaveText('—', { timeout: 20_000 });
 
+  // L'exclusivité des couloirs se pilote depuis le même onglet et
+  // relance la simulation sans erreur
+  await page.locator('#corridorExclusion').check();
+  await expect(page.locator('#status')).toContainText('opérateurs');
+
   expect(consoleErrors).toEqual([]);
 });
 

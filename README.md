@@ -186,7 +186,7 @@ Le détail des sections :
   proposés ; sinon, ceux de l'entrepôt affiché.
 
 Couleurs d'état : bleu = déplacement, ambre = prélèvement,
-vert = dépose, rouge = attente à l'entrée d'une allée (congestion),
+vert = dépose, rouge = attente en circulation (congestion),
 violet = recharge (engins automatisés), gris = inactif. Les piétons
 portent la couleur sur leur capsule, les engins (carrosserie orange
 constante) sur leur anneau au sol.
@@ -196,6 +196,11 @@ largeur du couloir d'allée ne peut pas y être croisé — il verrouille
 l'allée qu'il traverse et les autres agents (piétons compris)
 attendent en file à ses extrémités. Les piétons ne verrouillent
 jamais. L'attente cumulée alimente le KPI `waitingTimeSec` des runs.
+Le paramètre de scénario `corridorExclusion` (case « Croisements
+exclusifs dans les couloirs étroits » de l'onglet Piloter) étend ce
+mécanisme à chaque tronçon de couloir : les croisements impossibles
+physiquement (voie plus étroite que deux gabarits) deviennent des
+attentes mesurables au lieu de chevauchements ignorés.
 
 ## API REST
 
@@ -321,6 +326,7 @@ Tous facultatifs (défauts entre parenthèses) — voir
 | `packers` (0) | Emballeurs (exige des zones tampon) : les lignes B2C sont déposées au tampon, l'emballeur les ramène à l'atelier et emballe — le picking est découplé de l'emballage |
 | `packTimePerOrderSec` (60) | Emballage d'une commande au poste |
 | `agvAutonomyHours` (4) | Autonomie de batterie des engins automatisés (`agv`, `amr`) : décharge au temps de mission ; sous 20 %, retour à leur parking (station de charge) et recharge 3× plus rapide que la décharge (état violet « Charge », KPI `chargingTimeSec`) |
+| `corridorExclusion` (false) | Étend l'exclusivité de croisement aux tronçons de couloir : un engin dont le gabarit dépasse la moitié de la largeur d'un tronçon le verrouille le temps de le traverser, les autres agents attendent en file à ses extrémités (état rouge « Attente », KPI `waitingTimeSec`). Les piétons ne verrouillent jamais |
 | `speedMps` (1.2) | Vitesse de marche (m/s) |
 | `pickTimePerLineSec` (12) | Temps de prélèvement par ligne |
 | `liftTimePerLevelSec` (6) | Surcoût d'élévation par niveau de rack au-delà du premier |

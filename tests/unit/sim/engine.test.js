@@ -416,6 +416,53 @@ test('la congestion est déterministe à graine identique', () => {
   assert.deepEqual(a.kpis, b.kpis);
 });
 
+// --- Exclusivité des couloirs (option corridorExclusion) ---
+
+// Allées larges (aucun verrou d'allée possible) mais couloirs étroits :
+// seule l'option corridorExclusion peut y créer de l'attente
+function narrowCorridorSpec() {
+  const tall = structuredClone(spec);
+  tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
+  tall.aisles = tall.aisles.map((a) => ({ ...a, width: 3.4 }));
+  tall.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 2, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 2, orientation: 'horizontal' },
+  ];
+  return tall;
+}
+
+test('l’exclusivité des couloirs fait attendre les agents qui s’y croisent', () => {
+  const params = {
+    ...BASE, seed: 17, ordersPerHour: 60, durationHours: 2,
+    fleet: { pieton: 3, vna: 2 },
+  };
+  // Sans l'option : allées larges, couloirs non gérés — aucune attente
+  const off = runSimulation(buildWarehouse(narrowCorridorSpec()), params);
+  assert.equal(off.kpis.waitingTimeSec, 0);
+  const states = new Set();
+  const on = runSimulation(buildWarehouse(narrowCorridorSpec()),
+    { ...params, corridorExclusion: true },
+    { onState: (opId, state) => states.add(state) });
+  assert.ok(states.has('waiting'), 'des attentes en couloir doivent survenir');
+  assert.ok(on.kpis.waitingTimeSec > 0);
+  assert.ok(on.kpis.ordersCompleted > 0);
+});
+
+test('l’exclusivité des couloirs est déterministe et sans effet pour les piétons', () => {
+  const params = {
+    ...BASE, seed: 17, ordersPerHour: 60,
+    fleet: { pieton: 3, vna: 2 }, corridorExclusion: true,
+  };
+  const a = runSimulation(buildWarehouse(narrowCorridorSpec()), params);
+  const b = runSimulation(buildWarehouse(narrowCorridorSpec()), params);
+  assert.deepEqual(a.kpis, b.kpis);
+  // Flotte 100 % piétonne : les piétons ne verrouillent jamais, l'option
+  // activée reproduit exactement le run historique
+  const legacy = runSimulation(warehouse, { ...BASE, seed: 17 });
+  const walkers = runSimulation(warehouse, { ...BASE, seed: 17, corridorExclusion: true });
+  assert.deepEqual(walkers.kpis, legacy.kpis);
+});
+
 // --- Phase 6 : engins automatisés (AGV/AMR) ---
 
 // Couloirs réservés aux engins : les piétons ne peuvent rien faire,

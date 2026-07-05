@@ -46,7 +46,7 @@ test('mergeProjectParams : priorité curseurs > extras > scénario', () => {
 
 test('les clés de curseurs couvrent les contrôles du panneau (flotte comprise)', () => {
   assert.deepEqual(SLIDER_KEYS, ['operators', 'fleet', 'b2cShare', 'ordersPerHour', 'slotting',
-    'replenishment', 'inboundTrucksPerDay', 'packers']);
+    'replenishment', 'inboundTrucksPerDay', 'packers', 'corridorExclusion']);
 });
 
 test('splitSettings range la flotte côté curseurs', () => {
