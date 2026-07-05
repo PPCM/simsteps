@@ -151,6 +151,34 @@ export function moveFacility(def, kind, id, { x, y }) {
   return next;
 }
 
+/**
+ * Déplace un couloir transversal (avant/arrière) : accrochage au mètre,
+ * borné entre le bord du sol et le débouché des allées (les allées
+ * doivent garder un débouché praticable de CORRIDOR_MARGIN).
+ * @returns {object} nouvelle définition
+ */
+export function moveCorridor(def, corridorId, { y }) {
+  if (corridorId !== 'front' && corridorId !== 'back') {
+    throw new Error(`Couloir inconnu : ${corridorId}`);
+  }
+  const next = structuredClone(def);
+  const aisleMin = Math.min(...next.aisles.map((a) => a.yStart));
+  const aisleMax = Math.max(...next.aisles.map((a) => a.yEnd));
+  if (corridorId === 'front') {
+    next.corridors.frontY = clamp(
+      snapToGrid(y), 1,
+      Math.min(aisleMin - CORRIDOR_MARGIN, next.corridors.backY - 2)
+    );
+  } else {
+    next.corridors.backY = clamp(
+      snapToGrid(y),
+      Math.max(aisleMax + CORRIDOR_MARGIN, next.corridors.frontY + 2),
+      next.dimensions.depth - 1
+    );
+  }
+  return next;
+}
+
 // Premier identifiant libre de la forme <préfixe><n> (n ≥ 1)
 function nextId(prefix, existing, pad = 0) {
   const taken = new Set(existing);

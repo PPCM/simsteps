@@ -35,6 +35,10 @@ const GLOBAL_FIELDS = [
   ['backY', 'Couloir arrière (y)', 'number'],
 ];
 
+const CORRIDOR_FIELDS = [
+  ['y', 'Position (y)', 'number'],
+];
+
 const TYPE_LABELS = {
   aisle: 'Allée',
   workshop: 'Atelier',
@@ -87,6 +91,13 @@ export function renderSelection(container, def, selection, onChange) {
   }
   const title = document.createElement('p');
   title.className = 'placeholder';
+  if (selection.type === 'corridor') {
+    title.textContent = selection.id === 'front' ? 'Couloir avant' : 'Couloir arrière';
+    container.append(title);
+    const y = def.corridors[selection.id === 'front' ? 'frontY' : 'backY'];
+    renderFields(container, CORRIDOR_FIELDS, { y }, onChange);
+    return;
+  }
   title.textContent = `${TYPE_LABELS[selection.type]} ${selection.id}`;
   container.append(title);
   if (selection.type === 'aisle') {

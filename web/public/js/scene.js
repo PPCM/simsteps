@@ -55,8 +55,7 @@ export function createWarehouseScene(canvas, definition) {
   scene.add(new THREE.HemisphereLight(0x8a9db8, 0x1a1d22, 0.75));
 
   let statics = null; // groupe des statiques dépendants de la définition
-  let pickables = []; // sous-groupes éditables (allées, ateliers, zones)
-  let corridorGroups = []; // couloirs : désignables au clic mais non éditables
+  let pickables = []; // sous-groupes désignables (allées, ateliers, zones, couloirs)
   let labelEntries = []; // sprites de libellé : { sprite, type, id }
   let labelsVisible = true; // interrupteur global des libellés
   let revealed = null; // libellé révélé au clic quand les libellés sont masqués
@@ -74,7 +73,6 @@ export function createWarehouseScene(canvas, definition) {
     const center = new THREE.Vector3(width / 2, 0, depth / 2);
     const group = new THREE.Group();
     pickables = [];
-    corridorGroups = [];
     labelEntries = [];
 
     // --- Soleil : position et emprise d'ombre calées sur le sol ---
@@ -115,7 +113,7 @@ export function createWarehouseScene(canvas, definition) {
     group.add(grid);
 
     // --- Couloirs transversaux : bandes translucides étiquetées,
-    // désignables au clic (révélation de libellé) mais hors éditeur ---
+    // sélectionnables et déplaçables en édition (axe y, via moveCorridor) ---
     for (const band of corridorBands(def)) {
       const corridorGroup = new THREE.Group();
       corridorGroup.userData = { type: 'corridor', id: band.id };
@@ -139,7 +137,7 @@ export function createWarehouseScene(canvas, definition) {
       corridorGroup.add(label);
       labelEntries.push({ sprite: label, type: 'corridor', id: band.id });
       group.add(corridorGroup);
-      corridorGroups.push(corridorGroup);
+      pickables.push(corridorGroup);
     }
 
     // --- Allées : un sous-groupe par allée (racks + arêtes + étiquette) ---
@@ -248,9 +246,7 @@ export function createWarehouseScene(canvas, definition) {
       -((clientY - rect.top) / rect.height) * 2 + 1
     );
     pickRaycaster.setFromCamera(pointer, camera);
-    // Les couloirs sont désignables ici (libellés) mais restent hors
-    // des pickables de l'éditeur (non déplaçables)
-    for (const { object } of pickRaycaster.intersectObjects([...pickables, ...corridorGroups], true)) {
+    for (const { object } of pickRaycaster.intersectObjects(pickables, true)) {
       let node = object;
       while (node && !node.userData?.type) node = node.parent;
       if (node) return { ...node.userData };

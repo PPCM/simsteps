@@ -17,7 +17,7 @@ import { buildComparisonRows } from './compare.js';
 import { slotCount } from './layout.js';
 import { splitSettings, buildSettings, mergeProjectParams } from './projects.js';
 import {
-  moveAisle, moveFacility, addAisle, removeAisle, addWorkshop, removeWorkshop,
+  moveAisle, moveFacility, moveCorridor, addAisle, removeAisle, addWorkshop, removeWorkshop,
   addShipping, addReceiving, removeZone,
   updateAisle, updateFacility, updateGlobals, validateDefinition,
   duplicateDefinition, minimalDefinition, normalizeDefinition,
@@ -517,10 +517,18 @@ try {
 
   function renderSelectionPanel() {
     renderSelection(els.selProps, workingDef, selection, (props) => {
-      const next = selection.type === 'aisle'
-        ? updateAisle(workingDef, selection.id, props)
-        : updateFacility(workingDef, selection.type, selection.id, props);
-      if (props.id !== undefined) selection = { ...selection, id: props.id };
+      let next;
+      if (selection.type === 'corridor') {
+        // La position d'un couloir vit dans les propriétés globales
+        next = updateGlobals(workingDef, selection.id === 'front'
+          ? { frontY: props.y }
+          : { backY: props.y });
+      } else {
+        next = selection.type === 'aisle'
+          ? updateAisle(workingDef, selection.id, props)
+          : updateFacility(workingDef, selection.type, selection.id, props);
+        if (props.id !== undefined) selection = { ...selection, id: props.id };
+      }
       applyWorkingDef(next);
     });
   }
@@ -561,6 +569,12 @@ try {
     },
     // Aperçu du drag : mêmes accrochage et bornes que le commit
     constrainDelta(type, id, delta) {
+      if (type === 'corridor') {
+        const key = id === 'front' ? 'frontY' : 'backY';
+        const y0 = workingDef.corridors[key];
+        const moved = moveCorridor(workingDef, id, { y: y0 + delta.dz });
+        return { dx: 0, dz: moved.corridors[key] - y0 };
+      }
       if (type === 'aisle') {
         const aisle = workingDef.aisles.find((a) => a.id === id);
         const moved = moveAisle(workingDef, id, {
@@ -576,6 +590,11 @@ try {
       return { dx: moved.x - facility.x, dz: moved.y - facility.y };
     },
     onMoved(type, id, delta) {
+      if (type === 'corridor') {
+        const y0 = workingDef.corridors[id === 'front' ? 'frontY' : 'backY'];
+        applyWorkingDef(moveCorridor(workingDef, id, { y: y0 + delta.dz }));
+        return;
+      }
       if (type === 'aisle') {
         const aisle = workingDef.aisles.find((a) => a.id === id);
         applyWorkingDef(moveAisle(workingDef, id, {
@@ -645,6 +664,7 @@ try {
     }
     try {
       let next;
+      if (selection.type === 'corridor') throw new Error('Les couloirs ne peuvent pas être supprimés.');
       if (selection.type === 'aisle') next = removeAisle(workingDef, selection.id);
       else if (selection.type === 'workshop') next = removeWorkshop(workingDef, selection.id);
       else next = removeZone(workingDef, selection.type, selection.id);

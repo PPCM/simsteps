@@ -127,7 +127,9 @@ Le détail des sections :
   gauche/avant de l'élément s'aligne sur le carroyage au sol, un élément
   de dimensions entières remplit donc des carreaux entiers, et les
   champs x/y des zones expriment ces bords (valeurs entières après
-  accrochage) — dans les limites du plan et des couloirs ; la fenêtre expose les propriétés de la sélection
+  accrochage) — dans les limites du plan et des couloirs ; les couloirs
+  avant et arrière se glissent aussi à la souris (axe y, entre le bord
+  du sol et le débouché des allées) ; la fenêtre expose les propriétés de la sélection
   (baies, zone, identifiants, largeur/profondeur — chaque élément est
   redimensionnable), les propriétés globales (dimensions, couloirs), et
   l'ajout/la suppression d'allées, d'ateliers et de zones d'expédition

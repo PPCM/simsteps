@@ -133,6 +133,40 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
   for (let i = 0; i < 3; i++) expect(afterExit[i]).toBeCloseTo(before[i], 1);
 });
 
+test('glisser un couloir le déplace au mètre, entre le sol et les allées', async ({ page, request, baseURL }) => {
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  // Point écran de la bande du couloir avant, à droite des racks
+  const point = await page.evaluate((def) => {
+    const { camera } = window.simstepsDebug;
+    const rect = document.getElementById('scene').getBoundingClientRect();
+    const v = camera.position.clone()
+      .set(def.dimensions.width - 6, 0, def.corridors.frontY).project(camera);
+    return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
+  }, definition);
+
+  // Sélection au clic : le panneau montre le couloir et sa position
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('#selProps .placeholder')).toHaveText('Couloir avant');
+
+  // Glisser vers le bord avant (haut de l'écran) : accrochage au mètre,
+  // borné à 1 m du bord du sol
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) {
+    await page.mouse.move(point.x, point.y - i * 15);
+  }
+  await page.mouse.up();
+  const y = Number(await page.locator('#selProps input').first().inputValue());
+  expect(Number.isInteger(y)).toBe(true);
+  expect(y).toBeGreaterThanOrEqual(1);
+  expect(y).toBeLessThan(definition.corridors.frontY);
+  // Le champ global « Couloir avant (y) » suit le drag
+  await expect(page.locator('#globalProps input').nth(3)).toHaveValue(String(y));
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+
+  await page.locator('#editCancel').click();
+});
+
 test('changer la taille du sol recadre la caméra sur le nouveau terrain', async ({ page, request, baseURL }) => {
   const before = await page.evaluate(() => window.simstepsDebug.camera.position.toArray());
 

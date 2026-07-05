@@ -10,6 +10,7 @@ import {
   snapEdge,
   moveAisle,
   moveFacility,
+  moveCorridor,
   addAisle,
   removeAisle,
   addWorkshop,
@@ -303,4 +304,25 @@ test('après accrochage du drag, les coordonnées affichées sont entières', ()
   const dragged = moveAisle(short, 'A1', { yStart: 12.4 }).aisles[0];
   assert.equal(displayValue('aisle', dragged, 'yStart'), 12);
   assert.equal(displayValue('aisle', dragged, 'yEnd'), 20);
+});
+
+test('moveCorridor accroche au mètre et borne entre sol et allées', () => {
+  // Couloir avant : borné par le bord du sol (1) et le débouché des allées
+  const front = moveCorridor(def, 'front', { y: 2.4 });
+  assert.equal(front.corridors.frontY, 2);
+  assert.equal(moveCorridor(def, 'front', { y: -5 }).corridors.frontY, 1);
+  // Allées de 7 à 35 : le couloir avant ne dépasse pas yStart − 1
+  assert.equal(moveCorridor(def, 'front', { y: 20 }).corridors.frontY, 6);
+  // Couloir arrière : entre yEnd + 1 et profondeur − 1
+  assert.equal(moveCorridor(def, 'back', { y: 39.6 }).corridors.backY, 40);
+  assert.equal(moveCorridor(def, 'back', { y: 10 }).corridors.backY, 36);
+  assert.equal(moveCorridor(def, 'back', { y: 100 }).corridors.backY, def.dimensions.depth - 1);
+  // Id inconnu refusé, définition d'origine non mutée
+  assert.throws(() => moveCorridor(def, 'middle', { y: 10 }), /Couloir inconnu/);
+  assert.equal(def.corridors.frontY, 4);
+});
+
+test('moveCorridor produit une définition valide', () => {
+  const next = moveCorridor(moveCorridor(def, 'front', { y: 5 }), 'back', { y: 40 });
+  assert.deepEqual(validateDefinition(next, buildWarehouse), []);
 });
