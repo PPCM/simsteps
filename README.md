@@ -152,8 +152,15 @@ Le détail des sections :
 - **Scénario** : choix du scénario de base, curseurs opérateurs à pied /
   mix B2C / cadence, et compteurs d'engins de manutention (transpalette,
   gerbeur, frontal, rétractable, VNA, préparateur — l'infobulle rappelle
-  gabarit d'allée et hauteur de levée de chacun ; les engins sont rendus
-  en 3D à leur gabarit). Le bloc « Flux » active le réapprovisionnement
+  gabarit d'allée et hauteur de levée de chacun ; chaque type d'engin est
+  rendu par un modèle low-poly reconnaissable — timon et fourches basses
+  du transpalette, mât du gerbeur, contrepoids et toit du frontal,
+  longerons du rétractable, fourches en tourelle du VNA, plateforme à
+  garde-corps du préparateur — orienté selon sa direction de déplacement,
+  avec un conducteur visible dès qu'il est en mission — debout derrière
+  le timon pour les engins accompagnants — et un anneau d'état au sol ;
+  à l'arrêt, les engins d'un même parking s'étalent sur des places
+  distinctes). Le bloc « Flux » active le réapprovisionnement
   (stock fini, réserve aux niveaux hauts), les camions entrants et les
   emballeurs (voir les paramètres de scénario ci-dessous). Tout
   changement relance instantanément la simulation (elle s'exécute dans
@@ -171,9 +178,10 @@ Le détail des sections :
   l'amélioration. Avec un projet actif, seuls les runs du projet sont
   proposés ; sinon, ceux de l'entrepôt affiché.
 
-Couleurs des opérateurs : bleu = déplacement, ambre = prélèvement,
+Couleurs d'état : bleu = déplacement, ambre = prélèvement,
 vert = dépose, rouge = attente à l'entrée d'une allée (congestion),
-gris = inactif.
+gris = inactif. Les piétons portent la couleur sur leur capsule, les
+engins (carrosserie orange constante) sur leur anneau au sol.
 
 **Congestion** : un engin dont le gabarit dépasse la moitié de la
 largeur du couloir d'allée ne peut pas y être croisé — il verrouille

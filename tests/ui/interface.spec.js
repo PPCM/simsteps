@@ -40,6 +40,16 @@ test('la flotte d’engins se règle depuis l’onglet Piloter', async ({ page }
   await input.blur();
   await expect(page.locator('#status')).toContainText('7 opérateurs');
 
+  // Les engins sont rendus par leur modèle low-poly orientable
+  const models = await page.evaluate(() => {
+    let count = 0;
+    window.simstepsDebug.scene.traverse((o) => {
+      if (o.userData?.vehicleType === 'retractable') count++;
+    });
+    return count;
+  });
+  expect(models).toBe(2);
+
   // Le sélecteur de rangement relance la simulation sans erreur et le
   // KPI « Distance / ligne » s'alimente pendant la relecture (à ×60
   // pour dépasser rapidement les premiers prélèvements)
