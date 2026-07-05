@@ -131,7 +131,7 @@ Le détail des sections :
   avant et arrière se glissent aussi à la souris (axe y, entre le bord
   du sol et le débouché des allées) ; la fenêtre expose les propriétés de la sélection
   (baies, zone, identifiants, largeur/profondeur — chaque élément est
-  redimensionnable), les propriétés globales (dimensions, couloirs), et
+  redimensionnable), les propriétés globales (nom, dimensions), et
   l'ajout/la suppression d'allées, d'ateliers, de zones d'expédition ou
   de réception et de couloirs (au moins un couloir et une zone de
   chaque type doivent rester). Les couloirs sont des objets à part
