@@ -96,6 +96,7 @@ const NUMERIC_PARAMS = {
   palletHandlingSec: { min: 0, max: 3600 },
   packers: { min: 0, max: 500, integer: true },
   packTimePerOrderSec: { min: 0, max: 3600 },
+  agvAutonomyHours: { min: 0.05, max: 168 },
 };
 
 /**

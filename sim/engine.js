@@ -40,7 +40,13 @@ export const DEFAULT_SCENARIO = {
   palletHandlingSec: 30, // prise/dépose d'une palette
   packers: 0, // emballeurs (exige des zones tampon dans l'entrepôt)
   packTimePerOrderSec: 60, // emballage d'une commande au poste
+  agvAutonomyHours: 4, // autonomie de batterie des engins automatisés
 };
+
+// Sous ce niveau de batterie, un engin automatisé rentre se recharger ;
+// la recharge est trois fois plus rapide que la décharge
+const BATTERY_THRESHOLD = 0.2;
+const CHARGE_FACTOR = 3;
 
 /**
  * Exécute une simulation complète et renvoie les KPI et l'état final.
@@ -163,6 +169,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         route: null, // itinéraire en cours (tronçons)
         heldAisle: null, // allée verrouillée par cet engin
         waitTime: 0, // attente cumulée aux entrées d'allées
+        battery: 1, // niveau de batterie (engins automatisés seulement)
+        chargeTime: 0, // temps passé en recharge
+        chargingSince: null,
         // Couplage opérateur ↔ engin
         mounting: null, // humain : engin vers lequel il marche
         driving: null, // humain : engin qu'il conduit
@@ -479,6 +488,13 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
             && compatible(o, mission) && (best === null || o.busyTime < best.busyTime)
             ? o : best
         ), null);
+        if (machine && VEHICLES[machine.vehicle].automated === true) {
+          // Engin automatisé : la mission démarre sans conducteur
+          missionQueue.splice(m, 1);
+          startMission(machine, mission);
+          assigned = true;
+          break;
+        }
         if (machine) {
           const driver = nearestOf(idleHumans, machine.nodeId);
           const walkReach = reachOf(driver);
@@ -700,6 +716,26 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     if (next <= durationSec) queue.push(next, 'orderArrival');
   }
 
+  // Recharge d'un engin automatisé à sa station (son parking) : trois
+  // fois plus rapide que la décharge, mission possible seulement une
+  // fois plein
+  function beginCharge(op) {
+    op.state = 'charging';
+    op.chargingSince = now;
+    hooks.onState?.(op.id, 'charging', now);
+    const duration = (1 - op.battery) * scenario.agvAutonomyHours * 3600 / CHARGE_FACTOR;
+    queue.push(now + duration, 'chargeDone', { opId: op.id });
+  }
+
+  function onChargeDone(op) {
+    op.battery = 1;
+    op.chargeTime += now - op.chargingSince;
+    op.chargingSince = null;
+    op.state = 'idle';
+    hooks.onState?.(op.id, 'idle', now);
+    tryAssign();
+  }
+
   // L'engin rendu à son parking : le conducteur redescend et rentre à
   // pied à son point d'appel
   function dismount(machine) {
@@ -763,6 +799,11 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         // Fin d'épisode de conduite : l'opérateur est rentré à pied
         op.busyTime += now - op.busySince;
         op.busySince = null;
+      }
+      if (op.vehicle !== 'pieton' && VEHICLES[op.vehicle].automated === true
+          && op.battery <= BATTERY_THRESHOLD) {
+        beginCharge(op);
+        return;
       }
       op.state = 'idle';
       hooks.onState?.(op.id, 'idle', now);
@@ -880,10 +921,26 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       travelTo(op, op.mission.drops[op.dropIndex].nodeId);
     } else {
       // Mission terminée
-      op.busyTime += now - op.busySince;
+      const missionBusySec = now - op.busySince;
+      op.busyTime += missionBusySec;
       op.busySince = null;
       op.mission = null;
       if (op.vehicle !== 'pieton') {
+        // Engin automatisé : la batterie se décharge au temps de
+        // mission ; sous le seuil, retour à la station de charge
+        // (le parking) sans enchaîner
+        if (VEHICLES[op.vehicle].automated === true) {
+          op.battery = Math.max(0, op.battery - missionBusySec / (scenario.agvAutonomyHours * 3600));
+          if (op.battery <= BATTERY_THRESHOLD) {
+            if (op.nodeId !== op.startNodeId) {
+              op.returning = true;
+              travelTo(op, op.startNodeId);
+            } else {
+              beginCharge(op);
+            }
+            return;
+          }
+        }
         // L'engin enchaîne une mission qui l'exige encore, sans que le
         // conducteur redescende ; sinon il rentre se garer
         const next = missionQueue.findIndex((m) => !m.footCompatible && compatible(op, m));
@@ -895,6 +952,11 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         if (op.nodeId !== op.startNodeId) {
           op.returning = true;
           travelTo(op, op.startNodeId);
+        } else if (VEHICLES[op.vehicle].automated === true) {
+          // Déjà à sa station et batterie suffisante : disponible
+          op.state = 'idle';
+          hooks.onState?.(op.id, 'idle', now);
+          tryAssign();
         } else {
           dismount(op);
         }
@@ -927,6 +989,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       case 'truckArrival':
         onTruckArrival();
         break;
+      case 'chargeDone':
+        onChargeDone(opById.get(event.payload.opId));
+        break;
       case 'opLeg':
         onOpLeg(opById.get(event.payload.opId), event.payload.legEnd);
         break;
@@ -952,12 +1017,18 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       op.busyTime += durationSec - op.busySince;
       op.busySince = null;
     }
+    if (op.chargingSince !== null) {
+      op.chargeTime += durationSec - op.chargingSince;
+      op.chargingSince = null;
+    }
   }
 
   const kpis = {
     ...computeKpis({ orders, operators, durationSec }),
     // Attente cumulée aux entrées d'allées verrouillées (congestion)
     waitingTimeSec: operators.reduce((sum, op) => sum + op.waitTime, 0),
+    // Recharge cumulée des engins automatisés
+    chargingTimeSec: operators.reduce((sum, op) => sum + op.chargeTime, 0),
     // Compteurs de flux (uniquement pertinents avec réapprovisionnement)
     ...(replenishment && { ...counters, palletsWaiting: waitingPallets.length }),
   };

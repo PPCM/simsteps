@@ -11,12 +11,14 @@ test('chaque type d’engin du catalogue a un modèle 3D', () => {
 
 test('chaque modèle a un conducteur, des roues, des pièces cohérentes', () => {
   for (const [type, model] of Object.entries(VEHICLE_MODELS)) {
+    const automated = VEHICLES[type].automated === true;
     assert.ok(model.ringR > 0, `${type} : rayon d'anneau requis`);
-    assert.ok(model.parts.length >= 8, `${type} : modèle trop pauvre (${model.parts.length} pièces)`);
-    assert.equal(model.parts.filter((p) => p.role === 'driver').length, 1,
-      `${type} : exactement un conducteur`);
+    assert.ok(model.parts.length >= (automated ? 6 : 8), `${type} : modèle trop pauvre (${model.parts.length} pièces)`);
+    // Les engins automatisés n'ont pas de conducteur, les autres exactement un
+    assert.equal(model.parts.filter((p) => p.role === 'driver').length, automated ? 0 : 1,
+      `${type} : conducteur(s) inattendu(s)`);
     assert.ok(model.parts.some((p) => p.role === 'wheel'), `${type} : des roues`);
-    assert.ok(model.parts.some((p) => p.role === 'fork'), `${type} : des fourches`);
+    if (!automated) assert.ok(model.parts.some((p) => p.role === 'fork'), `${type} : des fourches`);
     for (const part of model.parts) {
       assert.ok(part.w > 0 && part.h > 0 && part.d > 0, `${type} : dimensions positives`);
       assert.ok(part.y - part.h / 2 > -1e-9, `${type} : pièce sous le sol`);
@@ -31,6 +33,7 @@ test('l’état d’attente a sa couleur', () => {
 test('le conducteur dépasse des caisses qui l’entourent (buste visible)', () => {
   for (const [type, model] of Object.entries(VEHICLE_MODELS)) {
     const d = model.parts.find((p) => p.role === 'driver');
+    if (d === undefined) continue; // engins automatisés : pas de conducteur
     const top = d.y + (d.h + d.w * 1.2) / 2;
     for (const p of model.parts) {
       // Boîtes pleines chevauchant l'emprise du conducteur (les toits

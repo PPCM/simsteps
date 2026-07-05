@@ -54,6 +54,25 @@ export const VEHICLES = {
     aisleWidthM: 1.9,
     liftM: 10,
   },
+  // Engins automatisés : pas de conducteur (mission directe, sans
+  // couplage opérateur ↔ engin) mais une batterie — sous 20 %, retour
+  // au parking (station de charge) et recharge avant toute mission
+  agv: {
+    label: 'AGV palette',
+    speedMps: 1.6,
+    speedLoadedMps: 1.3,
+    aisleWidthM: 1.4,
+    liftM: 0.3,
+    automated: true,
+  },
+  amr: {
+    label: 'Robot mobile (AMR)',
+    speedMps: 1.8,
+    speedLoadedMps: 1.5,
+    aisleWidthM: 1.0,
+    liftM: 0.2,
+    automated: true,
+  },
 };
 
 /**

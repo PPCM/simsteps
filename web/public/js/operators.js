@@ -17,6 +17,7 @@ export const STATE_COLORS = {
   dropping: 0x3f8f78, // en dépose : vert d'eau
   idle: 0x6b737e,     // inactif : gris
   waiting: 0xd95f5f,  // en attente à l'entrée d'une allée : rouge
+  charging: 0xb07fd4, // en recharge à sa station : violet
 };
 
 const CAPSULE_RADIUS = 0.35;
@@ -149,6 +150,26 @@ export const VEHICLE_MODELS = {
       { x: 1.15, y: 0.2, z: 0.22, w: 0.75, h: 0.1, d: 0.17, role: 'fork' },
     ],
   },
+};
+
+// Engins automatisés : pas de conducteur, silhouette basse à capteur
+VEHICLE_MODELS.agv = {
+  ringR: 1.0,
+  parts: [
+    wheel(-0.5, -0.4), wheel(-0.5, 0.4), wheel(0.5, -0.4), wheel(0.5, 0.4),
+    { x: 0, y: 0.22, z: 0, w: 1.5, h: 0.28, d: 1.0, role: 'guard' },
+    { x: 0, y: 0.44, z: 0, w: 1.4, h: 0.16, d: 0.95, role: 'body' },
+    { x: 0.62, y: 0.62, z: 0, w: 0.12, h: 0.2, d: 0.12, role: 'darksteel' },
+  ],
+};
+VEHICLE_MODELS.amr = {
+  ringR: 0.8,
+  parts: [
+    wheel(-0.28, -0.28), wheel(-0.28, 0.28), wheel(0.28, -0.28), wheel(0.28, 0.28),
+    { x: 0, y: 0.18, z: 0, w: 0.9, h: 0.22, d: 0.7, role: 'guard' },
+    { x: 0, y: 0.35, z: 0, w: 0.85, h: 0.14, d: 0.65, role: 'body' },
+    { x: 0.3, y: 0.48, z: 0, w: 0.1, h: 0.14, d: 0.1, role: 'darksteel' },
+  ],
 };
 
 /**

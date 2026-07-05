@@ -83,7 +83,7 @@ const mm = (v) => Math.round(v * 1000) / 1000;
 
 // Types d'engins connus — synchronisé avec sim/vehicles.js (ce module
 // pur ne peut pas importer /sim/ depuis les tests Node)
-const VEHICLE_TYPES = ['pieton', 'transpalette', 'gerbeur', 'frontal', 'retractable', 'vna', 'preparateur'];
+const VEHICLE_TYPES = ['pieton', 'transpalette', 'gerbeur', 'frontal', 'retractable', 'vna', 'preparateur', 'agv', 'amr'];
 
 /**
  * Valeur affichée dans le panneau pour un champ : les coordonnées des

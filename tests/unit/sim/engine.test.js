@@ -415,3 +415,47 @@ test('la congestion est déterministe à graine identique', () => {
   const b = runSimulation(buildWarehouse(tall), params);
   assert.deepEqual(a.kpis, b.kpis);
 });
+
+// --- Phase 6 : engins automatisés (AGV/AMR) ---
+
+// Couloirs réservés aux engins : les piétons ne peuvent rien faire,
+// seuls les automatisés (sans conducteur) peuvent travailler
+function automatedSpec() {
+  const s = structuredClone(spec);
+  s.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 2, orientation: 'horizontal', access: 'engins' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 2, orientation: 'horizontal', access: 'engins' },
+  ];
+  return s;
+}
+
+test('un engin automatisé part en mission sans conducteur', () => {
+  const { kpis, operators } = runSimulation(buildWarehouse(automatedSpec()), {
+    ...BASE, seed: 19, fleet: { pieton: 1, amr: 2 },
+  });
+  assert.ok(kpis.ordersCompleted > 0, 'les AMR doivent traiter des commandes');
+  const walker = operators.find((o) => o.vehicle === 'pieton');
+  assert.equal(walker.linesPicked, 0, 'le piéton ne peut rien atteindre');
+  assert.equal(walker.busyTime, 0, 'aucun couplage conducteur ne doit avoir lieu');
+  assert.ok(operators.filter((o) => o.vehicle === 'amr').every((o) => o.busyTime > 0));
+});
+
+test('la batterie impose des cycles de recharge', () => {
+  const states = new Set();
+  const { kpis, operators } = runSimulation(buildWarehouse(automatedSpec()), {
+    ...BASE, seed: 19, durationHours: 2, ordersPerHour: 40,
+    fleet: { pieton: 1, amr: 2 },
+    agvAutonomyHours: 0.1, // 6 min d'autonomie : recharges fréquentes
+  }, { onState: (opId, state) => states.add(state) });
+  assert.ok(states.has('charging'), 'l’état de recharge doit être observé');
+  assert.ok(kpis.chargingTimeSec > 0);
+  assert.equal(kpis.chargingTimeSec,
+    operators.reduce((sum, op) => sum + op.chargeTime, 0));
+  // Les commandes continuent d'aboutir entre les recharges
+  assert.ok(kpis.ordersCompleted > 0);
+});
+
+test('sans engin automatisé, aucun temps de recharge', () => {
+  const { kpis } = runSimulation(warehouse, { ...BASE, seed: 19 });
+  assert.equal(kpis.chargingTimeSec, 0);
+});
