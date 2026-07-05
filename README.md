@@ -191,6 +191,12 @@ violet = recharge (engins automatisés), gris = inactif. Les piétons
 portent la couleur sur leur capsule, les engins (carrosserie orange
 constante) sur leur anneau au sol.
 
+Les agents s'évitent aussi visuellement : deux capsules ou engins trop
+proches à l'écran sont légèrement écartés (décalage amorti, borné à
+0,9 m) — un engin garé ou en recharge repousse sans quitter sa place.
+C'est un artifice de rendu uniquement : les trajets simulés, les temps
+et les KPI ne changent pas.
+
 **Congestion** : un engin dont le gabarit dépasse la moitié de la
 largeur du couloir d'allée ne peut pas y être croisé — il verrouille
 l'allée qu'il traverse et les autres agents (piétons compris)

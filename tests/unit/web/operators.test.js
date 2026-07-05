@@ -71,3 +71,18 @@ test('la capsule du piéton disparaît pendant qu’il conduit un engin', async 
   assert.equal(capsule.visible, true, 'capsule absente après la conduite');
   layer.dispose();
 });
+
+test('deux piétons superposés sont écartés visuellement', async () => {
+  const THREE = await import('three');
+  const { createOperatorLayer } = await import('../../../web/public/js/operators.js');
+  const scene = new THREE.Scene();
+  const track = () => ({ start: [5, 5], segments: [], states: [{ t: 0, state: 'idle' }] });
+  const layer = createOperatorLayer(scene,
+    new Map([['op-1', track()], ['op-2', track()]]), new Map());
+  // Le décalage de séparation est amorti : quelques frames pour converger
+  for (let i = 0; i < 80; i++) layer.update(1);
+  const [a, b] = scene.children.filter((o) => o.isMesh);
+  const dist = Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
+  assert.ok(dist > 0.9, `capsules encore superposées (${dist.toFixed(2)} m)`);
+  layer.dispose();
+});

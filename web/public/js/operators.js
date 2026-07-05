@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { positionAt, stateAt } from './timeline.js';
+import { separationOffsets } from './avoidance.js';
 
 // Couleur par état (cahier des charges : déplacement, prélèvement,
 // dépose, attente, inactif)
@@ -22,6 +23,9 @@ export const STATE_COLORS = {
 
 const CAPSULE_RADIUS = 0.35;
 const CAPSULE_LENGTH = 0.9;
+// Rayon d'encombrement d'un piéton pour l'évitement visuel (un peu
+// plus large que la capsule pour laisser respirer)
+const WALKER_SEPARATION_RADIUS = 0.5;
 
 // Couleurs fixes des pièces d'engin (l'état vit sur l'anneau au sol)
 const PART_COLORS = {
@@ -247,6 +251,7 @@ export function createOperatorLayer(scene, tracks, vehicles = new Map()) {
         kind: 'vehicle', object: group, driver, ringMaterial, track,
         lastState: null, lastX: track.start[0], lastZ: track.start[1],
         parkOffset, offsetX: 0, offsetZ: 0,
+        radius: VEHICLE_MODELS[type].ringR, sepX: 0, sepZ: 0,
       });
     } else {
       // Piéton (préparateur à pied, emballeur) : capsule d'état
@@ -260,18 +265,50 @@ export function createOperatorLayer(scene, tracks, vehicles = new Map()) {
       mesh.castShadow = true;
       mesh.position.set(track.start[0], CAPSULE_RADIUS + CAPSULE_LENGTH / 2, track.start[1]);
       scene.add(mesh);
-      entries.set(opId, { kind: 'walker', object: mesh, track, lastState: null });
+      entries.set(opId, {
+        kind: 'walker', object: mesh, track, lastState: null,
+        radius: WALKER_SEPARATION_RADIUS, sepX: 0, sepZ: 0,
+      });
     }
   }
 
   return {
     update(t) {
+      // Passe 1 : positions brutes et états de la timeline
       for (const entry of entries.values()) {
-        const { x, y } = positionAt(entry.track, t);
-        const state = stateAt(entry.track, t);
+        const raw = positionAt(entry.track, t);
+        entry.rawX = raw.x;
+        entry.rawZ = raw.y;
+        entry.state = stateAt(entry.track, t);
+      }
+      // Évitement visuel : les agents au sol trop proches sont écartés
+      // par un décalage amorti — purement cosmétique, la simulation ne
+      // bouge pas. Un engin à l'arrêt (garé, en recharge) repousse sans
+      // bouger de sa place ; un piéton au volant n'est plus au sol.
+      const agents = [];
+      for (const [opId, entry] of entries) {
+        if (entry.kind === 'walker' && entry.state === 'driving') continue;
+        agents.push({
+          id: opId,
+          // Position affichée hors séparation : la place de
+          // stationnement compte, pas le nœud de parking partagé
+          x: entry.rawX + (entry.offsetX ?? 0),
+          z: entry.rawZ + (entry.offsetZ ?? 0),
+          r: entry.radius,
+          movable: entry.kind === 'walker'
+            || (entry.state !== 'idle' && entry.state !== 'charging'),
+        });
+      }
+      const separations = separationOffsets(agents);
+      // Passe 2 : application des positions, décalages et états
+      for (const [opId, entry] of entries) {
+        const { rawX: x, rawZ: y, state } = entry;
+        const separation = separations.get(opId) ?? { dx: 0, dz: 0 };
+        entry.sepX += (separation.dx - entry.sepX) * 0.12;
+        entry.sepZ += (separation.dz - entry.sepZ) * 0.12;
         if (entry.kind === 'walker') {
-          entry.object.position.x = x;
-          entry.object.position.z = y;
+          entry.object.position.x = x + entry.sepX;
+          entry.object.position.z = y + entry.sepZ;
           if (state !== entry.lastState) {
             // Au volant d'un engin : l'opérateur n'est plus au sol, sa
             // capsule disparaît (le conducteur de l'engin apparaît)
@@ -291,11 +328,13 @@ export function createOperatorLayer(scene, tracks, vehicles = new Map()) {
         const targetZ = state === 'idle' ? entry.parkOffset.z : 0;
         entry.offsetX += (targetX - entry.offsetX) * 0.06;
         entry.offsetZ += (targetZ - entry.offsetZ) * 0.06;
-        entry.object.position.x = x + entry.offsetX;
-        entry.object.position.z = y + entry.offsetZ;
+        entry.object.position.x = x + entry.offsetX + entry.sepX;
+        entry.object.position.z = y + entry.offsetZ + entry.sepZ;
         const dx = x - entry.lastX;
         const dz = y - entry.lastZ;
         if (dx * dx + dz * dz > 1e-4) {
+          // Le cap suit la trajectoire brute : la séparation ne fait
+          // pas zigzaguer le modèle
           entry.object.rotation.y = Math.atan2(-dz, dx);
           entry.lastX = x;
           entry.lastZ = y;
