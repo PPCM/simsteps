@@ -35,7 +35,8 @@ s'appliquent automatiquement et trois projets de démonstration sont
 insérés : « Piétons » (préparation à pied classique en vagues par
 zone, 204 emplacements), « Flux complet » (entrepôt mixte de 832
 emplacements — palettier, allées VNA, réserve en hauteur, camions,
-emballeurs — avec sa flotte des neuf types d'agents) et « Robots
+emballeurs — avec sa flotte de sept types d'agents conduits, du piéton
+au VNA, sans engin automatisé) et « Robots
 mobiles » (site automatisé parcouru par des AMR avec station de
 charge et convoyeur).
 L'entrepôt d'exemple historique reste disponible en gabarit dans

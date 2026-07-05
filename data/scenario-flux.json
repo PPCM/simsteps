@@ -2,17 +2,15 @@
   "name": "Flux complet — flotte mixte",
   "seed": 7,
   "durationHours": 2,
-  "operators": 4,
+  "operators": 6,
   "fleet": {
-    "pieton": 5,
+    "pieton": 6,
     "transpalette": 1,
     "frontal": 1,
     "gerbeur": 1,
     "retractable": 1,
     "vna": 2,
-    "preparateur": 1,
-    "agv": 1,
-    "amr": 1
+    "preparateur": 1
   },
   "ordersPerHour": 25,
   "b2cShare": 0.8,
@@ -29,6 +27,5 @@
   "dropTimeSec": 20,
   "b2bClients": 8,
   "replenishThresholdShare": 0.6,
-  "waveSize": 12,
-  "agvAutonomyHours": 0.1
+  "waveSize": 12
 }
