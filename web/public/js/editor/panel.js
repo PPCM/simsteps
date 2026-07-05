@@ -6,6 +6,7 @@
 // modelValue de model.js) : entières après accrochage à la grille.
 
 import { displayValue, modelValue } from './model.js';
+import { VEHICLES } from '/sim/vehicles.js';
 
 // Champs par type d'élément : [clé, libellé, type d'input]
 const AISLE_FIELDS = [
@@ -30,8 +31,9 @@ const FACILITY_FIELDS = [
 ];
 const PARKING_FIELDS = [
   ...FACILITY_FIELDS,
-  // Types d'engins admis, séparés par des virgules ; vide = tous
-  ['vehicles', 'Engins admis (vide : tous)', 'text'],
+  // Types d'engins admis, cochés dans le catalogue ; aucun coché = tous
+  ['vehicles', 'Engins admis (aucun : tous)', 'checkboxes',
+    Object.entries(VEHICLES).map(([value, profile]) => ({ value, label: profile.label }))],
 ];
 
 // Zones d'expédition/réception : objet unique (format historique) ou liste
@@ -70,6 +72,35 @@ function renderFields(container, fields, values, onChange, kind = null) {
   const grid = document.createElement('div');
   grid.className = 'props-grid';
   for (const [key, labelText, type, options] of fields) {
+    if (type === 'checkboxes') {
+      // Groupe de cases à cocher : la valeur est la liste des choix
+      // cochés (aucun coché = undefined, « pas de restriction »)
+      const field = document.createElement('div');
+      field.className = 'field field-wide';
+      const groupHead = document.createElement('span');
+      groupHead.className = 'field-head';
+      groupHead.innerHTML = `<span>${labelText}</span>`;
+      const group = document.createElement('div');
+      group.className = 'check-grid';
+      const selected = new Set(values[key] ?? []);
+      for (const option of options) {
+        const item = document.createElement('label');
+        item.className = 'check-item';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.value = option.value;
+        box.checked = selected.has(option.value);
+        box.addEventListener('change', () => {
+          const checked = [...group.querySelectorAll('input:checked')].map((b) => b.value);
+          onChange({ [key]: checked.length > 0 ? checked : undefined });
+        });
+        item.append(box, document.createTextNode(option.label));
+        group.append(item);
+      }
+      field.append(groupHead, group);
+      grid.append(field);
+      continue;
+    }
     const label = document.createElement('label');
     label.className = 'field';
     const head = document.createElement('span');

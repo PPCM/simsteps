@@ -93,9 +93,6 @@ export function displayValue(kind, element, key) {
     if (key === 'x') return mm(element.x - zoneHalfWidth(element));
     if (key === 'y') return mm(element.y - zoneHalfDepth(element));
   }
-  if (kind === 'parking' && key === 'vehicles') {
-    return (element.vehicles ?? []).join(', ');
-  }
   return element[key];
 }
 
@@ -107,11 +104,6 @@ export function modelValue(kind, element, key, value) {
   if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving' || kind === 'parking') {
     if (key === 'x') return mm(value + zoneHalfWidth(element));
     if (key === 'y') return mm(value + zoneHalfDepth(element));
-  }
-  if (kind === 'parking' && key === 'vehicles') {
-    // Liste saisie en texte : « vna, frontal » — vide = tous les types
-    const types = value.split(',').map((t) => t.trim()).filter((t) => t !== '');
-    return types.length > 0 ? types : undefined;
   }
   return value;
 }

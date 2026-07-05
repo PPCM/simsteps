@@ -284,11 +284,22 @@ test('ajouter un parking d’agents et l’enregistrer', async ({ page, request,
   await page.locator('#editAddParking').click();
   await expect(page.locator('#selProps .placeholder')).toHaveText('Parking PK1');
   await expect(page.locator('#editErrors li')).toHaveCount(0);
+
+  // Les engins admis se cochent dans le catalogue (le panneau se
+  // re-rend après chaque coche)
+  await page.locator('#selProps .check-item', { hasText: 'Chariot rétractable' })
+    .locator('input').check();
+  await page.locator('#selProps .check-item', { hasText: 'Chariot tridirectionnel (VNA)' })
+    .locator('input').check();
+  await expect(page.locator('#selProps .check-item input:checked')).toHaveCount(2);
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+
   await page.locator('#editSave').click();
   await expect(page.locator('#warehouseStatus')).toHaveText('Entrepôt enregistré.');
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
   expect(definition.parkings).toHaveLength(1);
   expect(definition.parkings[0].id).toBe('PK1');
+  expect(definition.parkings[0].vehicles).toEqual(['retractable', 'vna']);
 });
 
 test('ajouter et redimensionner une zone d’expédition', async ({ page, request, baseURL }) => {
