@@ -121,8 +121,11 @@ KPIs.
    all-walker runs are unchanged), new `waiting` state (red) and
    `waitingTimeSec` KPI, and obstacles (columns/offices: solid blocks
    off the network, overlap-validated against aisles/zones/corridors,
-   editable like any element). Simplified vs the plan: generic per-edge
-   capacity is represented only by the aisle-exclusivity rule; walkers
+   editable like any element). Follow-up (post v0.7.0): the
+   `corridorExclusion` scenario parameter (off by default) generalizes
+   the exclusivity rule to every narrow non-aisle edge — corridor
+   stretches and aisle outlets — so crossing conflicts outside aisles
+   become measurable waits too. Remaining simplification: walkers
    inside an aisle do not block an incoming locking vehicle.
 6. **Automation** — **done (v0.6.x)**: automated vehicle types `agv`
    and `amr` (driverless — missions start without an operator walking

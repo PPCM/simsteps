@@ -169,7 +169,9 @@ Le détail des sections :
   à l'arrêt, les engins d'un même parking s'étalent sur des places
   distinctes). Le bloc « Flux » active le réapprovisionnement
   (stock fini, réserve aux niveaux hauts), les camions entrants et les
-  emballeurs (voir les paramètres de scénario ci-dessous). Tout
+  emballeurs (voir les paramètres de scénario ci-dessous). Le bloc
+  « Circulation » active les croisements exclusifs dans les couloirs
+  étroits (`corridorExclusion`, voir la section congestion). Tout
   changement relance instantanément la simulation (elle s'exécute dans
   le navigateur en quelques millisecondes) ; la relecture repart de
   zéro.
