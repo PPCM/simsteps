@@ -313,6 +313,20 @@ test('ajouter une zone tampon et l’enregistrer', async ({ page, request, baseU
   expect(definition.buffers[0].id).toBe('TP1');
 });
 
+test('ajouter un convoyeur (avec tampon) et l’enregistrer', async ({ page, request, baseURL }) => {
+  // Un convoyeur exige une zone tampon et un atelier : le tampon d'abord
+  await page.locator('#editAddBuffer').click();
+  await page.locator('#editAddConveyor').click();
+  await expect(page.locator('#selProps .placeholder')).toHaveText('Convoyeur CV1');
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+  await page.locator('#editSave').click();
+  await expect(page.locator('#warehouseStatus')).toHaveText('Entrepôt enregistré.');
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  expect(definition.conveyors).toHaveLength(1);
+  expect(definition.conveyors[0].id).toBe('CV1');
+  expect(definition.conveyors[0].throughputPerMin).toBe(6);
+});
+
 test('ajouter un obstacle et l’enregistrer', async ({ page, request, baseURL }) => {
   await page.locator('#editAddObstacle').click();
   await expect(page.locator('#selProps .placeholder')).toHaveText('Obstacle OB1');

@@ -63,6 +63,16 @@ const CORRIDOR_FIELDS = [
   ['access', 'Accès', 'select', ['mixte', 'pietons', 'engins']],
 ];
 
+const CONVEYOR_FIELDS = [
+  ['id', 'Identifiant', 'text'],
+  ['label', 'Libellé', 'text'],
+  ['x', 'x', 'number'],
+  ['y', 'y', 'number'],
+  ['length', 'Longueur', 'number'],
+  ['orientation', 'Orientation', 'select', ['horizontal', 'vertical']],
+  ['throughputPerMin', 'Débit (travaux/min)', 'number'],
+];
+
 const TYPE_LABELS = {
   aisle: 'Allée',
   workshop: 'Atelier',
@@ -72,6 +82,7 @@ const TYPE_LABELS = {
   buffer: 'Tampon',
   obstacle: 'Obstacle',
   corridor: 'Couloir',
+  conveyor: 'Convoyeur',
 };
 
 // Construit une grille de champs ; onChange reçoit { clé: valeur } au
@@ -162,6 +173,9 @@ export function renderSelection(container, def, selection, onChange) {
   if (selection.type === 'corridor') {
     const corridor = asList(def.corridors).find((c) => c.id === selection.id);
     if (corridor) renderFields(container, CORRIDOR_FIELDS, corridor, onChange, 'corridor');
+  } else if (selection.type === 'conveyor') {
+    const conveyor = (def.conveyors ?? []).find((c) => c.id === selection.id);
+    if (conveyor) renderFields(container, CONVEYOR_FIELDS, conveyor, onChange);
   } else if (selection.type === 'aisle') {
     const aisle = def.aisles.find((a) => a.id === selection.id);
     // Les racks sont dérivés de l'allée : leurs réglages s'éditent ici

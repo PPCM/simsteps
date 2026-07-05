@@ -459,3 +459,31 @@ test('sans engin automatisé, aucun temps de recharge', () => {
   const { kpis } = runSimulation(warehouse, { ...BASE, seed: 19 });
   assert.equal(kpis.chargingTimeSec, 0);
 });
+
+test('un convoyeur transporte le picking B2C du tampon à l’atelier', () => {
+  const buffered = structuredClone(spec);
+  buffered.buffers = [{ id: 'TP1', label: 'Tampon', x: 14, y: 40 }];
+  buffered.conveyors = [
+    { id: 'CV1', label: 'Convoyeur', x: 12, y: 20, length: 16, orientation: 'vertical', throughputPerMin: 12 },
+  ];
+  const w = buildWarehouse(buffered);
+  assert.equal(w.conveyors[0].sourceBufferId, 'TP1');
+  const params = { ...BASE, seed: 9, b2cShare: 1, packers: 2 };
+  const fast = runSimulation(w, params);
+  assert.ok(fast.kpis.conveyed > 0, 'des travaux doivent transiter par le convoyeur');
+  assert.ok(fast.kpis.ordersCompleted > 0);
+  // Un débit d'entrée étranglé allonge le cycle à demande identique
+  const slowSpec = structuredClone(buffered);
+  slowSpec.conveyors[0].throughputPerMin = 0.5;
+  const slow = runSimulation(buildWarehouse(slowSpec), params);
+  assert.ok(slow.kpis.avgCycleTimeSec > fast.kpis.avgCycleTimeSec,
+    `cycle attendu plus long au débit étranglé : ${slow.kpis.avgCycleTimeSec} vs ${fast.kpis.avgCycleTimeSec}`);
+  // Sans convoyeur, pas de compteur
+  assert.equal(runSimulation(warehouse, BASE).kpis.conveyed, undefined);
+});
+
+test('un convoyeur sans tampon ou atelier est rejeté', () => {
+  const bad = structuredClone(spec);
+  bad.conveyors = [{ id: 'CV1', x: 12, y: 20, length: 10, orientation: 'vertical' }];
+  assert.throws(() => buildWarehouse(bad), /zone tampon/);
+});

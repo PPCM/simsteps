@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   floorSize, rackBoxes, zonePatches, aisleLabels, gridSegments, corridorBands, corridorJunctions,
-  obstacleBoxes,
+  obstacleBoxes, conveyorBelts,
 } from './layout.js';
 import { makeTextSprite } from './labels.js';
 
@@ -226,6 +226,38 @@ export function createWarehouseScene(canvas, definition) {
       group.add(zoneGroup);
       pickables.push(zoneGroup);
       labelEntries.push({ sprite: label, type: zone.kind, id: zone.id });
+    }
+
+    // --- Convoyeurs : tablier sombre entre deux rails clairs ---
+    for (const belt of conveyorBelts(def)) {
+      const beltGroup = new THREE.Group();
+      beltGroup.userData = { type: 'conveyor', id: belt.id };
+      const deck = new THREE.Mesh(
+        new THREE.BoxGeometry(belt.width, 0.3, belt.depth),
+        new THREE.MeshStandardMaterial({ color: 0x30363f, roughness: 0.7 })
+      );
+      deck.position.set(belt.x, 0.15, belt.z);
+      beltGroup.add(deck);
+      const railMaterial = new THREE.MeshStandardMaterial({ color: 0x98a2b0, roughness: 0.4 });
+      const horizontal = belt.width >= belt.depth;
+      for (const side of [-1, 1]) {
+        const rail = new THREE.Mesh(
+          new THREE.BoxGeometry(horizontal ? belt.width : 0.08, 0.42, horizontal ? 0.08 : belt.depth),
+          railMaterial
+        );
+        rail.position.set(
+          belt.x + (horizontal ? 0 : side * (belt.width / 2 - 0.04)),
+          0.21,
+          belt.z + (horizontal ? side * (belt.depth / 2 - 0.04) : 0)
+        );
+        beltGroup.add(rail);
+      }
+      const label = makeTextSprite(belt.label, { color: '#98a2b0', worldHeight: 1.1 });
+      label.position.set(belt.x, 1.4, belt.z);
+      beltGroup.add(label);
+      group.add(beltGroup);
+      pickables.push(beltGroup);
+      labelEntries.push({ sprite: label, type: 'conveyor', id: belt.id });
     }
 
     // --- Obstacles : blocs pleins gris (poteaux, bureaux…) ---

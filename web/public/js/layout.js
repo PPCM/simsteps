@@ -80,6 +80,27 @@ export function zonePatches(def) {
 }
 
 /**
+ * Bandes des convoyeurs (segments axiaux, largeur fixe 0,9 m), en
+ * coordonnées 3D centrées.
+ * @param {object} def définition d'entrepôt
+ * @returns {Array<{id: string, label: string, x: number, z: number,
+ *                  width: number, depth: number}>}
+ */
+export function conveyorBelts(def) {
+  return (def.conveyors ?? []).map((c) => {
+    const horizontal = c.orientation !== 'vertical';
+    return {
+      id: c.id,
+      label: c.label ?? c.id,
+      x: horizontal ? c.x + c.length / 2 : c.x,
+      z: horizontal ? c.y : c.y + c.length / 2,
+      width: horizontal ? c.length : 0.9,
+      depth: horizontal ? 0.9 : c.length,
+    };
+  });
+}
+
+/**
  * Boîtes pleines des obstacles (poteaux, bureaux…), en coordonnées 3D.
  * @param {object} def définition d'entrepôt
  * @returns {Array<{id: string, label: string, x: number, z: number,

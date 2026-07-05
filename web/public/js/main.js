@@ -22,6 +22,7 @@ import {
   addShipping, addReceiving, removeZone, addParking, removeParking,
   addBuffer, removeBuffer, addObstacle, removeObstacle,
   addCorridor, removeCorridor, updateCorridor,
+  addConveyor, removeConveyor, updateConveyor, moveConveyor,
   updateAisle, updateFacility, updateGlobals, validateDefinition,
   duplicateDefinition, minimalDefinition, normalizeDefinition,
 } from './editor/model.js';
@@ -46,6 +47,7 @@ const els = {
   editAddShipping: $('editAddShipping'), editAddReceiving: $('editAddReceiving'),
   editAddCorridor: $('editAddCorridor'), editAddParking: $('editAddParking'),
   editAddBuffer: $('editAddBuffer'), editAddObstacle: $('editAddObstacle'),
+  editAddConveyor: $('editAddConveyor'),
   replenishment: $('replenishment'), inboundTrucks: $('inboundTrucks'), packers: $('packers'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
@@ -593,6 +595,7 @@ try {
     renderSelection(els.selProps, workingDef, selection, (props) => {
       let next;
       if (selection.type === 'corridor') next = updateCorridor(workingDef, selection.id, props);
+      else if (selection.type === 'conveyor') next = updateConveyor(workingDef, selection.id, props);
       else if (selection.type === 'aisle') next = updateAisle(workingDef, selection.id, props);
       else next = updateFacility(workingDef, selection.type, selection.id, props);
       if (props.id !== undefined) selection = { ...selection, id: props.id };
@@ -647,6 +650,13 @@ try {
         }).corridors.find((c) => c.id === id);
         return { dx: moved.x - corridor.x, dz: moved.y - corridor.y };
       }
+      if (type === 'conveyor') {
+        const conveyor = workingDef.conveyors.find((c) => c.id === id);
+        const moved = moveConveyor(workingDef, id, {
+          x: conveyor.x + delta.dx, y: conveyor.y + delta.dz,
+        }).conveyors.find((c) => c.id === id);
+        return { dx: moved.x - conveyor.x, dz: moved.y - conveyor.y };
+      }
       if (type === 'aisle') {
         const aisle = workingDef.aisles.find((a) => a.id === id);
         const moved = moveAisle(workingDef, id, {
@@ -666,6 +676,13 @@ try {
         const corridor = workingDef.corridors.find((c) => c.id === id);
         applyWorkingDef(moveCorridor(workingDef, id, {
           x: corridor.x + delta.dx, y: corridor.y + delta.dz,
+        }));
+        return;
+      }
+      if (type === 'conveyor') {
+        const conveyor = workingDef.conveyors.find((c) => c.id === id);
+        applyWorkingDef(moveConveyor(workingDef, id, {
+          x: conveyor.x + delta.dx, y: conveyor.y + delta.dz,
         }));
         return;
       }
@@ -751,6 +768,11 @@ try {
     selection = { type: 'obstacle', id: next.obstacles[next.obstacles.length - 1].id };
     applyWorkingDef(next);
   });
+  els.editAddConveyor.addEventListener('click', () => {
+    const next = addConveyor(workingDef);
+    selection = { type: 'conveyor', id: next.conveyors[next.conveyors.length - 1].id };
+    applyWorkingDef(next);
+  });
   els.editRemoveSelection.addEventListener('click', () => {
     if (!selection) {
       renderErrors(els.editErrors, ['Aucun élément sélectionné.']);
@@ -764,6 +786,7 @@ try {
       else if (selection.type === 'parking') next = removeParking(workingDef, selection.id);
       else if (selection.type === 'buffer') next = removeBuffer(workingDef, selection.id);
       else if (selection.type === 'obstacle') next = removeObstacle(workingDef, selection.id);
+      else if (selection.type === 'conveyor') next = removeConveyor(workingDef, selection.id);
       else next = removeZone(workingDef, selection.type, selection.id);
       selection = null;
       applyWorkingDef(next);

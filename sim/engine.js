@@ -409,6 +409,22 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
 
   // --- Emballage : dépose au tampon → l'emballeur ramène à l'atelier ---
 
+  // Convoyeurs : chaque tampon source transporte automatiquement ses
+  // déposes vers l'atelier rattaché (débit d'entrée fixe + parcours)
+  const conveyorByBuffer = new Map();
+  for (const conveyor of warehouse.conveyors ?? []) {
+    if (!conveyorByBuffer.has(conveyor.sourceBufferId)) {
+      conveyorByBuffer.set(conveyor.sourceBufferId, { ...conveyor, lastEntry: -Infinity });
+    }
+  }
+  let conveyed = 0;
+
+  function onConveyorArrive(payload) {
+    conveyed++;
+    packJobs.push({ lines: payload.lines, bufferNodeId: payload.workshopNodeId });
+    tryAssignPackers();
+  }
+
   const packJobs = []; // travaux d'emballage en attente d'un emballeur
   function tryAssignPackers() {
     while (packJobs.length > 0) {
@@ -908,10 +924,21 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       maybeReplenish(columnOfReserve.get(drop.slotId));
     }
     if (drop.packing) {
-      // Dépose au tampon : les lignes attendent l'emballage
+      // Dépose au tampon : les lignes attendent l'emballage — par
+      // convoyeur (débit fixe puis temps de parcours) s'il y en a un,
+      // sinon un emballeur viendra les chercher à pied
       for (const line of drop.lines) line.state = 'staged';
-      packJobs.push({ lines: drop.lines, bufferNodeId: drop.nodeId });
-      tryAssignPackers();
+      const conveyor = conveyorByBuffer.get(drop.nodeId);
+      if (conveyor !== undefined) {
+        const entry = Math.max(now, conveyor.lastEntry + 60 / conveyor.throughputPerMin);
+        conveyor.lastEntry = entry;
+        queue.push(entry + conveyor.transitSec, 'conveyorArrive', {
+          lines: drop.lines, workshopNodeId: conveyor.sinkNodeId,
+        });
+      } else {
+        packJobs.push({ lines: drop.lines, bufferNodeId: drop.nodeId });
+        tryAssignPackers();
+      }
     } else {
       // Une commande est terminée quand toutes ses lignes sont déposées
       completeLines(drop.lines ?? []);
@@ -992,6 +1019,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       case 'chargeDone':
         onChargeDone(opById.get(event.payload.opId));
         break;
+      case 'conveyorArrive':
+        onConveyorArrive(event.payload);
+        break;
       case 'opLeg':
         onOpLeg(opById.get(event.payload.opId), event.payload.legEnd);
         break;
@@ -1029,6 +1059,8 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     waitingTimeSec: operators.reduce((sum, op) => sum + op.waitTime, 0),
     // Recharge cumulée des engins automatisés
     chargingTimeSec: operators.reduce((sum, op) => sum + op.chargeTime, 0),
+    // Travaux transportés par convoyeur (si l'entrepôt en a)
+    ...(conveyorByBuffer.size > 0 && { conveyed }),
     // Compteurs de flux (uniquement pertinents avec réapprovisionnement)
     ...(replenishment && { ...counters, palletsWaiting: waitingPallets.length }),
   };

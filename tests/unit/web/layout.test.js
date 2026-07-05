@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments, corridorBands, corridorJunctions, obstacleBoxes } from '../../../web/public/js/layout.js';
+import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments, corridorBands, corridorJunctions, obstacleBoxes, conveyorBelts } from '../../../web/public/js/layout.js';
 
 const def = JSON.parse(
   await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
@@ -183,4 +183,18 @@ test('obstacleBoxes expose les blocs avec leurs défauts', () => {
   assert.deepEqual(boxes[0], { id: 'OB1', label: 'OB1', x: 3, z: 20, width: 1, depth: 1, height: 3 });
   assert.equal(boxes[1].height, 2.5);
   assert.deepEqual(obstacleBoxes({}), []);
+});
+
+test('conveyorBelts rend les bandes horizontales et verticales', () => {
+  const belts = conveyorBelts({
+    conveyors: [
+      { id: 'CV1', x: 10, y: 5, length: 8, orientation: 'horizontal' },
+      { id: 'CV2', label: 'Ligne 2', x: 30, y: 10, length: 6, orientation: 'vertical' },
+    ],
+  });
+  assert.deepEqual({ x: belts[0].x, z: belts[0].z, width: belts[0].width, depth: belts[0].depth },
+    { x: 14, z: 5, width: 8, depth: 0.9 });
+  assert.deepEqual({ x: belts[1].x, z: belts[1].z, width: belts[1].width, depth: belts[1].depth },
+    { x: 30, z: 13, width: 0.9, depth: 6 });
+  assert.deepEqual(conveyorBelts({}), []);
 });

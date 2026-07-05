@@ -58,6 +58,10 @@ export function normalizeDefinition(def) {
   next.buffers = (next.buffers ?? []).map(zone);
   // Obstacles (poteaux, bureaux…) : petits par défaut, hauteur 3 m
   next.obstacles = (next.obstacles ?? []).map((o) => ({ width: 1, depth: 1, height: 3, ...o }));
+  // Convoyeurs : débit et orientation par défaut explicites
+  next.conveyors = (next.conveyors ?? []).map((c) => ({
+    orientation: 'horizontal', throughputPerMin: 6, label: c.id, ...c,
+  }));
   next.corridors = corridorsAsList(next).map((c) => ({
     width: DEFAULT_AISLE_WIDTH, orientation: 'horizontal', label: c.id, ...c,
   }));
@@ -563,6 +567,104 @@ export function removeObstacle(def, obstacleId) {
   return next;
 }
 
+// Le convoyeur demandé, ou erreur française
+function conveyorOf(def, conveyorId) {
+  const conveyor = (def.conveyors ?? []).find((c) => c.id === conveyorId);
+  if (!conveyor) throw new Error(`Convoyeur inconnu : ${conveyorId}`);
+  return conveyor;
+}
+
+// Borne un convoyeur dans le sol (demi-largeur de bande en travers)
+function clampConveyor(def, conveyor) {
+  const half = 0.45;
+  const { width, depth } = def.dimensions;
+  if (conveyor.orientation !== 'vertical') {
+    conveyor.x = clamp(conveyor.x, 0, Math.max(0, width - conveyor.length));
+    conveyor.y = clamp(conveyor.y, half, depth - half);
+  } else {
+    conveyor.x = clamp(conveyor.x, half, width - half);
+    conveyor.y = clamp(conveyor.y, 0, Math.max(0, depth - conveyor.length));
+  }
+}
+
+/**
+ * Ajoute un convoyeur (transport automatique du tampon le plus proche
+ * vers l'atelier le plus proche, à débit fixe).
+ * @returns {object} nouvelle définition
+ */
+export function addConveyor(def) {
+  const next = structuredClone(def);
+  const list = next.conveyors ?? [];
+  const id = nextId('CV', list.map((c) => c.id));
+  const conveyor = {
+    id,
+    label: `Convoyeur ${id.slice(2)}`,
+    x: snapToGrid(next.dimensions.width / 2),
+    y: snapToGrid(next.dimensions.depth / 2),
+    length: 6,
+    orientation: 'horizontal',
+    throughputPerMin: 6,
+  };
+  clampConveyor(next, conveyor);
+  list.push(conveyor);
+  next.conveyors = list;
+  return next;
+}
+
+/**
+ * Supprime un convoyeur (zéro autorisé : les emballeurs reviennent
+ * chercher le travail à pied).
+ * @returns {object} nouvelle définition
+ */
+export function removeConveyor(def, conveyorId) {
+  conveyorOf(def, conveyorId);
+  const next = structuredClone(def);
+  next.conveyors = next.conveyors.filter((c) => c.id !== conveyorId);
+  return next;
+}
+
+/**
+ * Modifie un convoyeur (position, longueur, orientation, débit) ; le
+ * changement d'orientation pivote autour du centre du segment.
+ * @returns {object} nouvelle définition
+ */
+export function updateConveyor(def, conveyorId, props) {
+  const next = structuredClone(def);
+  next.conveyors = next.conveyors ?? [];
+  const conveyor = conveyorOf(next, conveyorId);
+  const wasHorizontal = conveyor.orientation !== 'vertical';
+  for (const key of ['id', 'label', 'x', 'y', 'length', 'orientation', 'throughputPerMin']) {
+    if (props[key] !== undefined) conveyor[key] = props[key];
+  }
+  const horizontal = conveyor.orientation !== 'vertical';
+  if (horizontal !== wasHorizontal) {
+    const half = conveyor.length / 2;
+    if (horizontal) {
+      conveyor.x = mm(conveyor.x - half);
+      conveyor.y = mm(conveyor.y + half);
+    } else {
+      conveyor.x = mm(conveyor.x + half);
+      conveyor.y = mm(conveyor.y - half);
+    }
+  }
+  clampConveyor(next, conveyor);
+  return next;
+}
+
+/**
+ * Déplace un convoyeur (pas d'un mètre, borné dans le sol).
+ * @returns {object} nouvelle définition
+ */
+export function moveConveyor(def, conveyorId, { x, y }) {
+  const next = structuredClone(def);
+  next.conveyors = next.conveyors ?? [];
+  const conveyor = conveyorOf(next, conveyorId);
+  if (x !== undefined) conveyor.x = snapToGrid(x);
+  if (y !== undefined) conveyor.y = snapToGrid(y);
+  clampConveyor(next, conveyor);
+  return next;
+}
+
 /**
  * Supprime une zone tampon (optionnelle : zéro autorisé — la dépose
  * B2C retourne alors directement aux ateliers).
@@ -786,6 +888,20 @@ export function validateDefinition(def, buildWarehouse) {
     if (f.x - hw < 0 || f.x + hw > width || f.y - hd < 0 || f.y + hd > depth) {
       errors.push(`zone ${f.id} : l’emprise dépasse le sol`);
     }
+  }
+  // Convoyeurs : identifiants uniques, valeurs positives, dans le sol
+  const conveyorsL = def.conveyors ?? [];
+  checkUnique(conveyorsL.map((c) => c.id), 'identifiant de convoyeur', errors);
+  for (const c of conveyorsL) {
+    if (!(c.length > 0) || (c.throughputPerMin !== undefined && !(c.throughputPerMin > 0))) {
+      errors.push(`convoyeur ${c.id} : longueur et débit doivent être des nombres positifs`);
+      continue;
+    }
+    const horizontal = c.orientation !== 'vertical';
+    const outOfFloor = horizontal
+      ? (c.x < 0 || c.x + c.length > width || c.y - 0.45 < 0 || c.y + 0.45 > depth)
+      : (c.y < 0 || c.y + c.length > depth || c.x - 0.45 < 0 || c.x + 0.45 > width);
+    if (outOfFloor) errors.push(`convoyeur ${c.id} : l’emprise dépasse le sol`);
   }
   // Obstacles : dans le sol et sans chevauchement avec les emprises
   // des allées (racks compris), zones et couloirs

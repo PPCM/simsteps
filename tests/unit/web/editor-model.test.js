@@ -20,6 +20,9 @@ import {
   addBuffer,
   addObstacle,
   removeObstacle,
+  addConveyor,
+  removeConveyor,
+  updateConveyor,
   removeBuffer,
   removeParking,
   addReceiving,
@@ -495,4 +498,23 @@ test('addObstacle / removeObstacle et validation de chevauchement', () => {
   const removed = removeObstacle(added, 'OB1');
   assert.deepEqual(removed.obstacles, []);
   assert.throws(() => removeObstacle(removed, 'OB1'), /Obstacle inconnu/);
+});
+
+test('addConveyor / updateConveyor / removeConveyor', () => {
+  const withBuffer = addBuffer(normalizeDefinition(def));
+  const added = addConveyor(withBuffer);
+  assert.equal(added.conveyors.length, 1);
+  assert.equal(added.conveyors[0].id, 'CV1');
+  assert.equal(added.conveyors[0].throughputPerMin, 6);
+  assert.deepEqual(validateDefinition(added, buildWarehouse), []);
+  // Orientation pivotée au centre, débit modifiable
+  const updated = updateConveyor(added, 'CV1', { orientation: 'vertical', throughputPerMin: 12 });
+  assert.equal(updated.conveyors[0].orientation, 'vertical');
+  assert.equal(updated.conveyors[0].throughputPerMin, 12);
+  // Débit invalide signalé
+  const bad = updateConveyor(added, 'CV1', { throughputPerMin: -1 });
+  assert.ok(validateDefinition(bad, buildWarehouse).some((e) => e.includes('débit')));
+  const removed = removeConveyor(added, 'CV1');
+  assert.deepEqual(removed.conveyors, []);
+  assert.throws(() => removeConveyor(removed, 'CV1'), /Convoyeur inconnu/);
 });

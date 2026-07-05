@@ -241,6 +241,30 @@ export function buildWarehouse(spec) {
     }
   }
 
+  // --- Convoyeurs : segments à débit fixe reliant le tampon et
+  // l'atelier les plus proches (transport automatique du picking B2C
+  // mis en attente, à 0,5 m/s) ---
+  const conveyors = (spec.conveyors ?? []).map((c) => {
+    if (!(c.length > 0)) {
+      throw new Error(`convoyeur ${c.id} : longueur positive requise`);
+    }
+    if (buffers.length === 0 || spec.workshops.length === 0) {
+      throw new Error(`convoyeur ${c.id} : il faut au moins une zone tampon et un atelier`);
+    }
+    const nearest = (list) => list.reduce((best, z) =>
+      (projectOnCorridor(c, z.x, z.y).d < projectOnCorridor(c, best.x, best.y).d ? z : best));
+    const source = nearest(buffers);
+    const sink = nearest(spec.workshops);
+    return {
+      id: c.id,
+      label: c.label ?? c.id,
+      sourceBufferId: source.id,
+      sinkNodeId: sink.id,
+      transitSec: c.length / 0.5,
+      throughputPerMin: c.throughputPerMin ?? 6,
+    };
+  });
+
   return {
     name: spec.name,
     graph,
@@ -253,6 +277,7 @@ export function buildWarehouse(spec) {
       id: p.id, label: p.label, nodeId: p.id, vehicles: p.vehicles,
     })),
     buffers: buffers.map((b) => ({ id: b.id, label: b.label, nodeId: b.id })),
+    conveyors,
     // Première zone de chaque type : point de départ des opérateurs et
     // compatibilité avec les consommateurs mono-zone (relecture)
     shippingNodeId: shippings[0].id,
