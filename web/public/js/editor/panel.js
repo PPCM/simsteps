@@ -29,6 +29,10 @@ const FACILITY_FIELDS = [
   ['width', 'Largeur', 'number'],
   ['depth', 'Profondeur', 'number'],
 ];
+const OBSTACLE_FIELDS = [
+  ...FACILITY_FIELDS,
+  ['height', 'Hauteur', 'number'],
+];
 const PARKING_FIELDS = [
   ...FACILITY_FIELDS,
   // Types d'engins admis, cochés dans le catalogue ; aucun coché = tous
@@ -66,6 +70,7 @@ const TYPE_LABELS = {
   receiving: 'Réception',
   parking: 'Parking',
   buffer: 'Tampon',
+  obstacle: 'Obstacle',
   corridor: 'Couloir',
 };
 
@@ -174,10 +179,12 @@ export function renderSelection(container, def, selection, onChange) {
       workshop: def.workshops,
       parking: def.parkings ?? [],
       buffer: def.buffers ?? [],
+      obstacle: def.obstacles ?? [],
     };
     const facility = (lists[selection.type] ?? asList(def[selection.type]))
       .find((z) => z.id === selection.id);
-    const fields = selection.type === 'parking' ? PARKING_FIELDS : FACILITY_FIELDS;
+    const fields = selection.type === 'parking' ? PARKING_FIELDS
+      : selection.type === 'obstacle' ? OBSTACLE_FIELDS : FACILITY_FIELDS;
     if (facility) renderFields(container, fields, facility, onChange, selection.type);
   }
 }

@@ -56,6 +56,8 @@ export function normalizeDefinition(def) {
   next.receiving = asList(next.receiving).map(zone);
   next.parkings = (next.parkings ?? []).map(zone);
   next.buffers = (next.buffers ?? []).map(zone);
+  // Obstacles (poteaux, bureaux…) : petits par défaut, hauteur 3 m
+  next.obstacles = (next.obstacles ?? []).map((o) => ({ width: 1, depth: 1, height: 3, ...o }));
   next.corridors = corridorsAsList(next).map((c) => ({
     width: DEFAULT_AISLE_WIDTH, orientation: 'horizontal', label: c.id, ...c,
   }));
@@ -90,7 +92,7 @@ const VEHICLE_TYPES = ['pieton', 'transpalette', 'gerbeur', 'frontal', 'retracta
  * affichent directement leur étendue de baies (entière).
  */
 export function displayValue(kind, element, key) {
-  if (['workshop', 'shipping', 'receiving', 'parking', 'buffer'].includes(kind)) {
+  if (['workshop', 'shipping', 'receiving', 'parking', 'buffer', 'obstacle'].includes(kind)) {
     if (key === 'x') return mm(element.x - zoneHalfWidth(element));
     if (key === 'y') return mm(element.y - zoneHalfDepth(element));
   }
@@ -106,7 +108,7 @@ export function displayValue(kind, element, key) {
  * à une saisie du panneau (bord → centre pour les zones).
  */
 export function modelValue(kind, element, key, value) {
-  if (['workshop', 'shipping', 'receiving', 'parking', 'buffer'].includes(kind)) {
+  if (['workshop', 'shipping', 'receiving', 'parking', 'buffer', 'obstacle'].includes(kind)) {
     if (key === 'x') return mm(value + zoneHalfWidth(element));
     if (key === 'y') return mm(value + zoneHalfDepth(element));
   }
@@ -171,6 +173,11 @@ function facilityOf(def, kind, id) {
     const buffer = (def.buffers ?? []).find((b) => b.id === id);
     if (!buffer) throw new Error(`Tampon inconnu : ${id}`);
     return buffer;
+  }
+  if (kind === 'obstacle') {
+    const obstacle = (def.obstacles ?? []).find((o) => o.id === id);
+    if (!obstacle) throw new Error(`Obstacle inconnu : ${id}`);
+    return obstacle;
   }
   throw new Error(`Type d'élément inconnu : ${kind}`);
 }
@@ -516,6 +523,47 @@ export function addBuffer(def) {
 }
 
 /**
+ * Ajoute un obstacle (poteau, bureau…) : bloc plein hors du réseau de
+ * circulation, qui ne doit chevaucher aucun élément.
+ * @returns {object} nouvelle définition
+ */
+export function addObstacle(def) {
+  const next = structuredClone(def);
+  const list = next.obstacles ?? [];
+  const last = list[list.length - 1];
+  const id = nextId('OB', list.map((o) => o.id));
+  const width = last?.width ?? 1;
+  const depth = last?.depth ?? 1;
+  const height = last?.height ?? 3;
+  // Premier obstacle contre le bord ouest (zone généralement libre),
+  // les suivants en dessous du dernier
+  const x = clamp(
+    snapEdge(last !== undefined ? last.x : 0.5 + width / 2, width / 2),
+    width / 2, next.dimensions.width - width / 2
+  );
+  const y = clamp(
+    snapEdge(last !== undefined ? last.y + last.depth + 1 : next.dimensions.depth / 2, depth / 2),
+    depth / 2, next.dimensions.depth - depth / 2
+  );
+  list.push({ id, label: `Obstacle ${id.slice(2)}`, x, y, width, depth, height });
+  next.obstacles = list;
+  return next;
+}
+
+/**
+ * Supprime un obstacle (zéro autorisé).
+ * @returns {object} nouvelle définition
+ */
+export function removeObstacle(def, obstacleId) {
+  if (!(def.obstacles ?? []).some((o) => o.id === obstacleId)) {
+    throw new Error(`Obstacle inconnu : ${obstacleId}`);
+  }
+  const next = structuredClone(def);
+  next.obstacles = next.obstacles.filter((o) => o.id !== obstacleId);
+  return next;
+}
+
+/**
  * Supprime une zone tampon (optionnelle : zéro autorisé — la dépose
  * B2C retourne alors directement aux ateliers).
  * @returns {object} nouvelle définition
@@ -737,6 +785,48 @@ export function validateDefinition(def, buildWarehouse) {
     const hd = zoneHalfDepth(f);
     if (f.x - hw < 0 || f.x + hw > width || f.y - hd < 0 || f.y + hd > depth) {
       errors.push(`zone ${f.id} : l’emprise dépasse le sol`);
+    }
+  }
+  // Obstacles : dans le sol et sans chevauchement avec les emprises
+  // des allées (racks compris), zones et couloirs
+  const obstacles = def.obstacles ?? [];
+  checkUnique(obstacles.map((o) => o.id), 'identifiant d’obstacle', errors);
+  const overlaps = (a, b) => a.x1 < b.x2 - 1e-9 && b.x1 < a.x2 - 1e-9
+    && a.y1 < b.y2 - 1e-9 && b.y1 < a.y2 - 1e-9;
+  const footprints = [
+    ...def.aisles.map((a) => ({
+      kind: 'l’allée', id: a.id,
+      x1: a.x - aisleHalfWidth(def, a), x2: a.x + aisleHalfWidth(def, a),
+      y1: a.yStart, y2: a.yEnd,
+    })),
+    ...[...def.workshops, ...shippings, ...receivings, ...parkings, ...buffers].map((z) => ({
+      kind: 'la zone', id: z.id,
+      x1: z.x - zoneHalfWidth(z), x2: z.x + zoneHalfWidth(z),
+      y1: z.y - zoneHalfDepth(z), y2: z.y + zoneHalfDepth(z),
+    })),
+    ...corridorsL.map((c) => {
+      const lane = (c.width ?? DEFAULT_AISLE_WIDTH) / 2;
+      return c.orientation !== 'vertical'
+        ? { kind: 'le couloir', id: c.id, x1: c.x, x2: c.x + c.length, y1: c.y - lane, y2: c.y + lane }
+        : { kind: 'le couloir', id: c.id, x1: c.x - lane, x2: c.x + lane, y1: c.y, y2: c.y + c.length };
+    }),
+  ];
+  for (const o of obstacles) {
+    if (!(o.width > 0) || !(o.depth > 0) || (o.height !== undefined && !(o.height > 0))) {
+      errors.push(`obstacle ${o.id} : dimensions positives requises`);
+      continue;
+    }
+    const rect = {
+      x1: o.x - o.width / 2, x2: o.x + o.width / 2,
+      y1: o.y - o.depth / 2, y2: o.y + o.depth / 2,
+    };
+    if (rect.x1 < 0 || rect.x2 > width || rect.y1 < 0 || rect.y2 > depth) {
+      errors.push(`obstacle ${o.id} : l’emprise dépasse le sol`);
+    }
+    for (const fp of footprints) {
+      if (overlaps(rect, fp)) {
+        errors.push(`obstacle ${o.id} : chevauche ${fp.kind} ${fp.id}`);
+      }
     }
   }
   if (errors.length > 0) return errors;

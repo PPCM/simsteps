@@ -172,7 +172,14 @@ Le détail des sections :
   proposés ; sinon, ceux de l'entrepôt affiché.
 
 Couleurs des opérateurs : bleu = déplacement, ambre = prélèvement,
-vert = dépose, gris = inactif.
+vert = dépose, rouge = attente à l'entrée d'une allée (congestion),
+gris = inactif.
+
+**Congestion** : un engin dont le gabarit dépasse la moitié de la
+largeur du couloir d'allée ne peut pas y être croisé — il verrouille
+l'allée qu'il traverse et les autres agents (piétons compris)
+attendent en file à ses extrémités. Les piétons ne verrouillent
+jamais. L'attente cumulée alimente le KPI `waitingTimeSec` des runs.
 
 ## API REST
 
@@ -204,6 +211,11 @@ pathfinding des opérateurs utilise A* sur ce graphe.
   // Deux couloirs qui se croisent ou se touchent sont connectés.
   // Format historique accepté : { "frontY": 4, "backY": 38 } (deux
   // couloirs transversaux pleine largeur).
+  // Chaque couloir accepte aussi : "width" (largeur praticable, 1.4 m),
+  // "oneWay" ("positif" = vers +x/+y, "negatif" = vers −x/−y — la
+  // connexité FORTE est vérifiée : des sens uniques qui interdisent le
+  // retour sont rejetés) et "access" ("mixte" par défaut, "pietons" ou
+  // "engins" pour réserver la voie à une classe d'agents)
   "corridors": [
     { "id": "C1", "label": "Couloir avant", "x": 0, "y": 4, "length": 44, "orientation": "horizontal" },
     { "id": "C2", "label": "Couloir arrière", "x": 0, "y": 38, "length": 44, "orientation": "horizontal" }
@@ -237,6 +249,10 @@ pathfinding des opérateurs utilise A* sur ce graphe.
   // atteignable le plus proche pour son gabarit et y retourne à
   // l'inactivité ; sans parking, départ à l'expédition. `vehicles`
   // (facultatif) restreint les types admis (absent = tous)
+  // Obstacles (facultatif) : poteaux, bureaux… — blocs pleins hors du
+  // réseau, qui ne doivent chevaucher aucun élément (hauteur : 3 m)
+  "obstacles": [{ "id": "OB1", "label": "Poteau", "x": 1, "y": 21,
+                  "width": 1, "depth": 1, "height": 4 }],
   // Zones tampon (facultatif) : dépose du picking B2C avant emballage
   // quand le scénario compte des emballeurs (paramètre packers)
   "buffers": [{ "id": "TP1", "label": "Tampon emballage", "x": 14, "y": 40 }],

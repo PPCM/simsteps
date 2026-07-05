@@ -313,6 +313,18 @@ test('ajouter une zone tampon et l’enregistrer', async ({ page, request, baseU
   expect(definition.buffers[0].id).toBe('TP1');
 });
 
+test('ajouter un obstacle et l’enregistrer', async ({ page, request, baseURL }) => {
+  await page.locator('#editAddObstacle').click();
+  await expect(page.locator('#selProps .placeholder')).toHaveText('Obstacle OB1');
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+  await page.locator('#editSave').click();
+  await expect(page.locator('#warehouseStatus')).toHaveText('Entrepôt enregistré.');
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  expect(definition.obstacles).toHaveLength(1);
+  expect(definition.obstacles[0].id).toBe('OB1');
+  expect(definition.obstacles[0].height).toBe(3);
+});
+
 test('ajouter et redimensionner une zone d’expédition', async ({ page, request, baseURL }) => {
   // Ajout : la zone est créée et sélectionnée automatiquement
   await page.locator('#editAddShipping').click();

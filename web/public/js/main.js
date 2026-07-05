@@ -20,7 +20,8 @@ import { splitSettings, buildSettings, mergeProjectParams } from './projects.js'
 import {
   moveAisle, moveFacility, moveCorridor, addAisle, removeAisle, addWorkshop, removeWorkshop,
   addShipping, addReceiving, removeZone, addParking, removeParking,
-  addBuffer, removeBuffer, addCorridor, removeCorridor, updateCorridor,
+  addBuffer, removeBuffer, addObstacle, removeObstacle,
+  addCorridor, removeCorridor, updateCorridor,
   updateAisle, updateFacility, updateGlobals, validateDefinition,
   duplicateDefinition, minimalDefinition, normalizeDefinition,
 } from './editor/model.js';
@@ -44,7 +45,7 @@ const els = {
   editAddAisle: $('editAddAisle'), editAddWorkshop: $('editAddWorkshop'),
   editAddShipping: $('editAddShipping'), editAddReceiving: $('editAddReceiving'),
   editAddCorridor: $('editAddCorridor'), editAddParking: $('editAddParking'),
-  editAddBuffer: $('editAddBuffer'),
+  editAddBuffer: $('editAddBuffer'), editAddObstacle: $('editAddObstacle'),
   replenishment: $('replenishment'), inboundTrucks: $('inboundTrucks'), packers: $('packers'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
@@ -584,6 +585,7 @@ try {
     if (kind === 'workshop') return def.workshops.find((w) => w.id === id);
     if (kind === 'parking') return (def.parkings ?? []).find((p) => p.id === id);
     if (kind === 'buffer') return (def.buffers ?? []).find((b) => b.id === id);
+    if (kind === 'obstacle') return (def.obstacles ?? []).find((o) => o.id === id);
     return facilityList(def[kind]).find((z) => z.id === id);
   }
 
@@ -744,6 +746,11 @@ try {
     selection = { type: 'buffer', id: next.buffers[next.buffers.length - 1].id };
     applyWorkingDef(next);
   });
+  els.editAddObstacle.addEventListener('click', () => {
+    const next = addObstacle(workingDef);
+    selection = { type: 'obstacle', id: next.obstacles[next.obstacles.length - 1].id };
+    applyWorkingDef(next);
+  });
   els.editRemoveSelection.addEventListener('click', () => {
     if (!selection) {
       renderErrors(els.editErrors, ['Aucun élément sélectionné.']);
@@ -756,6 +763,7 @@ try {
       else if (selection.type === 'workshop') next = removeWorkshop(workingDef, selection.id);
       else if (selection.type === 'parking') next = removeParking(workingDef, selection.id);
       else if (selection.type === 'buffer') next = removeBuffer(workingDef, selection.id);
+      else if (selection.type === 'obstacle') next = removeObstacle(workingDef, selection.id);
       else next = removeZone(workingDef, selection.type, selection.id);
       selection = null;
       applyWorkingDef(next);

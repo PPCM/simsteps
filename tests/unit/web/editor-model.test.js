@@ -18,6 +18,8 @@ import {
   addShipping,
   addParking,
   addBuffer,
+  addObstacle,
+  removeObstacle,
   removeBuffer,
   removeParking,
   addReceiving,
@@ -468,4 +470,29 @@ test('addBuffer / removeBuffer : zone tampon optionnelle', () => {
   const removed = removeBuffer(added, 'TP1');
   assert.deepEqual(removed.buffers, []);
   assert.throws(() => removeBuffer(removed, 'TP1'), /Tampon inconnu/);
+});
+
+test('addObstacle / removeObstacle et validation de chevauchement', () => {
+  const norm = normalizeDefinition(def);
+  assert.deepEqual(norm.obstacles, []);
+  const added = addObstacle(norm);
+  assert.equal(added.obstacles.length, 1);
+  assert.equal(added.obstacles[0].id, 'OB1');
+  assert.equal(added.obstacles[0].height, 3);
+  assert.deepEqual(validateDefinition(added, buildWarehouse), []);
+  // Posé sur une allée : chevauchement signalé
+  const clashing = structuredClone(added);
+  clashing.obstacles[0].x = clashing.aisles[0].x;
+  clashing.obstacles[0].y = (clashing.aisles[0].yStart + clashing.aisles[0].yEnd) / 2;
+  assert.ok(validateDefinition(clashing, buildWarehouse)
+    .some((e) => e.includes('chevauche')), 'le chevauchement d’allée doit être détecté');
+  // Posé sur un couloir : idem
+  const onCorridor = structuredClone(added);
+  onCorridor.obstacles[0].x = 22;
+  onCorridor.obstacles[0].y = onCorridor.corridors[0].y;
+  assert.ok(validateDefinition(onCorridor, buildWarehouse)
+    .some((e) => e.includes('chevauche le couloir')));
+  const removed = removeObstacle(added, 'OB1');
+  assert.deepEqual(removed.obstacles, []);
+  assert.throws(() => removeObstacle(removed, 'OB1'), /Obstacle inconnu/);
 });

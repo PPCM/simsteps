@@ -79,6 +79,24 @@ export function zonePatches(def) {
   ];
 }
 
+/**
+ * Boîtes pleines des obstacles (poteaux, bureaux…), en coordonnées 3D.
+ * @param {object} def définition d'entrepôt
+ * @returns {Array<{id: string, label: string, x: number, z: number,
+ *                  width: number, depth: number, height: number}>}
+ */
+export function obstacleBoxes(def) {
+  return (def.obstacles ?? []).map((o) => ({
+    id: o.id,
+    label: o.label ?? o.id,
+    x: o.x,
+    z: o.y,
+    width: o.width ?? 1,
+    depth: o.depth ?? 1,
+    height: o.height ?? 3,
+  }));
+}
+
 // Couloirs : objet historique { frontY, backY } (deux couloirs pleine
 // largeur) ou liste de segments — même conversion que sim/warehouse.js
 function corridorsOf(def) {

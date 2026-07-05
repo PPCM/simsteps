@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   floorSize, rackBoxes, zonePatches, aisleLabels, gridSegments, corridorBands, corridorJunctions,
+  obstacleBoxes,
 } from './layout.js';
 import { makeTextSprite } from './labels.js';
 
@@ -225,6 +226,25 @@ export function createWarehouseScene(canvas, definition) {
       group.add(zoneGroup);
       pickables.push(zoneGroup);
       labelEntries.push({ sprite: label, type: zone.kind, id: zone.id });
+    }
+
+    // --- Obstacles : blocs pleins gris (poteaux, bureaux…) ---
+    for (const obstacle of obstacleBoxes(def)) {
+      const obstacleGroup = new THREE.Group();
+      obstacleGroup.userData = { type: 'obstacle', id: obstacle.id };
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(obstacle.width, obstacle.height, obstacle.depth),
+        new THREE.MeshStandardMaterial({ color: 0x777d87, roughness: 0.85 })
+      );
+      box.castShadow = true;
+      box.position.set(obstacle.x, obstacle.height / 2, obstacle.z);
+      obstacleGroup.add(box);
+      const label = makeTextSprite(obstacle.label, { color: '#9aa2ad', worldHeight: 1.1 });
+      label.position.set(obstacle.x, obstacle.height + 0.8, obstacle.z);
+      obstacleGroup.add(label);
+      group.add(obstacleGroup);
+      pickables.push(obstacleGroup);
+      labelEntries.push({ sprite: label, type: 'obstacle', id: obstacle.id });
     }
 
     return group;

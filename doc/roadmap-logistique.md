@@ -111,9 +111,19 @@ KPIs.
    Simplified vs the original plan: docks are the existing receiving
    zones (several zones = several doors, no door scheduling), and
    staging capacity is not bounded — both deferred.
-5. **Advanced circulation** — one-way lanes (graph already supports
-   `oneWay`), pedestrian vs vehicle lanes, edge capacity and queues, VNA
-   exclusivity, obstacles.
+5. **Advanced circulation** — **done (v0.5.x)**: per-corridor one-way
+   direction (`oneWay: positif|negatif`, strong-connectivity check —
+   layouts you cannot return from are rejected), per-corridor reserved
+   lanes (`access: pietons|engins`, A*/reachability filter by agent
+   class), aisle exclusivity with FIFO queues (a vehicle wider than
+   half the aisle lane locks the aisle it crosses; everyone else —
+   walkers included — waits at the ends; walkers never lock, so
+   all-walker runs are unchanged), new `waiting` state (red) and
+   `waitingTimeSec` KPI, and obstacles (columns/offices: solid blocks
+   off the network, overlap-validated against aisles/zones/corridors,
+   editable like any element). Simplified vs the plan: generic per-edge
+   capacity is represented only by the aisle-exclusivity rule; walkers
+   inside an aisle do not block an incoming locking vehicle.
 6. **Automation** — AGV/AMR with charging, conveyors as fixed-throughput
    edges, goods-to-person strategies, mezzanines.
 

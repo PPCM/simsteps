@@ -48,6 +48,11 @@ export function validateWarehouseDefinition(def) {
     : Boolean(value && value.id));
   if (!zoneOk(def.shipping)) errors.push('« shipping » est requis (zone ou liste non vide de zones)');
   if (!zoneOk(def.receiving)) errors.push('« receiving » est requis (zone ou liste non vide de zones)');
+  // Obstacles : liste optionnelle de blocs { id … }
+  if (def.obstacles !== undefined
+      && (!Array.isArray(def.obstacles) || !def.obstacles.every((o) => o && o.id))) {
+    errors.push('« obstacles » doit être une liste de blocs { id … }');
+  }
   // Zones tampon : liste optionnelle de zones { id … }
   if (def.buffers !== undefined
       && (!Array.isArray(def.buffers) || !def.buffers.every((b) => b && b.id))) {

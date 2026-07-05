@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments, corridorBands, corridorJunctions } from '../../../web/public/js/layout.js';
+import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments, corridorBands, corridorJunctions, obstacleBoxes } from '../../../web/public/js/layout.js';
 
 const def = JSON.parse(
   await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
@@ -170,4 +170,17 @@ test('rackBoxes respecte hauteur de niveau et profondeur par rack', () => {
   // Le rack plus profond s'écarte davantage de l'axe de l'allée
   const aisle = custom.aisles[0];
   assert.ok(Math.abs(box.x - aisle.x) > Math.abs(rackBoxes(def)[0].x - aisle.x));
+});
+
+test('obstacleBoxes expose les blocs avec leurs défauts', () => {
+  const boxes = obstacleBoxes({
+    obstacles: [
+      { id: 'OB1', x: 3, y: 20 },
+      { id: 'OB2', label: 'Bureau', x: 10, y: 22, width: 4, depth: 3, height: 2.5 },
+    ],
+  });
+  assert.equal(boxes.length, 2);
+  assert.deepEqual(boxes[0], { id: 'OB1', label: 'OB1', x: 3, z: 20, width: 1, depth: 1, height: 3 });
+  assert.equal(boxes[1].height, 2.5);
+  assert.deepEqual(obstacleBoxes({}), []);
 });
