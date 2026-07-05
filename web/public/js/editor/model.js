@@ -172,6 +172,38 @@ function corridorOf(def, id) {
   return corridor;
 }
 
+// Portée du magnétisme des extrémités de couloir (mètres)
+const MAGNET_RANGE = 1.5;
+const EPS = 1e-6;
+
+// Magnétisme : décalage le long de l'axe du couloir déplacé qui amène
+// son extrémité la plus proche sur l'axe d'un couloir perpendiculaire
+// (jonction en T), si l'écart est dans la portée. 0 sinon.
+function magnetShift(corridors, moved) {
+  const horizontal = moved.orientation !== 'vertical';
+  const start = horizontal ? moved.x : moved.y;
+  const end = start + moved.length;
+  const across = horizontal ? moved.y : moved.x;
+  let best = 0;
+  for (const other of corridors) {
+    if (other.id === moved.id) continue;
+    const otherHorizontal = other.orientation !== 'vertical';
+    if (otherHorizontal === horizontal) continue; // perpendiculaires seulement
+    // La jonction doit toucher l'autre couloir sur son étendue
+    const spanFrom = otherHorizontal ? other.x : other.y;
+    if (across < spanFrom - EPS || across > spanFrom + other.length + EPS) continue;
+    const axis = otherHorizontal ? other.y : other.x;
+    let gap;
+    if (axis > end + EPS) gap = axis - end;
+    else if (axis < start - EPS) gap = axis - start;
+    else continue; // déjà en croisement ou en contact
+    if (Math.abs(gap) <= MAGNET_RANGE && (best === 0 || Math.abs(gap) < Math.abs(best))) {
+      best = gap;
+    }
+  }
+  return best;
+}
+
 /**
  * Déplace un couloir (les deux axes) : accrochage au mètre de son axe,
  * segment borné dans le sol. Le raccordement au reste du réseau est
@@ -194,6 +226,12 @@ export function moveCorridor(def, corridorId, { x, y }) {
     corridor.y = horizontal
       ? clamp(snapToGrid(y), lane, depth - lane)
       : clamp(snapToGrid(y), 0, Math.max(0, depth - corridor.length));
+  }
+  // Magnétisme : ferme les petits écarts vers un couloir perpendiculaire
+  const shift = magnetShift(next.corridors, corridor);
+  if (shift !== 0) {
+    if (horizontal) corridor.x = clamp(corridor.x + shift, 0, Math.max(0, width - corridor.length));
+    else corridor.y = clamp(corridor.y + shift, 0, Math.max(0, depth - corridor.length));
   }
   return next;
 }

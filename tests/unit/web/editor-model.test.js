@@ -352,3 +352,31 @@ test('addCorridor / removeCorridor / updateCorridor gèrent la liste', () => {
   assert.deepEqual(validateDefinition(single, buildWarehouse), []);
   assert.throws(() => removeCorridor(single, 'C1'), /dernier couloir/);
 });
+
+test('le magnétisme ferme les petits écarts vers un couloir perpendiculaire', () => {
+  // Couloir vertical à x = 10, baies 7..37 : à 1 m du couloir avant (y = 4)
+  const norm = normalizeDefinition(def);
+  const withV = updateCorridor(addCorridor(norm), 'C3', {
+    orientation: 'vertical', x: 10, y: 7, length: 30,
+  });
+  // Écart de 1 m : aimanté sur l'axe du couloir avant
+  assert.equal(moveCorridor(withV, 'C3', { y: 5 }).corridors[2].y, 4);
+  // Écart de 2 m : hors de portée, pas d'aimantation
+  assert.equal(moveCorridor(withV, 'C3', { y: 6 }).corridors[2].y, 6);
+  // Déjà en contact ou en croisement : aucun décalage
+  assert.equal(moveCorridor(withV, 'C3', { y: 4 }).corridors[2].y, 4);
+});
+
+test('le magnétisme exige que la jonction touche l’étendue de l’autre couloir', () => {
+  const norm = normalizeDefinition(def);
+  // Couloir avant raccourci (x 0..8) : un vertical à x = 10 ne le touche pas
+  const short = updateCorridor(normalizeDefinition(def), 'C1', { length: 8 });
+  const withV = updateCorridor(addCorridor(short), 'C3', {
+    orientation: 'vertical', x: 10, y: 7, length: 20,
+  });
+  assert.equal(moveCorridor(withV, 'C3', { y: 5 }).corridors[2].y, 5);
+  // Sur l'étendue (x = 6) : aimanté
+  const inSpan = updateCorridor(withV, 'C3', { x: 6 });
+  assert.equal(moveCorridor(inSpan, 'C3', { y: 5 }).corridors[2].y, 4);
+  assert.ok(norm.corridors.length === 2); // fixture intacte
+});

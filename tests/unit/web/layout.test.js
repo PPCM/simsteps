@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments, corridorBands } from '../../../web/public/js/layout.js';
+import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments, corridorBands, corridorJunctions } from '../../../web/public/js/layout.js';
 
 const def = JSON.parse(
   await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
@@ -139,4 +139,20 @@ test('corridorBands rend les segments horizontaux et verticaux', () => {
   const [h, v] = corridorBands(custom);
   assert.deepEqual({ x: h.x, z: h.z, width: h.width, depth: h.depth }, { x: 19, z: 10, width: 30, depth: 2 });
   assert.deepEqual({ x: v.x, z: v.z, width: v.width, depth: v.depth }, { x: 40, z: 15, width: 1.4, depth: 20 });
+});
+
+test('corridorJunctions repère croisements et extrémités coïncidentes', () => {
+  const custom = structuredClone(def);
+  custom.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, orientation: 'horizontal' },
+    // Vertical reliant les deux transversaux : deux croisements
+    { id: 'C3', x: 10, y: 4, length: 34, orientation: 'vertical' },
+    // Prolongement en coin : extrémité commune avec C2 en (44, 38)
+    { id: 'C4', x: 44, y: 20, length: 18, orientation: 'vertical' },
+  ];
+  const points = corridorJunctions(custom).map((p) => `${p.x},${p.z}`).sort();
+  assert.deepEqual(points, ['10,38', '10,4', '44,38']);
+  // Format historique : deux couloirs parallèles, aucune jonction
+  assert.deepEqual(corridorJunctions(def), []);
 });

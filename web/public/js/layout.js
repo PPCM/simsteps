@@ -100,6 +100,44 @@ export function corridorBands(def) {
 }
 
 /**
+ * Points de jonction du réseau de couloirs : croisements entre segments
+ * horizontaux et verticaux, et extrémités coïncidentes de deux
+ * couloirs — là où la circulation se connecte.
+ * @returns {Array<{x: number, z: number}>} points dédupliqués
+ */
+export function corridorJunctions(def) {
+  const eps = 1e-6;
+  const corridors = corridorsOf(def);
+  const points = new Map();
+  const add = (x, y) => points.set(`${Math.round(x * 1000)},${Math.round(y * 1000)}`, { x, z: y });
+
+  const horizontals = corridors.filter((c) => c.orientation !== 'vertical');
+  const verticals = corridors.filter((c) => c.orientation === 'vertical');
+  for (const h of horizontals) {
+    for (const v of verticals) {
+      const crosses = v.x >= h.x - eps && v.x <= h.x + h.length + eps
+        && h.y >= v.y - eps && h.y <= v.y + v.length + eps;
+      if (crosses) add(v.x, h.y);
+    }
+  }
+
+  // Extrémités coïncidentes (prolongement ou coin entre deux couloirs)
+  const ends = (c) => (c.orientation !== 'vertical'
+    ? [[c.x, c.y], [c.x + c.length, c.y]]
+    : [[c.x, c.y], [c.x, c.y + c.length]]);
+  for (let i = 0; i < corridors.length; i++) {
+    for (let j = i + 1; j < corridors.length; j++) {
+      for (const [x1, y1] of ends(corridors[i])) {
+        for (const [x2, y2] of ends(corridors[j])) {
+          if (Math.abs(x1 - x2) < eps && Math.abs(y1 - y2) < eps) add(x1, y1);
+        }
+      }
+    }
+  }
+  return [...points.values()];
+}
+
+/**
  * Segments de la grille au mètre, couvrant exactement le sol (et rien
  * que lui : une grille carrée déborderait d'un sol rectangulaire et
  * ferait croire que les deux dimensions changent ensemble).

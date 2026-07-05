@@ -6,7 +6,9 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { floorSize, rackBoxes, zonePatches, aisleLabels, gridSegments, corridorBands } from './layout.js';
+import {
+  floorSize, rackBoxes, zonePatches, aisleLabels, gridSegments, corridorBands, corridorJunctions,
+} from './layout.js';
 import { makeTextSprite } from './labels.js';
 
 // Palette de la scène (thème sombre)
@@ -133,6 +135,19 @@ export function createWarehouseScene(canvas, definition) {
       labelEntries.push({ sprite: label, type: 'corridor', id: band.id });
       group.add(corridorGroup);
       pickables.push(corridorGroup);
+    }
+
+    // Points de jonction du réseau : pastilles aux connexions entre couloirs
+    for (const junction of corridorJunctions(def)) {
+      const disc = new THREE.Mesh(
+        new THREE.CircleGeometry(0.55, 20),
+        new THREE.MeshStandardMaterial({
+          color: COLORS.corridor, transparent: true, opacity: 0.5, roughness: 1,
+        })
+      );
+      disc.rotation.x = -Math.PI / 2;
+      disc.position.set(junction.x, 0.028, junction.z);
+      group.add(disc);
     }
 
     // --- Allées : un sous-groupe par allée (racks + arêtes + étiquette) ---
