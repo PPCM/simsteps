@@ -23,18 +23,21 @@ test.afterEach(async ({ request, baseURL }) => {
   await cleanupTestData(request, baseURL);
 });
 
-test('le mode édition fige la simulation et neutralise le panneau', async ({ page }) => {
+test('le mode édition remplace les fenêtres par le chrome fixe', async ({ page }) => {
+  // Ruban, dock droit (structure + propriétés) et barre d'état visibles
+  await expect(page.locator('#editChrome')).toBeVisible();
   await expect(page.locator('#editPanel')).toBeVisible();
-  await expect(page.locator('#editDot')).toBeVisible(); // point ambre sur l'onglet
-  for (const id of ['#play', '#scenario', '#project', '#warehouse', '#saveRun', '#cmpRun']) {
-    await expect(page.locator(id)).toBeDisabled();
-  }
-  await expect(page.locator('#hint')).toContainText('Glisser un élément : déplacer');
+  await expect(page.locator('#editTitle')).toHaveText(testWarehouse.name);
+  await expect(page.locator('#editValidity')).toContainText('Plan valide');
+  await expect(page.locator('#editStatus')).toContainText('Glisser un élément : déplacer');
+  // Les fenêtres flottantes s'effacent : la scène est l'espace de travail
+  await expect(page.locator('#winMain')).toBeHidden();
+  await expect(page.locator('#winKpi')).toBeHidden();
 
-  // Annuler : sortie propre, la relecture repart
+  // Annuler : sortie propre, fenêtres restaurées, la relecture repart
   await page.locator('#editCancel').click();
-  await expect(page.locator('#editPanel')).toBeHidden();
-  await expect(page.locator('#editDot')).toBeHidden();
+  await expect(page.locator('#editChrome')).toBeHidden();
+  await expect(page.locator('#winMain')).toBeVisible();
   await expect(page.locator('#status')).toContainText('opérateurs');
   await expect(page.locator('#play')).toBeEnabled();
 });
@@ -56,12 +59,14 @@ test('sélection au clic et glisser contraint d’une allée', async ({ page, re
 
   const [id, , , yStartAfter, yEndAfter] = await selectionFields(page);
   expect(id).toBe(aisleId);
-  // Longueur conservée, allée entre les couloirs, position au mètre entier
+  // Longueur conservée, position au mètre entier, butée au bord du sol
+  // (le glisser n'est pas borné par les couloirs : la connexité est
+  // l'affaire de la validation — le débouché avant subsiste, plan valide)
   expect(Number(yEndAfter) - Number(yStartAfter)).toBe(length);
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
   const y = Number(yStartAfter);
   expect(y).toBeGreaterThan(definition.corridors.frontY);
-  expect(Number(yEndAfter)).toBeLessThan(definition.corridors.backY);
+  expect(Number(yEndAfter)).toBeLessThanOrEqual(definition.dimensions.depth - 1);
   expect(Number.isInteger(y)).toBe(true);
   await expect(page.locator('#editErrors li')).toHaveCount(0);
 
@@ -112,11 +117,11 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
   };
 
   // Orbite : l'utilisateur choisit son point de vue (glisser dans le
-  // vide, en haut à droite — hors des trois fenêtres)
+  // vide, à gauche — sous le ruban et hors du dock droit)
   const { width, height } = page.viewportSize();
-  await page.mouse.move(width * 0.72, height * 0.12);
+  await page.mouse.move(width * 0.08, height * 0.5);
   await page.mouse.down();
-  await page.mouse.move(width * 0.6, height * 0.28, { steps: 5 });
+  await page.mouse.move(width * 0.2, height * 0.34, { steps: 5 });
   await page.mouse.up();
   const before = await settledCamera();
 
@@ -128,21 +133,22 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
 
   // La sortie d'édition (annuler) ne recadre pas non plus
   await page.locator('#editCancel').click();
-  await expect(page.locator('#editPanel')).toBeHidden();
+  await expect(page.locator('#editChrome')).toBeHidden();
   const afterExit = await settledCamera();
   for (let i = 0; i < 3; i++) expect(afterExit[i]).toBeCloseTo(before[i], 1);
 });
 
 test('glisser un couloir le déplace au mètre, borné dans le sol', async ({ page, request, baseURL }) => {
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
-  // Couloir horizontal le plus en avant (formats historique et liste)
-  const front = Array.isArray(definition.corridors)
+  // Couloir horizontal le plus en arrière (formats historique et liste) :
+  // côté caméra, sa ligne de visée ne traverse aucun rack
+  const back = Array.isArray(definition.corridors)
     ? definition.corridors.filter((c) => c.orientation !== 'vertical')
-        .sort((a, b) => a.y - b.y)[0]
-    : { x: 0, y: definition.corridors.frontY, length: definition.dimensions.width };
-  // Cible : 2 m plus bas, sans dépasser le débouché des allées (un
-  // couloir au milieu des baies déconnecterait le réseau)
-  const targetY = Math.min(front.y + 2, Math.min(...definition.aisles.map((a) => a.yStart)) - 1);
+        .sort((a, b) => b.y - a.y)[0]
+    : { x: 0, y: definition.corridors.backY, length: definition.dimensions.width };
+  // Cible : 2 m vers le bord arrière — les débouchés d'allées suivent,
+  // le réseau reste connexe et le sol borne le geste
+  const targetY = Math.min(back.y + 2, definition.dimensions.depth - 1);
   const points = await page.evaluate(({ c, targetY }) => {
     const { camera } = window.simstepsDebug;
     const rect = document.getElementById('scene').getBoundingClientRect();
@@ -150,20 +156,17 @@ test('glisser un couloir le déplace au mètre, borné dans le sol', async ({ pa
       const v = camera.position.clone().set(wx, 0, wz).project(camera);
       return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
     };
-    return { from: toScreen(c.x + c.length - 6, c.y), to: toScreen(c.x + c.length - 6, targetY) };
-  }, { c: front, targetY });
+    // Milieu du couloir : à l'écart du dock droit quel que soit le cadrage
+    return { from: toScreen(c.x + c.length / 2, c.y), to: toScreen(c.x + c.length / 2, targetY) };
+  }, { c: back, targetY });
   const point = points.from;
 
   // Sélection au clic : le panneau montre le couloir et ses propriétés
   await page.mouse.click(point.x, point.y);
   await expect(page.locator('#selProps .placeholder')).toHaveText(/^Couloir C/);
 
-  // Le panneau de sélection grandit et la fenêtre d'édition peut alors
-  // recouvrir le point de drag : on la replie le temps du geste
-  await page.locator('#editPanel .win-toggle').click();
-
   // Glisser jusqu'à la cible projetée : déterministe quel que soit le
-  // cadrage de la caméra
+  // cadrage de la caméra (le chrome fixe ne recouvre pas la scène)
   await page.mouse.move(point.x, point.y);
   await page.mouse.down();
   for (let i = 1; i <= 4; i++) {
@@ -178,8 +181,6 @@ test('glisser un couloir le déplace au mètre, borné dans le sol', async ({ pa
   expect(y).toBe(targetY);
   await expect(page.locator('#editErrors li')).toHaveCount(0);
 
-  // Redéplie la fenêtre d'édition pour sortir proprement
-  await page.locator('#editPanel .win-toggle').click();
   await page.locator('#editCancel').click();
 });
 
@@ -369,7 +370,54 @@ test('annuler ne persiste aucune modification', async ({ page, request, baseURL 
   await page.locator('#editAddAisle').click();
   await expect(page.locator('#selProps .placeholder')).toContainText(`Allée A${before.aisles.length + 1}`);
   await page.locator('#editCancel').click();
-  await expect(page.locator('#editPanel')).toBeHidden();
+  await expect(page.locator('#editChrome')).toBeHidden();
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
   expect(definition.aisles).toHaveLength(before.aisles.length);
+});
+
+test('l’arborescence sélectionne et le ruban duplique', async ({ page, request, baseURL }) => {
+  // Les groupes obligatoires sont là, avec leur compte d'éléments
+  await expect(page.locator('#editTree summary').first()).toContainText('Allées');
+  const aisleRows = page.locator('#editTree details[data-type="aisle"] .tree-item');
+  const before = await aisleRows.count();
+
+  // Un clic dans l'arborescence sélectionne : propriétés + surlignage
+  await aisleRows.first().click();
+  await expect(page.locator('#selProps .placeholder')).toHaveText(/^Allée A\d+/);
+  await expect(page.locator('#editTree .tree-item.on')).toHaveCount(1);
+
+  // Dupliquer : la copie rejoint l'arborescence et devient la sélection
+  await page.locator('#editDuplicate').click();
+  await expect(aisleRows).toHaveCount(before + 1);
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+  const copyLabel = await page.locator('#selProps .placeholder').textContent();
+  const copyId = copyLabel.replace('Allée ', '');
+
+  // Enregistrer : l'allée dupliquée est persistée avec ses deux racks
+  await page.locator('#editSave').click();
+  await expect(page.locator('#warehouseStatus')).toHaveText('Entrepôt enregistré.');
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  expect(definition.aisles).toHaveLength(before + 1);
+  expect(definition.racks.filter((r) => r.aisle === copyId)).toHaveLength(2);
+});
+
+test('la barre d’état signale les erreurs et suit le pointeur', async ({ page }) => {
+  // bays = 1 sur une allée : la barre d'état passe au rouge
+  await selectInScene(page, 'Allée');
+  const bays = page.locator('#selProps input').nth(2);
+  await bays.fill('1');
+  await bays.blur();
+  await expect(page.locator('#editValidity')).toContainText('1 erreur');
+  await bays.fill('17');
+  await bays.blur();
+  await expect(page.locator('#editValidity')).toContainText('Plan valide');
+
+  // Le survol du sol alimente les coordonnées (x … · y … m)
+  const { width, height } = page.viewportSize();
+  await page.mouse.move(width * 0.5, height * 0.5);
+  await page.mouse.move(width * 0.52, height * 0.52);
+  await expect(page.locator('#editCoords')).toContainText('x ');
+  await expect(page.locator('#editCoords')).toContainText(' m');
+
+  await page.locator('#editCancel').click();
 });

@@ -35,6 +35,7 @@ import {
   updateGlobals,
   validateDefinition,
   duplicateDefinition,
+  duplicateElement,
   minimalDefinition,
   normalizeDefinition,
   displayValue,
@@ -517,4 +518,47 @@ test('addConveyor / updateConveyor / removeConveyor', () => {
   const removed = removeConveyor(added, 'CV1');
   assert.deepEqual(removed.conveyors, []);
   assert.throws(() => removeConveyor(removed, 'CV1'), /Convoyeur inconnu/);
+});
+
+test('duplicateElement copie une allée avec ses racks sous un id libre', () => {
+  const next = duplicateElement(def, 'aisle', 'A1');
+  const added = next.aisles[next.aisles.length - 1];
+  const source = def.aisles.find((a) => a.id === 'A1');
+  // Identifiant libre, mêmes réglages, décalée pour rester saisissable
+  assert.ok(!def.aisles.some((a) => a.id === added.id));
+  assert.equal(added.bays, source.bays);
+  assert.notEqual(added.x, source.x);
+  // Les racks suivent, sous des identifiants uniques
+  const racks = next.racks.filter((r) => r.aisle === added.id);
+  assert.equal(racks.length, def.racks.filter((r) => r.aisle === 'A1').length);
+  const ids = next.racks.map((r) => r.id);
+  assert.equal(new Set(ids).size, ids.length);
+  // L'original n'est pas muté
+  assert.equal(next.aisles.length, def.aisles.length + 1);
+  assert.ok(!def.racks.some((r) => r.aisle === added.id));
+});
+
+test('duplicateElement copie une zone « (copie) », plan toujours valide', () => {
+  const normalized = normalizeDefinition(def);
+  const next = duplicateElement(normalized, 'workshop', normalized.workshops[0].id);
+  const added = next.workshops[next.workshops.length - 1];
+  assert.match(added.label, / \(copie\)$/);
+  assert.equal(added.width, normalized.workshops[0].width);
+  assert.notEqual(added.x, normalized.workshops[0].x);
+  assert.deepEqual(validateDefinition(next, buildWarehouse), []);
+});
+
+test('duplicateElement décale un couloir parallèlement à son axe', () => {
+  const normalized = normalizeDefinition(def);
+  const front = normalized.corridors[0];
+  const next = duplicateElement(normalized, 'corridor', front.id);
+  const added = next.corridors[next.corridors.length - 1];
+  assert.equal(added.x, front.x);
+  assert.notEqual(added.y, front.y);
+  assert.equal(added.length, front.length);
+});
+
+test('duplicateElement rejette un type ou un élément inconnus', () => {
+  assert.throws(() => duplicateElement(def, 'porte', 'X1'), /Type d'élément inconnu/);
+  assert.throws(() => duplicateElement(def, 'aisle', 'A99'), /Élément inconnu/);
 });

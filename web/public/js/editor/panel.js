@@ -220,6 +220,47 @@ export function renderGlobals(container, def, onChange) {
 }
 
 /**
+ * Affiche l'arborescence des éléments (groupes repliables, panneau
+ * « Structure ») : un clic sur une ligne sélectionne l'élément. L'état
+ * ouvert/replié de chaque groupe survit aux re-rendus.
+ * @param {HTMLElement} container
+ * @param {Array<{type: string, label: string, items: Array<{id: string, summary: string}>}>} groups
+ * @param {{type: string, id: string}|null} selection
+ * @param {(type: string, id: string) => void} onPick
+ */
+export function renderTree(container, groups, selection, onPick) {
+  const openState = new Map(
+    [...container.querySelectorAll('details')].map((d) => [d.dataset.type, d.open])
+  );
+  container.innerHTML = '';
+  for (const group of groups) {
+    const details = document.createElement('details');
+    details.dataset.type = group.type;
+    details.open = openState.get(group.type) ?? true;
+    const summary = document.createElement('summary');
+    summary.textContent = `${group.label} (${group.items.length})`;
+    details.append(summary);
+    for (const item of group.items) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'tree-item';
+      if (selection && selection.type === group.type && selection.id === item.id) {
+        row.classList.add('on');
+      }
+      const id = document.createElement('span');
+      id.textContent = item.id;
+      const sub = document.createElement('span');
+      sub.className = 'tree-sub';
+      sub.textContent = item.summary;
+      row.append(id, sub);
+      row.addEventListener('click', () => onPick(group.type, item.id));
+      details.append(row);
+    }
+    container.append(details);
+  }
+}
+
+/**
  * Affiche la liste des erreurs de validation.
  * @param {HTMLUListElement} ul
  * @param {string[]} errors

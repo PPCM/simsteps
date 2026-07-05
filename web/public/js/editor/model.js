@@ -964,6 +964,57 @@ export function duplicateDefinition(def) {
   return next;
 }
 
+// Liste porteuse et préfixe d'identifiant par type d'élément éditable
+const ELEMENT_LISTS = {
+  aisle: { key: 'aisles', prefix: 'A' },
+  corridor: { key: 'corridors', prefix: 'C' },
+  workshop: { key: 'workshops', prefix: 'AT' },
+  shipping: { key: 'shipping', prefix: 'EXP' },
+  receiving: { key: 'receiving', prefix: 'REC' },
+  parking: { key: 'parkings', prefix: 'PK' },
+  buffer: { key: 'buffers', prefix: 'TP' },
+  obstacle: { key: 'obstacles', prefix: 'OB' },
+  conveyor: { key: 'conveyors', prefix: 'CV' },
+};
+
+/**
+ * Duplique un élément : copie à l'identique sous un identifiant libre,
+ * décalée de 2 m par les move* (mêmes accrochages et bornes que le
+ * glisser) pour rester saisissable à côté de l'original. Une allée
+ * emporte ses racks, un couloir se décale parallèlement à son axe.
+ * @returns {object} nouvelle définition (la copie est en fin de liste)
+ */
+export function duplicateElement(def, type, id) {
+  const entry = ELEMENT_LISTS[type];
+  if (!entry) throw new Error(`Type d'élément inconnu : ${type}`);
+  const next = structuredClone(def);
+  const list = asList(next[entry.key] ?? []);
+  const source = list.find((e) => e.id === id);
+  if (!source) throw new Error(`Élément inconnu : ${id}`);
+  const copy = structuredClone(source);
+  copy.id = nextId(entry.prefix, list.map((e) => e.id));
+  if (copy.label !== undefined) copy.label = `${copy.label} (copie)`;
+  list.push(copy);
+  next[entry.key] = list;
+  if (type === 'aisle') {
+    const rackIds = next.racks.map((r) => r.id);
+    for (const rack of next.racks.filter((r) => r.aisle === id)) {
+      const rackId = nextId('R', rackIds, 2);
+      rackIds.push(rackId);
+      next.racks.push({ ...structuredClone(rack), id: rackId, aisle: copy.id });
+    }
+    return moveAisle(next, copy.id, { x: copy.x + 2, yStart: copy.yStart });
+  }
+  if (type === 'corridor') {
+    const vertical = copy.orientation === 'vertical';
+    return moveCorridor(next, copy.id, {
+      x: copy.x + (vertical ? 2 : 0), y: copy.y + (vertical ? 0 : 2),
+    });
+  }
+  if (type === 'conveyor') return moveConveyor(next, copy.id, { x: copy.x + 2, y: copy.y });
+  return moveFacility(next, type, copy.id, { x: copy.x + 2, y: copy.y });
+}
+
 /**
  * Définition minimale d'un nouvel entrepôt : une allée, un atelier,
  * une zone d'expédition et une de réception (format en listes).

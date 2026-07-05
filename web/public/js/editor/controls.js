@@ -15,12 +15,14 @@ const DRAG_EPSILON = 0.5; // en-deçà, le relâchement est un simple clic
  *          getPickables: () => THREE.Group[],
  *          onSelect: (sel: {type: string, id: string}|null) => void,
  *          constrainDelta: (type: string, id: string, delta: {dx: number, dz: number}) => {dx: number, dz: number},
- *          onMoved: (type: string, id: string, delta: {dx: number, dz: number}) => void}} options
+ *          onMoved: (type: string, id: string, delta: {dx: number, dz: number}) => void,
+ *          onHover?: (point: {x: number, z: number}|null) => void}} options
+ *        onHover : point du sol sous le pointeur (throttlé), null hors sol
  * @returns {{setEnabled: (v: boolean) => void,
  *            setSelection: (sel: {type: string, id: string}|null) => void,
  *            dispose: () => void}}
  */
-export function createEditorControls({ canvas, camera, orbit, getPickables, onSelect, constrainDelta, onMoved }) {
+export function createEditorControls({ canvas, camera, orbit, getPickables, onSelect, constrainDelta, onMoved, onHover }) {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -121,6 +123,7 @@ export function createEditorControls({ canvas, camera, orbit, getPickables, onSe
       // Aperçu contraint : même accrochage/bornes que le commit
       const { dx, dz } = constrainDelta(drag.type, drag.id, drag.delta);
       drag.group.position.set(dx, 0, dz);
+      onHover?.({ x: hit.x, z: hit.z });
       return;
     }
     // Curseur de déplacement au survol d'un élément (raycast throttlé)
@@ -128,6 +131,8 @@ export function createEditorControls({ canvas, camera, orbit, getPickables, onSe
     if (now - lastHover < 80) return;
     lastHover = now;
     canvas.style.cursor = pickAt(event) ? 'move' : '';
+    // Coordonnées du pointeur sur le plan du sol (le rayon est déjà posé)
+    onHover?.(raycaster.ray.intersectPlane(floorPlane, hit) ? { x: hit.x, z: hit.z } : null);
   }
 
   function onPointerUp(event) {

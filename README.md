@@ -126,36 +126,46 @@ Le détail des sections :
   scénario vivants.
 - **Entrepôt** : choix de l'entrepôt affiché, création (modèle minimal),
   duplication et suppression (les runs et projets associés sont supprimés
-  avec l'entrepôt). « Éditer » met la simulation en pause et ouvre une
-  fenêtre d'édition dédiée en bas de l'écran (flottante et rétractable
-  comme les autres), aux propriétés disposées horizontalement : cliquer
-  un élément dans la scène (allée, atelier, expédition, réception) le
-  sélectionne, glisser le déplace par pas d'un mètre — le bord
-  gauche/avant de l'élément s'aligne sur le carroyage au sol, un élément
-  de dimensions entières remplit donc des carreaux entiers, et les
-  champs x/y des zones expriment ces bords (valeurs entières après
-  accrochage) — dans les limites du plan et des couloirs ; les couloirs
-  avant et arrière se glissent aussi à la souris (axe y, entre le bord
-  du sol et le débouché des allées) ; la fenêtre expose les propriétés de la sélection
-  (baies, zone, identifiants, largeur/profondeur — chaque élément est
-  redimensionnable), les propriétés globales (nom, dimensions), et
-  l'ajout/la suppression d'allées, d'ateliers, de zones d'expédition ou
-  de réception, de couloirs, de parkings d'agents, de zones tampon et de convoyeurs
-  (au moins un couloir et une zone d'expédition/réception doivent
-  rester ; parkings et tampons sont optionnels — placez les parkings en
-  bordure, hors des flux, et les tampons près des ateliers). Les couloirs sont des objets à part
-  entière : position, longueur, largeur et orientation
-  (horizontal/vertical, menu déroulant) modifiables, connexion
-  automatique aux croisements — de quoi dessiner de vrais chemins de
-  circulation entre les zones.
+  avec l'entrepôt). « Éditer » met la simulation en pause et bascule dans
+  un **atelier d'édition plein écran** : les fenêtres flottantes
+  s'effacent, la scène devient l'espace de travail et un chrome fixe
+  d'application de bureau l'encadre —
+  - **ruban en haut** : les outils de création groupés (Structure :
+    allée, couloir ; Zones : atelier, expédition, réception, parking,
+    tampon ; Flux : obstacle, convoyeur) et les actions Modifier
+    (« Dupliquer » copie la sélection sous un identifiant libre, décalée
+    de 2 m, racks compris pour une allée ; « Supprimer »), avec
+    « Enregistrer » et « Quitter sans enregistrer » à droite ;
+  - **dock à droite** : l'arborescence « Structure » (les éléments
+    groupés par type avec leur résumé — baies et niveaux d'une allée,
+    orientation et longueur d'un couloir… ; un clic sélectionne sans
+    chercher dans la 3D) au-dessus des propriétés de la sélection
+    (baies, zone, identifiants, largeur/profondeur — chaque élément est
+    redimensionnable ; les racks se règlent depuis le panneau de leur
+    allée : niveaux, hauteur de niveau, profondeur, appliqués aux deux
+    côtés) ; sans sélection, le dock montre les propriétés de
+    l'entrepôt (nom, dimensions, hauteur sous plafond qui borne les
+    racks) et la liste des erreurs de validation ;
+  - **barre d'état en bas** : coordonnées du pointeur sur le sol, pas
+    d'accrochage, état de validation en continu (« ✓ Plan valide » ou
+    le nombre d'erreurs en rouge) et rappel des gestes.
+
+  Dans la scène : cliquer un élément le sélectionne, glisser le déplace
+  par pas d'un mètre — le bord gauche/avant s'aligne sur le carroyage au
+  sol, un élément de dimensions entières remplit donc des carreaux
+  entiers, et les champs x/y des zones expriment ces bords (valeurs
+  entières après accrochage) — dans les limites du plan. Au moins un
+  couloir et une zone d'expédition/réception doivent rester ; parkings
+  et tampons sont optionnels — placez les parkings en bordure, hors des
+  flux, et les tampons près des ateliers. Les couloirs sont des objets à
+  part entière : position, longueur, largeur et orientation
+  (horizontal/vertical) modifiables, connexion automatique aux
+  croisements — de quoi dessiner de vrais chemins de circulation.
   « Enregistrer » valide et persiste la définition (modification en
   place : tous les projets qui référencent l'entrepôt la voient),
-  Les racks se règlent depuis le panneau de leur allée (niveaux, hauteur
-  de niveau, profondeur — appliqués aux deux côtés) ; la hauteur sous
-  plafond, dans les propriétés globales, borne leur élévation.
-  « Annuler » restaure l'état d'entrée. Limites assumées : pas
-  d'annulation fine, pas de redimensionnement à la souris, racks dérivés
-  des allées (deux racks gauche/droite).
+  « Quitter sans enregistrer » restaure l'état d'entrée. Limites
+  assumées : pas d'annulation fine, pas de redimensionnement à la
+  souris, racks dérivés des allées (deux racks gauche/droite).
 - **Scénario** : choix du scénario de base, curseurs opérateurs à pied /
   mix B2C / cadence, et compteurs d'engins de manutention (transpalette,
   gerbeur, frontal, rétractable, VNA, préparateur — l'infobulle rappelle

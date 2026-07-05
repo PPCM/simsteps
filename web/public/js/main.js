@@ -24,10 +24,11 @@ import {
   addCorridor, removeCorridor, updateCorridor,
   addConveyor, removeConveyor, updateConveyor, moveConveyor,
   updateAisle, updateFacility, updateGlobals, validateDefinition,
-  duplicateDefinition, minimalDefinition, normalizeDefinition,
+  duplicateDefinition, duplicateElement, minimalDefinition, normalizeDefinition,
 } from './editor/model.js';
 import { createEditorControls } from './editor/controls.js';
-import { renderSelection, renderGlobals, renderErrors } from './editor/panel.js';
+import { renderSelection, renderGlobals, renderErrors, renderTree } from './editor/panel.js';
+import { buildTree } from './editor/tree.js';
 import { kpiSummaryText } from './panels.js';
 import { setupWindow, setupTabs } from './windows.js';
 
@@ -35,14 +36,16 @@ const $ = (id) => document.getElementById(id);
 const els = {
   status: $('status'), clock: $('clock'), play: $('play'), hint: $('hint'),
   playMini: $('playMini'), clockMini: $('clockMini'), kpiSummary: $('kpiSummary'),
-  editDot: $('editDot'),
   project: $('project'), projectName: $('projectName'),
   projectCreate: $('projectCreate'), projectUpdate: $('projectUpdate'),
   projectDelete: $('projectDelete'), projectStatus: $('projectStatus'),
   warehouse: $('warehouse'), warehouseEdit: $('warehouseEdit'),
   warehouseCreate: $('warehouseCreate'), warehouseDuplicate: $('warehouseDuplicate'),
   warehouseDelete: $('warehouseDelete'), warehouseStatus: $('warehouseStatus'),
-  editPanel: $('editPanel'), selProps: $('selProps'), globalProps: $('globalProps'),
+  editChrome: $('editChrome'), editTree: $('editTree'),
+  editTitle: $('editTitle'), editCoords: $('editCoords'), editValidity: $('editValidity'),
+  editDuplicate: $('editDuplicate'),
+  selProps: $('selProps'), globalProps: $('globalProps'),
   editAddAisle: $('editAddAisle'), editAddWorkshop: $('editAddWorkshop'),
   editAddShipping: $('editAddShipping'), editAddReceiving: $('editAddReceiving'),
   editAddCorridor: $('editAddCorridor'), editAddParking: $('editAddParking'),
@@ -61,14 +64,10 @@ const els = {
   cmpA: $('cmpA'), cmpB: $('cmpB'), cmpRun: $('cmpRun'), cmpStatus: $('cmpStatus'), cmpTable: $('cmpTable'),
 };
 
-const HINT_DEFAULT = 'Glisser : orbite · Molette : zoom · Clic droit : déplacement';
-const HINT_EDIT = 'Glisser un élément : déplacer · Clic dans le vide : orbite';
-
 // Fenêtres flottantes (drag, repli, mémorisation) et onglets — branchés
 // avant le chargement des données pour rester utilisables même en erreur
 setupWindow($('winMain'), 'simsteps.fenetre.principale');
 setupWindow($('winKpi'), 'simsteps.fenetre.indicateurs');
-const editWindow = setupWindow($('editPanel'), 'simsteps.fenetre.edition');
 setupTabs(
   [...document.querySelectorAll('.tabs [role="tab"]')],
   [$('panePilot'), $('paneConfig')],
@@ -569,22 +568,14 @@ try {
   let workingDef = null; // définition de travail (clonée à l'entrée)
   let selection = null; // { type, id } de l'élément sélectionné
 
-  // Éléments neutralisés pendant l'édition
-  const editLocked = [
-    els.play, els.playMini, ...speedButtons, els.scenario, els.opCount, ...fleetEls.values(),
-    els.b2cShare, els.orderRate, els.slotting, els.replenishment, els.inboundTrucks, els.packers,
-    els.corridorExclusion,
-    els.saveRun, els.project, els.projectName, els.projectCreate, els.projectUpdate,
-    els.projectDelete, els.warehouse, els.warehouseEdit, els.warehouseCreate,
-    els.warehouseDuplicate, els.warehouseDelete, els.cmpA, els.cmpB, els.cmpRun,
-  ];
+  // Le mode édition remplace les fenêtres flottantes (et les aides de
+  // relecture) par le chrome fixe : ruban, dock droit, barre d'état
   function setEditingUI(value) {
-    for (const el of editLocked) el.disabled = value;
-    els.editPanel.hidden = !value;
-    // Une position mémorisée peut dépasser la fenêtre actuelle du navigateur
-    if (value) editWindow.reclamp();
-    els.editDot.hidden = !value; // point ambre sur l'onglet Configurer
-    els.hint.textContent = value ? HINT_EDIT : HINT_DEFAULT;
+    $('winMain').hidden = value;
+    $('winKpi').hidden = value;
+    els.hint.hidden = value;
+    document.querySelector('.legend').hidden = value;
+    els.editChrome.hidden = !value;
   }
 
   function findFacility(def, kind, id) {
@@ -614,6 +605,30 @@ try {
       applyWorkingDef(updateGlobals(workingDef, props), { recenter: resized });
     });
   }
+  // Arborescence « Structure » : un clic sélectionne comme dans la scène
+  function renderTreePanel() {
+    renderTree(els.editTree, buildTree(workingDef), selection, (type, id) => {
+      selection = { type, id };
+      editorControls.setSelection(selection);
+      refreshEditPanels();
+    });
+  }
+  // Dock droit : propriétés de la sélection, ou de l'entrepôt sinon
+  function refreshEditPanels() {
+    els.globalProps.hidden = selection !== null;
+    renderSelectionPanel();
+    if (selection === null) renderGlobalsPanel();
+    renderTreePanel();
+  }
+  // État de validation dans la barre d'état (le détail reste dans le dock)
+  function setValidity(errors) {
+    const n = errors.length;
+    els.editValidity.textContent = n === 0
+      ? '✓ Plan valide'
+      : `✗ ${n} erreur${n > 1 ? 's' : ''} de validation`;
+    els.editValidity.classList.toggle('ok', n === 0);
+    els.editValidity.classList.toggle('bad', n > 0);
+  }
 
   // Applique une définition de travail : validation puis reconstruction
   // de la scène. La scène suit le modèle même quand le réseau de
@@ -622,8 +637,10 @@ try {
   // inconstructible — figent la scène sur le dernier état sain.
   function applyWorkingDef(next, { recenter = false } = {}) {
     workingDef = next;
+    els.editTitle.textContent = workingDef.name;
     const errors = validateDefinition(workingDef, buildWarehouse);
     renderErrors(els.editErrors, errors);
+    setValidity(errors);
     els.editSave.disabled = errors.length > 0;
     const renderable = errors.every((e) => e.startsWith('définition incohérente'));
     if (renderable) {
@@ -632,8 +649,7 @@ try {
       sceneApi.setDefinition(workingDef, { recenter });
       editorControls.setSelection(selection);
     }
-    renderSelectionPanel();
-    renderGlobalsPanel();
+    refreshEditPanels();
   }
 
   const editorControls = createEditorControls({
@@ -643,7 +659,13 @@ try {
     getPickables: sceneApi.getPickables,
     onSelect(sel) {
       selection = sel;
-      renderSelectionPanel();
+      refreshEditPanels();
+    },
+    // Coordonnées du pointeur sur le sol, dans la barre d'état
+    onHover(point) {
+      els.editCoords.textContent = point
+        ? `x ${numFr.format(point.x)} · y ${numFr.format(point.z)} m`
+        : '—';
     },
     // Aperçu du drag : mêmes accrochage et bornes que le commit
     constrainDelta(type, id, delta) {
@@ -715,9 +737,11 @@ try {
     selection = null;
     setEditingUI(true);
     editorControls.setEnabled(true);
-    renderSelectionPanel();
-    renderGlobalsPanel();
+    els.editTitle.textContent = workingDef.name;
+    els.editCoords.textContent = '—';
+    refreshEditPanels();
     renderErrors(els.editErrors, []);
+    setValidity([]);
     els.editSave.disabled = false;
     els.status.textContent = 'Mode édition — simulation en pause';
   }
@@ -776,6 +800,27 @@ try {
     const next = addConveyor(workingDef);
     selection = { type: 'conveyor', id: next.conveyors[next.conveyors.length - 1].id };
     applyWorkingDef(next);
+  });
+  // Duplication de la sélection : la copie (dernière de sa liste)
+  // devient la sélection courante, prête à être glissée en place
+  const LIST_KEYS = {
+    aisle: 'aisles', corridor: 'corridors', workshop: 'workshops',
+    shipping: 'shipping', receiving: 'receiving', parking: 'parkings',
+    buffer: 'buffers', obstacle: 'obstacles', conveyor: 'conveyors',
+  };
+  els.editDuplicate.addEventListener('click', () => {
+    if (!selection) {
+      renderErrors(els.editErrors, ['Aucun élément sélectionné.']);
+      return;
+    }
+    try {
+      const next = duplicateElement(workingDef, selection.type, selection.id);
+      const list = next[LIST_KEYS[selection.type]];
+      selection = { type: selection.type, id: list[list.length - 1].id };
+      applyWorkingDef(next);
+    } catch (error) {
+      renderErrors(els.editErrors, [error.message]);
+    }
   });
   els.editRemoveSelection.addEventListener('click', () => {
     if (!selection) {

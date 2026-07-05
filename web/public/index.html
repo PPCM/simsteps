@@ -28,16 +28,86 @@
     .window[hidden] { display: none; } /* display explicite : l'attribut hidden doit gagner */
     .win-left { top: 14px; left: 14px; }
     .win-right { top: 14px; right: 14px; width: 286px; }
-    .win-edit {
-      bottom: 14px; left: max(14px, calc(50vw - 380px));
-      width: min(760px, calc(100vw - 28px));
+    /* ---- Mode édition : chrome fixe (ruban, dock droit, barre d'état) ----
+       La colonne couvre l'écran mais laisse passer le pointeur au centre :
+       la scène reste cliquable et glissable partout hors des panneaux. */
+    #editChrome {
+      position: fixed; inset: 0; z-index: 3;
+      display: flex; flex-direction: column; pointer-events: none;
     }
-    .edit-columns { flex-direction: row; flex-wrap: wrap; align-items: stretch; display: flex; }
-    .edit-columns section {
-      flex: 1 1 220px; min-width: 220px;
-      border-bottom: 0; border-right: 1px solid var(--line);
+    #editChrome[hidden] { display: none; }
+    #editTop {
+      pointer-events: auto; background: var(--surface);
+      border-bottom: 1px solid var(--line); backdrop-filter: blur(8px);
     }
-    .edit-columns section:last-child { border-right: 0; }
+    .edit-titlebar {
+      display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .edit-crumb {
+      font-size: 10.5px; font-weight: 600; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--ink-3);
+    }
+    .edit-crumb b { color: var(--ink); font-weight: 600; }
+    .edit-titlebar .spacer { flex: 1; }
+    .edit-titlebar button.action { width: auto; padding: 6px 12px; }
+    button.action.primary { border-color: var(--accent); color: var(--accent); }
+    .ribbon { display: flex; align-items: stretch; gap: 12px; padding: 6px 14px; overflow-x: auto; }
+    .ribbon-group { display: flex; flex-direction: column; gap: 3px; }
+    .ribbon-tools { display: flex; gap: 4px; flex: 1; }
+    .ribbon-sep { width: 1px; background: var(--line); }
+    .ribbon-caption {
+      font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--ink-3); text-align: center;
+    }
+    button.tool {
+      appearance: none; display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-end; gap: 3px; min-width: 54px; padding: 5px 7px;
+      background: transparent; border: 1px solid var(--line); color: var(--ink);
+      font: inherit; cursor: pointer;
+    }
+    button.tool b { font-size: 15px; font-weight: 400; line-height: 1; }
+    button.tool small { font-size: 9.5px; color: var(--ink-2); white-space: nowrap; }
+    button.tool:hover { border-color: var(--accent); }
+    button.tool:hover small { color: var(--accent); }
+    button.tool.danger b { color: var(--danger); }
+    .edit-middle { flex: 1; display: flex; justify-content: flex-end; min-height: 0; }
+    #editPanel {
+      pointer-events: auto; width: 300px; display: flex; flex-direction: column;
+      background: var(--surface); border-left: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+    .dock-head {
+      margin: 0; padding: 8px 14px 6px; font-size: 10.5px; font-weight: 600;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
+      border-bottom: 1px solid var(--line); flex: none;
+    }
+    #editTree { overflow-y: auto; flex: 0 1 auto; max-height: 42%; padding: 4px 0 8px; }
+    #editTree details summary {
+      cursor: pointer; list-style: none; padding: 4px 14px;
+      font-size: 11.5px; color: var(--ink-2); user-select: none;
+    }
+    #editTree details summary::before { content: '▸ '; color: var(--ink-3); }
+    #editTree details[open] summary::before { content: '▾ '; }
+    .tree-item {
+      appearance: none; display: flex; align-items: baseline; gap: 8px;
+      width: 100%; padding: 2px 14px 2px 26px; border: 0; background: transparent;
+      color: var(--ink); font: 12px/1.6 ui-monospace, Menlo, Consolas, monospace;
+      text-align: left; cursor: pointer;
+    }
+    .tree-item:hover { color: var(--accent); }
+    .tree-item.on { background: rgba(255, 177, 78, .14); color: var(--accent); }
+    .tree-sub { margin-left: auto; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+    .dock-props { overflow-y: auto; flex: 1 1 auto; padding: 10px 14px; }
+    #editStatus {
+      pointer-events: auto; display: flex; align-items: center; gap: 16px;
+      padding: 4px 12px; background: var(--surface); border-top: 1px solid var(--line);
+      backdrop-filter: blur(8px); font-size: 11.5px; color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+    }
+    #editValidity.ok { color: var(--good); }
+    #editValidity.bad { color: var(--danger); }
+    .edit-hint { margin-left: auto; color: var(--ink-3); }
     .win-body { overflow-y: auto; }
     .win-body::-webkit-scrollbar { width: 8px; }
     .win-body::-webkit-scrollbar-thumb { background: var(--line); }
@@ -83,12 +153,6 @@
       color: var(--ink-2); font: 600 12.5px/1 system-ui, sans-serif; cursor: pointer;
     }
     .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
-    .tabs .dot {
-      display: inline-block; width: 6px; height: 6px; margin-left: 6px;
-      border-radius: 50%; background: var(--accent); vertical-align: 1px;
-    }
-    .tabs .dot[hidden] { display: none; } /* display explicite : l'attribut hidden doit gagner */
-
     section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
     section:last-child { border-bottom: 0; }
     h2 {
@@ -194,6 +258,8 @@
     }
     .legend span { display: flex; align-items: center; gap: 6px; }
     .legend i { width: 10px; height: 10px; border-radius: 50%; }
+    /* display explicite : l'attribut hidden doit gagner (mode édition) */
+    .legend[hidden], .hint[hidden] { display: none; }
   </style>
   <script type="importmap">
     {
@@ -235,7 +301,7 @@
 
     <nav class="tabs" role="tablist" aria-label="Onglets du panneau">
       <button id="tabPilot" role="tab" data-pane="panePilot" aria-selected="true">Piloter</button>
-      <button id="tabConfig" role="tab" data-pane="paneConfig" aria-selected="false">Configurer<i class="dot" id="editDot" hidden></i></button>
+      <button id="tabConfig" role="tab" data-pane="paneConfig" aria-selected="false">Configurer</button>
     </nav>
 
     <div id="paneConfig" role="tabpanel" hidden>
@@ -372,42 +438,70 @@
     </div>
   </aside>
 
-  <aside id="editPanel" class="window win-edit" aria-label="Édition de l'entrepôt" hidden>
-    <header class="win-title">
-      <h2 class="win-name">Édition de l'entrepôt</h2>
-      <button class="win-toggle" aria-expanded="true" aria-label="Replier la fenêtre">⌃</button>
-    </header>
-    <div class="win-body edit-columns">
-      <section>
-        <h2>Sélection</h2>
-        <div id="selProps"><p class="placeholder">Cliquez un élément dans la scène.</p></div>
-        <div class="btn-row">
-          <button class="action" id="editAddAisle">+ Allée</button>
-          <button class="action" id="editAddWorkshop">+ Atelier</button>
-          <button class="action" id="editAddShipping">+ Expédition</button>
-          <button class="action" id="editAddReceiving">+ Réception</button>
-          <button class="action" id="editAddCorridor">+ Couloir</button>
-          <button class="action" id="editAddParking">+ Parking</button>
-          <button class="action" id="editAddBuffer">+ Tampon</button>
-          <button class="action" id="editAddObstacle">+ Obstacle</button>
-          <button class="action" id="editAddConveyor">+ Convoyeur</button>
+  <div id="editChrome" hidden>
+    <div id="editTop">
+      <div class="edit-titlebar">
+        <span class="edit-crumb">Édition · <b id="editTitle"></b></span>
+        <span class="spacer"></span>
+        <button class="action" id="editCancel">Quitter sans enregistrer</button>
+        <button class="action primary" id="editSave">Enregistrer</button>
+      </div>
+      <div class="ribbon" role="toolbar" aria-label="Création et modification d'éléments">
+        <div class="ribbon-group">
+          <div class="ribbon-tools">
+            <button class="tool" id="editAddAisle" title="Ajouter une allée et ses racks"><b>▤</b><small>Allée</small></button>
+            <button class="tool" id="editAddCorridor" title="Ajouter un couloir de circulation"><b>═</b><small>Couloir</small></button>
+          </div>
+          <span class="ribbon-caption">Structure</span>
         </div>
-        <button class="action" id="editRemoveSelection">Supprimer la sélection</button>
-      </section>
-      <section>
-        <h2>Propriétés globales</h2>
-        <div id="globalProps"></div>
-      </section>
-      <section>
-        <h2>Terminer</h2>
-        <div class="btn-row">
-          <button class="action" id="editSave">Enregistrer</button>
-          <button class="action" id="editCancel">Annuler</button>
+        <div class="ribbon-sep"></div>
+        <div class="ribbon-group">
+          <div class="ribbon-tools">
+            <button class="tool" id="editAddWorkshop" title="Ajouter un atelier d'emballage"><b>▦</b><small>Atelier</small></button>
+            <button class="tool" id="editAddShipping" title="Ajouter une zone d'expédition"><b>⬒</b><small>Expédition</small></button>
+            <button class="tool" id="editAddReceiving" title="Ajouter une zone de réception"><b>⬓</b><small>Réception</small></button>
+            <button class="tool" id="editAddParking" title="Ajouter un parking d'agents"><b>◫</b><small>Parking</small></button>
+            <button class="tool" id="editAddBuffer" title="Ajouter une zone tampon"><b>▧</b><small>Tampon</small></button>
+          </div>
+          <span class="ribbon-caption">Zones</span>
         </div>
-        <ul class="edit-errors" id="editErrors"></ul>
-      </section>
+        <div class="ribbon-sep"></div>
+        <div class="ribbon-group">
+          <div class="ribbon-tools">
+            <button class="tool" id="editAddObstacle" title="Ajouter un obstacle (poteau, bureau…)"><b>▪</b><small>Obstacle</small></button>
+            <button class="tool" id="editAddConveyor" title="Ajouter un convoyeur (exige tampon et atelier)"><b>⇢</b><small>Convoyeur</small></button>
+          </div>
+          <span class="ribbon-caption">Flux</span>
+        </div>
+        <div class="ribbon-sep"></div>
+        <div class="ribbon-group">
+          <div class="ribbon-tools">
+            <button class="tool" id="editDuplicate" title="Dupliquer la sélection"><b>⧉</b><small>Dupliquer</small></button>
+            <button class="tool danger" id="editRemoveSelection" title="Supprimer la sélection"><b>✕</b><small>Supprimer</small></button>
+          </div>
+          <span class="ribbon-caption">Modifier</span>
+        </div>
+      </div>
     </div>
-  </aside>
+    <div class="edit-middle">
+      <aside id="editPanel" aria-label="Structure et propriétés de l'entrepôt">
+        <h2 class="dock-head">Structure</h2>
+        <div id="editTree"></div>
+        <h2 class="dock-head">Propriétés</h2>
+        <div class="dock-props">
+          <div id="selProps"><p class="placeholder">Cliquez un élément dans la scène ou dans la structure.</p></div>
+          <div id="globalProps"></div>
+          <ul class="edit-errors" id="editErrors"></ul>
+        </div>
+      </aside>
+    </div>
+    <div id="editStatus">
+      <span id="editCoords" class="mono">—</span>
+      <span class="mono">Accrochage : 1 m</span>
+      <span id="editValidity" class="mono ok">✓ Plan valide</span>
+      <span class="edit-hint">Glisser un élément : déplacer · Clic dans le vide : orbite</span>
+    </div>
+  </div>
 
   <p class="hint" id="hint">Glisser : orbite · Molette : zoom · Clic droit : déplacement</p>
   <div class="legend" aria-label="États des opérateurs">
