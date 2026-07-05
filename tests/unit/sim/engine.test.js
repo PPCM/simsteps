@@ -313,7 +313,7 @@ test('les camions entrants alimentent la réserve (putaway)', () => {
     ...FLUX,
     ordersPerHour: 40,
     slotCapacityUnits: 20,
-    fleet: { pieton: 3, retractable: 2 },
+    fleet: { pieton: 3, retractable: 3 },
     inboundTrucksPerDay: 48,
     palletsPerTruck: 6,
   });
@@ -373,4 +373,45 @@ test('une voie réservée aux piétons bloque les engins', () => {
   });
   // L'engin ne peut plus circuler : les lignes hautes sont inaccessibles
   assert.ok(closed.orders.some((o) => o.lines.some((l) => l.state === 'unreachable')));
+});
+
+// --- Phase 5 : exclusivité d'allée et files d'attente ---
+
+test('un engin au gabarit serré verrouille son allée : les autres attendent', () => {
+  const tall = structuredClone(spec);
+  tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
+  tall.aisles = tall.aisles.map((a) => ({ ...a, width: 1.7 }));
+  tall.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 2, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 2, orientation: 'horizontal' },
+  ];
+  const states = new Set();
+  const { kpis, operators } = runSimulation(buildWarehouse(tall), {
+    ...BASE, seed: 17, ordersPerHour: 60, durationHours: 2,
+    fleet: { pieton: 3, vna: 2 },
+  }, { onState: (opId, state) => states.add(state) });
+  assert.ok(states.has('waiting'), 'des attentes aux entrées d’allées doivent survenir');
+  assert.ok(kpis.waitingTimeSec > 0);
+  assert.equal(kpis.waitingTimeSec,
+    operators.reduce((sum, op) => sum + op.waitTime, 0));
+  assert.ok(kpis.ordersCompleted > 0);
+});
+
+test('sans engin au gabarit serré, aucune attente (comportement historique)', () => {
+  const { kpis } = runSimulation(warehouse, { ...BASE, seed: 17 });
+  assert.equal(kpis.waitingTimeSec, 0);
+});
+
+test('la congestion est déterministe à graine identique', () => {
+  const tall = structuredClone(spec);
+  tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
+  tall.aisles = tall.aisles.map((a) => ({ ...a, width: 1.7 }));
+  tall.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 2, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 2, orientation: 'horizontal' },
+  ];
+  const params = { ...BASE, seed: 17, ordersPerHour: 60, fleet: { pieton: 3, vna: 2 } };
+  const a = runSimulation(buildWarehouse(tall), params);
+  const b = runSimulation(buildWarehouse(tall), params);
+  assert.deepEqual(a.kpis, b.kpis);
 });

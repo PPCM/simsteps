@@ -50,6 +50,9 @@ export function formatKpis(kpis) {
       'Temps moyen de cycle d’une commande',
       kpis.avgCycleTimeSec !== null ? formatDuration(kpis.avgCycleTimeSec) : '—',
     ],
+    ...(kpis.waitingTimeSec > 0
+      ? [['Attente aux allées (congestion)', formatDuration(kpis.waitingTimeSec)]]
+      : []),
     ['Commandes non terminées', String(kpis.pendingOrders)],
     ['  dont jamais démarrées', String(kpis.waitingOrders)],
   ];

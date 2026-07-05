@@ -160,6 +160,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         busyTime: 0, // secondes en mission
         busySince: null,
         linesPicked: 0,
+        route: null, // itinéraire en cours (tronçons)
+        heldAisle: null, // allée verrouillée par cet engin
+        waitTime: 0, // attente cumulée aux entrées d'allées
         // Couplage opérateur ↔ engin
         mounting: null, // humain : engin vers lequel il marche
         driving: null, // humain : engin qu'il conduit
@@ -198,6 +201,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
         busyTime: 0,
         busySince: null,
         linesPicked: 0,
+        route: null,
+        heldAisle: null,
+        waitTime: 0,
         mounting: null,
         driving: null,
         driver: null,
@@ -509,6 +515,53 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   // stocké avec chaque run pour la heatmap et le diagramme spaghetti
   const edgeTraffic = new Map();
 
+  // --- Exclusivité d'allée (congestion) ---
+  // Un engin dont le gabarit dépasse la moitié de la largeur du couloir
+  // d'allée ne peut pas y être croisé : il verrouille l'allée qu'il
+  // traverse, les autres agents (piétons compris) attendent aux
+  // extrémités. Les piétons ne verrouillent jamais. Sans engin de ce
+  // gabarit dans la flotte, aucune allée n'est verrouillable et les
+  // déplacements restent d'un seul tenant (comportement historique).
+  const aisleWidthById = new Map(warehouse.aisles.map((a) => [a.id, a.width ?? 1.4]));
+  function needsLock(op, aisleId) {
+    return op.vehicle !== 'pieton'
+      && op.profile.aisleWidthM > aisleWidthById.get(aisleId) / 2 + 1e-9;
+  }
+  const lockableAisles = new Set();
+  for (const aisleId of aisleWidthById.keys()) {
+    if (operators.some((op) => needsLock(op, aisleId))) lockableAisles.add(aisleId);
+  }
+  // Segment d'un nœud : l'allée verrouillable qui le porte, sinon null
+  function segmentOf(nodeId) {
+    const sep = nodeId.indexOf(':b');
+    if (sep <= 0) return null;
+    const aisleId = nodeId.slice(0, sep);
+    return lockableAisles.has(aisleId) ? aisleId : null;
+  }
+  const aisleLocks = new Map(); // allée → { holder, queue: [{ op, since }] }
+  function lockFor(aisleId) {
+    if (!aisleLocks.has(aisleId)) aisleLocks.set(aisleId, { holder: null, queue: [] });
+    return aisleLocks.get(aisleId);
+  }
+
+  function releaseAisle(op) {
+    const lock = lockFor(op.heldAisle);
+    const aisleId = op.heldAisle;
+    op.heldAisle = null;
+    lock.holder = null;
+    // Réveil de la file : les piétons en tête passent, le premier
+    // verrouilleur reprend le verrou et referme l'allée
+    while (lock.queue.length > 0 && lock.holder === null) {
+      const { op: waiter, since } = lock.queue.shift();
+      waiter.waitTime += now - since;
+      if (needsLock(waiter, aisleId)) {
+        lock.holder = waiter.id;
+        waiter.heldAisle = aisleId;
+      }
+      startLeg(waiter, { resumed: true });
+    }
+  }
+
   function travelTo(op, targetNodeId) {
     const route = graph.shortestPath(op.nodeId, targetNodeId, {
       minWidth: op.profile.aisleWidthM,
@@ -519,15 +572,64 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       const key = [route.path[i - 1], route.path[i]].sort().join('|');
       edgeTraffic.set(key, (edgeTraffic.get(key) ?? 0) + 1);
     }
-    op.state = 'moving';
     op.targetNodeId = targetNodeId;
     op.distance += route.distance;
+    op.route = { path: route.path, index: 0 };
+    startLeg(op);
+  }
+
+  // Lance le prochain tronçon de l'itinéraire : jusqu'à l'entrée ou la
+  // sortie d'une allée verrouillable (ou l'arrivée). L'attente à
+  // l'entrée d'une allée tenue se fait en file FIFO.
+  function startLeg(op, { resumed = false } = {}) {
+    const { path } = op.route;
+    const index = op.route.index;
+    if (index >= path.length - 1) {
+      // Chemin d'un seul nœud : arrivée immédiate — mais l'agent passe
+      // bien par l'état moving, sans quoi l'affectation le croirait
+      // encore disponible dans la même passe
+      op.state = 'moving';
+      hooks.onState?.(op.id, 'moving', now);
+      hooks.onTravel?.(op.id, path.slice(index), now, 0, 0);
+      queue.push(now, 'opArrive', { opId: op.id });
+      return;
+    }
+    const target = segmentOf(path[index + 1]);
+    // Quitte l'allée tenue dès le départ du tronçon suivant
+    if (op.heldAisle !== null && target !== op.heldAisle) releaseAisle(op);
+    if (target !== null && op.heldAisle !== target && !resumed) {
+      const lock = lockFor(target);
+      if (lock.holder !== null && lock.holder !== op.id) {
+        op.state = 'waiting';
+        hooks.onState?.(op.id, 'waiting', now);
+        lock.queue.push({ op, since: now });
+        return;
+      }
+      if (needsLock(op, target)) {
+        lock.holder = op.id;
+        op.heldAisle = target;
+      }
+    }
+    let j = index + 1;
+    while (j + 1 < path.length && segmentOf(path[j + 1]) === target) j++;
+    let legDistance = 0;
+    for (let i = index + 1; i <= j; i++) {
+      legDistance += graph.distance(path[i - 1], path[i]);
+    }
+    op.state = 'moving';
     // En charge après le premier prélèvement de la mission
     const loaded = op.mission !== null && op.stopIndex > 0;
-    const duration = route.distance / (loaded ? op.profile.speedLoadedMps : op.profile.speedMps);
+    const duration = legDistance / (loaded ? op.profile.speedLoadedMps : op.profile.speedMps);
     hooks.onState?.(op.id, 'moving', now);
-    hooks.onTravel?.(op.id, route.path, now, route.distance, duration);
-    queue.push(now + duration, 'opArrive', { opId: op.id });
+    hooks.onTravel?.(op.id, path.slice(index, j + 1), now, legDistance, duration);
+    const event = j === path.length - 1 ? 'opArrive' : 'opLeg';
+    queue.push(now + duration, event, { opId: op.id, legEnd: j });
+  }
+
+  function onOpLeg(op, legEnd) {
+    op.route.index = legEnd;
+    op.nodeId = op.route.path[legEnd];
+    startLeg(op);
   }
 
   // --- Gestion des événements ---
@@ -820,6 +922,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       case 'truckArrival':
         onTruckArrival();
         break;
+      case 'opLeg':
+        onOpLeg(opById.get(event.payload.opId), event.payload.legEnd);
+        break;
       case 'opArrive':
         onOpArrive(opById.get(event.payload.opId));
         break;
@@ -846,6 +951,8 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
 
   const kpis = {
     ...computeKpis({ orders, operators, durationSec }),
+    // Attente cumulée aux entrées d'allées verrouillées (congestion)
+    waitingTimeSec: operators.reduce((sum, op) => sum + op.waitTime, 0),
     // Compteurs de flux (uniquement pertinents avec réapprovisionnement)
     ...(replenishment && { ...counters, palletsWaiting: waitingPallets.length }),
   };

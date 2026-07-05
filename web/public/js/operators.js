@@ -12,6 +12,7 @@ export const STATE_COLORS = {
   picking: 0xffb14e,  // en prélèvement : ambre
   dropping: 0x3f8f78, // en dépose : vert d'eau
   idle: 0x6b737e,     // inactif : gris
+  waiting: 0xd95f5f,  // en attente à l'entrée d'une allée : rouge
 };
 
 const CAPSULE_RADIUS = 0.35;
