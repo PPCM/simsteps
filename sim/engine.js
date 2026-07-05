@@ -31,6 +31,15 @@ export const DEFAULT_SCENARIO = {
   dropTimeSec: 20,
   waveSize: 20,
   b2bClients: 8,
+  // --- Flux (phase 4) — tout est inactif par défaut ---
+  replenishment: false, // stock fini : niveau 1 = picking, niveaux ≥ 2 = réserve
+  slotCapacityUnits: 60, // contenu d'un emplacement picking / d'une palette
+  replenishThresholdShare: 0.25, // seuil de déclenchement du réappro
+  inboundTrucksPerDay: 0, // camions entrants (exige replenishment)
+  palletsPerTruck: 10,
+  palletHandlingSec: 30, // prise/dépose d'une palette
+  packers: 0, // emballeurs (exige des zones tampon dans l'entrepôt)
+  packTimePerOrderSec: 60, // emballage d'une commande au poste
 };
 
 /**
@@ -57,9 +66,61 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   const slotIds = [...slots.keys()];
   const orderRatePerSec = scenario.ordersPerHour / 3600;
 
+  // --- Stock et réserve (scenario.replenishment) ---
+  // Niveau 1 = picking (porte les références, débité par les commandes),
+  // niveaux ≥ 2 = réserve (une palette par emplacement, même référence
+  // que l'emplacement picking de sa colonne rack + baie)
+  const replenishment = scenario.replenishment === true;
+  const pickingSlotIds = replenishment
+    ? slotIds.filter((id) => slots.get(id).level === 1)
+    : slotIds;
+  const stock = new Map(); // emplacement picking → unités restantes
+  const reservePallets = new Set(); // emplacements réserve pleins
+  const reserveTargeted = new Set(); // réserves visées par un putaway en cours
+  const reserveByColumn = new Map(); // emplacement picking → réserves de sa colonne
+  const columnOfReserve = new Map(); // emplacement réserve → emplacement picking
+  if (replenishment) {
+    for (const [id, slot] of slots) {
+      if (slot.level === 1) {
+        stock.set(id, scenario.slotCapacityUnits);
+        reserveByColumn.set(id, []);
+      }
+    }
+    for (const [id, slot] of slots) {
+      if (slot.level === 1) continue;
+      // Même colonne = même id avec le niveau remplacé par 1
+      const pickId = id.replace(/-\d+$/, '-1');
+      if (!reserveByColumn.has(pickId)) continue;
+      reserveByColumn.get(pickId).push(id);
+      columnOfReserve.set(id, pickId);
+      reservePallets.add(id); // réserve pleine au démarrage
+    }
+    for (const list of reserveByColumn.values()) {
+      list.sort((a, b) => slots.get(a).level - slots.get(b).level);
+    }
+  }
+  const pendingReplenish = new Set(); // emplacements picking en cours de réappro
+  const waitingPallets = []; // palettes reçues sans réserve libre
+  const counters = { replenishments: 0, putaways: 0, stockouts: 0 };
+
   // Références et rangement : tirage d'emplacements pondéré par la
-  // rotation ABC, placement des classes selon le paramètre slotting
-  const { drawSlot } = buildSlotting(warehouse, scenario.slotting, rng);
+  // rotation ABC, placement des classes selon le paramètre slotting.
+  // Avec réapprovisionnement, seuls les emplacements picking en portent.
+  const { drawSlot } = buildSlotting(warehouse, scenario.slotting, rng, pickingSlotIds);
+
+  // Tirage tenant compte du stock : rejette les emplacements vides
+  // (repli : premier emplacement encore approvisionné)
+  function drawStockedSlot() {
+    if (!replenishment) return drawSlot();
+    for (let i = 0; i < 30; i++) {
+      const slotId = drawSlot();
+      if (stock.get(slotId) > 0) return slotId;
+    }
+    for (const slotId of pickingSlotIds) {
+      if (stock.get(slotId) > 0) return slotId;
+    }
+    return null;
+  }
 
   // Abscisse de chaque allée pour ordonner les tournées en serpentin
   const aisleX = new Map(warehouse.aisles.map((a) => [a.id, a.x]));
@@ -207,6 +268,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
 
     return {
       id: nextMissionId++,
+      kind: 'orders',
       lines,
       stops,
       drops,
@@ -214,6 +276,79 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       nodes,
       footCompatible: footCompatible(requiredLiftM, nodes),
     };
+  }
+
+  // --- Missions de flux : réapprovisionnement et rangement (putaway) ---
+
+  // Descend une palette de la réserve vers l'emplacement picking de sa
+  // colonne (même nœud : le mouvement est vertical). Prioritaire.
+  function maybeReplenish(pickSlotId) {
+    if (!replenishment || pendingReplenish.has(pickSlotId)) return;
+    if (stock.get(pickSlotId) > scenario.replenishThresholdShare * scenario.slotCapacityUnits) return;
+    const reserveSlotId = (reserveByColumn.get(pickSlotId) ?? [])
+      .find((id) => reservePallets.has(id));
+    if (reserveSlotId === undefined) return; // rien en réserve : putaway attendu
+    const slot = slots.get(reserveSlotId);
+    const requiredLiftM = (slot.level - 1) * slot.levelHeight;
+    pendingReplenish.add(pickSlotId);
+    missionQueue.unshift({
+      id: nextMissionId++,
+      kind: 'replenish',
+      lines: [],
+      stops: [{ nodeId: slot.nodeId, slotId: reserveSlotId, level: slot.level, levelHeight: slot.levelHeight }],
+      drops: [{ nodeId: slot.nodeId, slotId: pickSlotId }],
+      requiredLiftM,
+      nodes: [slot.nodeId],
+      footCompatible: false, // une palette exige un engin
+    });
+    tryAssign();
+  }
+
+  // Range une palette reçue vers une réserve libre : celle de la colonne
+  // de sa référence de préférence, sinon n'importe laquelle
+  function placePallet(pallet) {
+    let target = (reserveByColumn.get(pallet.pickSlotId) ?? [])
+      .find((id) => !reservePallets.has(id) && !reserveTargeted.has(id));
+    if (target === undefined) {
+      target = [...columnOfReserve.keys()]
+        .find((id) => !reservePallets.has(id) && !reserveTargeted.has(id));
+    }
+    if (target === undefined) {
+      waitingPallets.push(pallet); // réserve saturée : la palette attend à quai
+      return;
+    }
+    const slot = slots.get(target);
+    const dock = warehouse.receivings.reduce((best, r) =>
+      graph.distance(r.nodeId, slot.nodeId) < graph.distance(best.nodeId, slot.nodeId) ? r : best);
+    reserveTargeted.add(target);
+    missionQueue.push({
+      id: nextMissionId++,
+      kind: 'putaway',
+      pallet,
+      lines: [],
+      stops: [{ nodeId: dock.nodeId }],
+      drops: [{ nodeId: slot.nodeId, slotId: target, level: slot.level, levelHeight: slot.levelHeight }],
+      requiredLiftM: (slot.level - 1) * slot.levelHeight,
+      nodes: [dock.nodeId, slot.nodeId],
+      footCompatible: false,
+    });
+    tryAssign();
+  }
+
+  function onTruckArrival() {
+    for (let i = 0; i < scenario.palletsPerTruck; i++) {
+      // La palette porte la référence d'un emplacement picking tiré par
+      // rotation : la réserve suit la demande
+      placePallet({ pickSlotId: drawSlot() });
+    }
+    scheduleNextTruck();
+  }
+
+  const truckRatePerSec = scenario.inboundTrucksPerDay / 86400;
+  function scheduleNextTruck() {
+    if (!replenishment || truckRatePerSec <= 0) return;
+    const next = now + randExponential(rng, truckRatePerSec);
+    if (next <= durationSec) queue.push(next, 'truckArrival');
   }
 
   // --- Affectation des missions aux opérateurs inactifs ---
@@ -241,9 +376,12 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     while (true) {
       const idleHumans = humans.filter((o) => o.state === 'idle');
       if (idleHumans.length === 0) break;
-      if (missionQueue.length === 0) {
+      // Planifie des missions de commandes dès qu'il n'y en a plus en
+      // file (les missions de flux — réappro, putaway — n'y font pas
+      // obstacle : elles peuvent attendre un engin longtemps)
+      if (!missionQueue.some((m) => m.kind === 'orders')) {
         const planned = strategy.plan(orders, idleHumans.length, { waveSize: scenario.waveSize });
-        if (planned.length === 0) break;
+        if (planned.length === 0 && missionQueue.length === 0) break;
         for (const lines of planned) {
           for (const line of lines) line.state = 'planned';
           missionQueue.push(buildMission(lines));
@@ -286,6 +424,12 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
           missionQueue.splice(m, 1);
           m--;
           for (const line of mission.lines) line.state = 'unreachable';
+          // Missions de flux abandonnées : libère leurs réservations
+          if (mission.kind === 'replenish') pendingReplenish.delete(mission.drops[0].slotId);
+          if (mission.kind === 'putaway') {
+            reserveTargeted.delete(mission.drops[0].slotId);
+            waitingPallets.push(mission.pallet);
+          }
         }
         // sinon : les engins compatibles sont occupés, la mission attend
       }
@@ -324,14 +468,34 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   const opById = new Map(operators.map((o) => [o.id, o]));
 
   function onOrderArrival() {
+    // Rupture générale : plus aucun emplacement picking approvisionné,
+    // la commande est perdue (le réappro ou un camion la sauverait)
+    if (replenishment && !pickingSlotIds.some((id) => stock.get(id) > 0)) {
+      counters.stockouts++;
+      scheduleNextArrival();
+      return;
+    }
     const profile = drawProfile(rng, scenario.b2cShare);
     const base = makeOrder(rng, {
       id: nextOrderId++,
       profile,
-      slotIds,
-      drawSlot,
+      slotIds: pickingSlotIds,
+      drawSlot: drawStockedSlot,
       b2bClients: scenario.b2bClients,
     });
+    if (base.lines.length === 0) {
+      nextOrderId--; // commande abandonnée : rend l'identifiant
+      counters.stockouts++;
+      scheduleNextArrival();
+      return;
+    }
+    // Débit du stock à la création (réservation de la demande)
+    if (replenishment) {
+      for (const line of base.lines) {
+        stock.set(line.slotId, Math.max(0, stock.get(line.slotId) - line.qty));
+        maybeReplenish(line.slotId);
+      }
+    }
     // Enrichissement des lignes avec la topologie et l'état de suivi
     const order = {
       ...base,
@@ -417,27 +581,44 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       return;
     }
     if (op.stopIndex < op.mission.stops.length) {
-      // Arrivée à un emplacement : prélèvement de toutes les lignes de
-      // l'arrêt, avec surcoût d'élévation pour les niveaux hauts
+      // Arrivée à un point de prise : lignes de commande (avec surcoût
+      // d'élévation), palette en réserve (réappro) ou palette à quai
       const stop = op.mission.stops[op.stopIndex];
       op.state = 'picking';
       hooks.onState?.(op.id, 'picking', now);
-      const duration = stop.lines.reduce((sum, line) => sum
-        + scenario.pickTimePerLineSec
-        + ((line.level ?? 1) - 1) * scenario.liftTimePerLevelSec, 0);
+      let duration;
+      if (op.mission.kind === 'replenish') {
+        duration = scenario.pickTimePerLineSec + (stop.level - 1) * scenario.liftTimePerLevelSec;
+      } else if (op.mission.kind === 'putaway') {
+        duration = scenario.palletHandlingSec;
+      } else {
+        duration = stop.lines.reduce((sum, line) => sum
+          + scenario.pickTimePerLineSec
+          + ((line.level ?? 1) - 1) * scenario.liftTimePerLevelSec, 0);
+      }
       queue.push(now + duration, 'opPickDone', { opId: op.id });
     } else {
-      // Arrivée à une cible de dépose
+      // Arrivée à une cible de dépose (montée en réserve pour un putaway)
+      const drop = op.mission.drops[op.dropIndex];
       op.state = 'dropping';
       hooks.onState?.(op.id, 'dropping', now);
-      queue.push(now + scenario.dropTimeSec, 'opDropDone', { opId: op.id });
+      const duration = op.mission.kind === 'putaway'
+        ? scenario.palletHandlingSec + (drop.level - 1) * scenario.liftTimePerLevelSec
+        : scenario.dropTimeSec;
+      queue.push(now + duration, 'opDropDone', { opId: op.id });
     }
   }
 
   function onOpPickDone(op) {
     const stop = op.mission.stops[op.stopIndex];
-    for (const line of stop.lines) line.state = 'picked';
-    op.linesPicked += stop.lines.length;
+    if (op.mission.kind === 'replenish') {
+      // Palette descendue : la réserve se libère, une palette à quai
+      // peut désormais y être rangée
+      reservePallets.delete(stop.slotId);
+      if (waitingPallets.length > 0) placePallet(waitingPallets.shift());
+    }
+    for (const line of stop.lines ?? []) line.state = 'picked';
+    op.linesPicked += (stop.lines ?? []).length;
     op.stopIndex++;
     if (op.stopIndex < op.mission.stops.length) {
       travelTo(op, op.mission.stops[op.stopIndex].nodeId);
@@ -448,8 +629,21 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
 
   function onOpDropDone(op) {
     const drop = op.mission.drops[op.dropIndex];
+    if (op.mission.kind === 'replenish') {
+      // La palette recharge l'emplacement picking
+      stock.set(drop.slotId, (stock.get(drop.slotId) ?? 0) + scenario.slotCapacityUnits);
+      pendingReplenish.delete(drop.slotId);
+      counters.replenishments++;
+    } else if (op.mission.kind === 'putaway') {
+      // La palette rejoint la réserve — le picking de la colonne
+      // attendait peut-être ce stock
+      reserveTargeted.delete(drop.slotId);
+      reservePallets.add(drop.slotId);
+      counters.putaways++;
+      maybeReplenish(columnOfReserve.get(drop.slotId));
+    }
     const touchedOrders = new Set();
-    for (const line of drop.lines) {
+    for (const line of drop.lines ?? []) {
       line.state = 'dropped';
       touchedOrders.add(line.orderId);
     }
@@ -500,6 +694,7 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   // --- Boucle principale ---
 
   queue.push(randExponential(rng, orderRatePerSec), 'orderArrival');
+  scheduleNextTruck();
 
   while (!queue.isEmpty() && queue.peekTime() <= durationSec) {
     const event = queue.pop();
@@ -507,6 +702,9 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     switch (event.type) {
       case 'orderArrival':
         onOrderArrival();
+        break;
+      case 'truckArrival':
+        onTruckArrival();
         break;
       case 'opArrive':
         onOpArrive(opById.get(event.payload.opId));
@@ -532,7 +730,11 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     }
   }
 
-  const kpis = computeKpis({ orders, operators, durationSec });
+  const kpis = {
+    ...computeKpis({ orders, operators, durationSec }),
+    // Compteurs de flux (uniquement pertinents avec réapprovisionnement)
+    ...(replenishment && { ...counters, palletsWaiting: waitingPallets.length }),
+  };
   const traffic = [...edgeTraffic.entries()].map(([key, count]) => {
     const [from, to] = key.split('|');
     return { from, to, count };

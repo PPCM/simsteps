@@ -25,11 +25,16 @@ export function makeOrder(rng, { id, profile, slotIds, drawSlot, b2bClients = 8 
   const lineCount = randInt(rng, p.minLines, Math.min(p.maxLines, slotIds.length));
 
   // Tirage d'emplacements distincts (échantillonnage par rejet, le pool
-  // est bien plus grand que le nombre de lignes)
+  // est bien plus grand que le nombre de lignes). Le nombre de tirages
+  // est borné : si le pool effectif est trop petit (stock épuisé), la
+  // commande sort avec moins de lignes plutôt que de boucler.
   const draw = drawSlot ?? (() => slotIds[Math.floor(rng() * slotIds.length)]);
   const chosen = new Set();
-  while (chosen.size < lineCount) {
-    chosen.add(draw());
+  let attempts = 0;
+  while (chosen.size < lineCount && attempts < lineCount * 30) {
+    attempts++;
+    const slotId = draw();
+    if (slotId !== null && slotId !== undefined) chosen.add(slotId);
   }
 
   return {

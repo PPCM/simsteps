@@ -263,3 +263,69 @@ test('sans parking, comportement historique (départ à l’expédition)', () =>
   const { operators } = runSimulation(warehouse, { ...BASE, seed: 5 });
   for (const op of operators) assert.equal(op.startNodeId, warehouse.shippingNodeId);
 });
+
+// --- Phase 4 : stock, réapprovisionnement, flux entrants ---
+
+// Entrepôt à 3 niveaux (réserve aux niveaux 2-3) praticable par un
+// chariot rétractable, avec un piéton pour les missions à pied
+function fluxSpec() {
+  const s = structuredClone(spec);
+  s.racks = s.racks.map((r) => ({ ...r, levels: 3 }));
+  s.aisles = s.aisles.map((a) => ({ ...a, width: 2.8 }));
+  s.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 3, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 3, orientation: 'horizontal' },
+  ];
+  return s;
+}
+const FLUX = {
+  ...BASE,
+  seed: 3,
+  ordersPerHour: 60,
+  fleet: { pieton: 3, retractable: 1 },
+  replenishment: true,
+  slotCapacityUnits: 10,
+  durationHours: 3,
+};
+
+test('le réapprovisionnement descend la réserve vers le picking', () => {
+  const { kpis, orders } = runSimulation(buildWarehouse(fluxSpec()), FLUX);
+  assert.ok(kpis.replenishments > 0, 'des réappros doivent avoir lieu');
+  assert.ok(kpis.ordersCompleted > 0);
+  // Les commandes ne visent que les emplacements picking (niveau 1)
+  for (const order of orders) {
+    for (const line of order.lines) assert.equal(line.level, 1);
+  }
+});
+
+test('sans engin, pas de réappro : le stock s’épuise', () => {
+  const { kpis } = runSimulation(buildWarehouse(fluxSpec()), {
+    ...FLUX, fleet: { pieton: 3 },
+  });
+  assert.equal(kpis.replenishments, 0);
+  assert.ok(kpis.stockouts > 0, 'des commandes doivent être perdues faute de stock');
+});
+
+test('les camions entrants alimentent la réserve (putaway)', () => {
+  // Deux engins et une demande plus calme : le réappro (prioritaire)
+  // laisse du temps machine au rangement des palettes
+  const { kpis } = runSimulation(buildWarehouse(fluxSpec()), {
+    ...FLUX,
+    ordersPerHour: 40,
+    slotCapacityUnits: 20,
+    fleet: { pieton: 3, retractable: 2 },
+    inboundTrucksPerDay: 48,
+    palletsPerTruck: 6,
+  });
+  assert.ok(kpis.putaways > 0, 'des palettes doivent être rangées en réserve');
+  assert.ok(kpis.replenishments > 0);
+});
+
+test('les flux sont déterministes et absents du mode historique', () => {
+  const a = runSimulation(buildWarehouse(fluxSpec()), { ...FLUX, inboundTrucksPerDay: 24 });
+  const b = runSimulation(buildWarehouse(fluxSpec()), { ...FLUX, inboundTrucksPerDay: 24 });
+  assert.deepEqual(a.kpis, b.kpis);
+  const legacy = runSimulation(warehouse, { ...BASE, seed: 3 });
+  assert.equal(legacy.kpis.replenishments, undefined);
+  assert.equal(legacy.kpis.stockouts, undefined);
+});

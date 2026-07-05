@@ -146,7 +146,8 @@ export function buildWarehouse(spec) {
   const shippings = facilityList(spec.shipping);
   const receivings = facilityList(spec.receiving);
   const parkings = spec.parkings ?? []; // stationnement des agents (optionnel)
-  const facilities = [...spec.workshops, ...shippings, ...receivings, ...parkings];
+  const buffers = spec.buffers ?? []; // zones tampon avant emballage (optionnel)
+  const facilities = [...spec.workshops, ...shippings, ...receivings, ...parkings, ...buffers];
   for (const f of facilities) {
     graph.addNode(f.id, f.x, f.y);
     let best = null;
@@ -216,6 +217,7 @@ export function buildWarehouse(spec) {
     parkings: parkings.map((p) => ({
       id: p.id, label: p.label, nodeId: p.id, vehicles: p.vehicles,
     })),
+    buffers: buffers.map((b) => ({ id: b.id, label: b.label, nodeId: b.id })),
     // Première zone de chaque type : point de départ des opérateurs et
     // compatibilité avec les consommateurs mono-zone (relecture)
     shippingNodeId: shippings[0].id,

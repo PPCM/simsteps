@@ -20,10 +20,13 @@ export const SLOTTINGS = ['aleatoire', 'abc'];
  * @param {object} warehouse entrepôt construit par buildWarehouse()
  * @param {'aleatoire'|'abc'} slotting stratégie de placement des classes
  * @param {() => number} rng générateur [0, 1) (mulberry32 du scénario)
+ * @param {string[]} [pool] sous-ensemble d'emplacements porteurs de
+ *        références (défaut : tous ; avec réapprovisionnement, seuls
+ *        les emplacements picking — niveau 1 — portent les références)
  * @returns {{drawSlot: () => string, classBySlot: Map<string, string>}}
  */
-export function buildSlotting(warehouse, slotting, rng) {
-  const slotIds = [...warehouse.slots.keys()];
+export function buildSlotting(warehouse, slotting, rng, pool) {
+  const slotIds = pool ?? [...warehouse.slots.keys()];
 
   // Classement des emplacements : proximité de l'expédition (abc) ou
   // ordre aléatoire (aleatoire) — mélange de Fisher-Yates déterministe
