@@ -9,7 +9,10 @@
     "dev": "node --env-file-if-exists=.env --watch server/index.js",
     "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node --test",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui"
   },
   "engines": {
     "node": ">=22"
