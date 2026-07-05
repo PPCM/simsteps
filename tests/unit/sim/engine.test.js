@@ -487,3 +487,12 @@ test('un convoyeur sans tampon ou atelier est rejeté', () => {
   bad.conveyors = [{ id: 'CV1', x: 12, y: 20, length: 10, orientation: 'vertical' }];
   assert.throws(() => buildWarehouse(bad), /zone tampon/);
 });
+
+test('une flotte 100 % automatisée travaille sans aucun piéton', () => {
+  const { kpis, operators } = runSimulation(buildWarehouse(automatedSpec()), {
+    ...BASE, seed: 23, fleet: { amr: 3 },
+  });
+  assert.ok(kpis.ordersCompleted > 0, 'les AMR seuls doivent traiter des commandes');
+  assert.ok(operators.every((o) => o.vehicle === 'amr'));
+  assert.ok(operators.some((o) => o.busyTime > 0));
+});

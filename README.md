@@ -31,8 +31,13 @@ docker compose up
 ```
 
 Puis ouvrez **http://localhost:3000**. Au premier démarrage, les migrations
-s'appliquent automatiquement et un entrepôt d'exemple (6 allées,
-204 emplacements, 2 ateliers) est inséré avec deux scénarios.
+s'appliquent automatiquement et deux projets de démonstration sont
+insérés : « Flux complet » (entrepôt mixte de 832 emplacements —
+palettier, allées VNA, réserve en hauteur, camions, emballeurs — avec
+sa flotte des neuf types d'agents) et « Robots mobiles » (site
+automatisé parcouru par des AMR avec station de charge et convoyeur).
+L'entrepôt d'exemple historique reste disponible en gabarit dans
+`data/warehouse-example.json` (CLI et tests).
 
 ## Mode développement (sans Docker pour l'application)
 

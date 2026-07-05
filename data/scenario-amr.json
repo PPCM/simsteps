@@ -1,0 +1,20 @@
+{
+  "name": "Robots mobiles (AMR)",
+  "seed": 11,
+  "durationHours": 2,
+  "operators": 1,
+  "fleet": {
+    "amr": 6
+  },
+  "ordersPerHour": 45,
+  "b2cShare": 0.9,
+  "strategy": "orderByOrder",
+  "slotting": "abc",
+  "packers": 2,
+  "packTimePerOrderSec": 45,
+  "agvAutonomyHours": 0.15,
+  "speedMps": 1.2,
+  "pickTimePerLineSec": 10,
+  "dropTimeSec": 15,
+  "b2bClients": 8
+}

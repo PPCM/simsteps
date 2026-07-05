@@ -1,9 +1,0 @@
-{
-  "name": "Projet exemple — pointe B2C",
-  "settings": {
-    "operators": 8,
-    "b2cShare": 0.9,
-    "ordersPerHour": 60,
-    "strategy": "zoneWave"
-  }
-}

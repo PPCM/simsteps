@@ -2,6 +2,7 @@
 // surveillance des erreurs console, sélection d'un élément dans la
 // scène 3D et nettoyage des données de test via l'API.
 
+import { readFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
 
 /** Nom unique par exécution, pour ne jamais collisionner avec la base. */
@@ -60,15 +61,16 @@ export async function selectionFields(page) {
 }
 
 /**
- * Crée un entrepôt jetable (copie du premier entrepôt, nom unique) via
- * l'API : les tests d'édition et de runs travaillent dessus, jamais sur
- * les données réelles. Ses runs et projets partent en CASCADE avec lui.
+ * Crée un entrepôt jetable (nom unique) via l'API, à partir du gabarit
+ * historique data/warehouse-example.json : les tests d'édition et de
+ * runs travaillent dessus avec une géométrie connue, quel que soit le
+ * contenu de la base. Ses runs et projets partent en CASCADE avec lui.
  * @returns {Promise<{id: number, name: string}>}
  */
 export async function createTestWarehouse(request, baseURL) {
-  const all = await (await request.get(`${baseURL}/api/warehouses`)).json();
-  const first = all.find((w) => !w.name.includes('[test')); // jamais une copie de test résiduelle
-  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${first.id}`)).json();
+  const definition = JSON.parse(
+    await readFile(new URL('../../data/warehouse-example.json', import.meta.url), 'utf8')
+  );
   definition.name = uniqueName('Entrepôt');
   const response = await request.post(`${baseURL}/api/warehouses`, { data: definition });
   return response.json();

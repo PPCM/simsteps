@@ -38,7 +38,15 @@ test('la flotte d’engins se règle depuis l’onglet Piloter', async ({ page }
   const input = page.locator('#fleetInputs .field', { hasText: 'Chariot rétractable' }).locator('input');
   await input.fill('2');
   await input.blur();
-  await expect(page.locator('#status')).toContainText('7 opérateurs');
+  // Total attendu : piétons + tous les compteurs d'engins (le scénario
+  // de base peut déjà compter des engins)
+  const expected = await page.evaluate(() => {
+    const walkers = Number(document.getElementById('opCount').value);
+    const machines = [...document.querySelectorAll('#fleetInputs input')]
+      .reduce((sum, i) => sum + Number(i.value), 0);
+    return walkers + machines;
+  });
+  await expect(page.locator('#status')).toContainText(`${expected} opérateurs`);
 
   // Les engins sont rendus par leur modèle low-poly orientable
   const models = await page.evaluate(() => {

@@ -475,12 +475,17 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
   function tryAssign() {
     while (true) {
       const idleHumans = humans.filter((o) => o.state === 'idle');
-      if (idleHumans.length === 0) break;
+      // Les engins automatisés inactifs comptent comme capacité
+      // d'affectation : une flotte sans piéton travaille aussi
+      const idleAutomated = operators.filter((o) => o.vehicle !== 'pieton'
+        && VEHICLES[o.vehicle].automated === true && o.state === 'idle');
+      if (idleHumans.length === 0 && idleAutomated.length === 0) break;
       // Planifie des missions de commandes dès qu'il n'y en a plus en
       // file (les missions de flux — réappro, putaway — n'y font pas
       // obstacle : elles peuvent attendre un engin longtemps)
       if (!missionQueue.some((m) => m.kind === 'orders')) {
-        const planned = strategy.plan(orders, idleHumans.length, { waveSize: scenario.waveSize });
+        const planned = strategy.plan(orders, idleHumans.length + idleAutomated.length,
+          { waveSize: scenario.waveSize });
         if (planned.length === 0 && missionQueue.length === 0) break;
         for (const lines of planned) {
           for (const line of lines) line.state = 'planned';
@@ -491,20 +496,22 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
       for (let m = 0; m < missionQueue.length; m++) {
         const mission = missionQueue[m];
         // 1) Mission faisable à pied : l'opérateur le plus proche y va
-        if (mission.footCompatible) {
+        if (mission.footCompatible && idleHumans.length > 0) {
           const best = nearestOf(idleHumans, mission.stops[0].nodeId);
           missionQueue.splice(m, 1);
           startMission(best, mission);
           assigned = true;
           break;
         }
-        // 2) Mission exigeant un engin : un opérateur libre marche
-        //    jusqu'à un engin libre compatible et le conduit. À
-        //    compatibilité égale, l'engin le moins utilisé est choisi
-        //    (rotation de charge dans la flotte, déterministe)
+        // 2) Mission exigeant un engin (ou sans piéton disponible) :
+        //    l'engin compatible le moins utilisé est choisi (rotation
+        //    de charge déterministe) ; un engin conduit exige en plus
+        //    un opérateur libre pour marcher jusqu'à lui
         const machine = operators.reduce((best, o) => (
           o.vehicle !== 'pieton' && o.state === 'idle' && o.reservedBy === null
-            && compatible(o, mission) && (best === null || o.busyTime < best.busyTime)
+            && compatible(o, mission)
+            && (VEHICLES[o.vehicle].automated === true || idleHumans.length > 0)
+            && (best === null || o.busyTime < best.busyTime)
             ? o : best
         ), null);
         if (machine && VEHICLES[machine.vehicle].automated === true) {
@@ -529,10 +536,15 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
           }
           continue; // engin injoignable à pied : la mission attendra
         }
-        // 3) Irréalisable par toute la flotte (aucun engin compatible,
-        //    ou aucun opérateur pour le conduire) : abandon définitif
-        const anyMachine = operators.some((o) => o.vehicle !== 'pieton' && compatible(o, mission));
-        if (!anyMachine || humans.length === 0) {
+        // 3) Irréalisable par toute la flotte : aucun engin automatisé
+        //    compatible, et aucun engin conduit compatible qu'un humain
+        //    pourrait piloter — abandon définitif
+        const anyAutomated = operators.some((o) => o.vehicle !== 'pieton'
+          && VEHICLES[o.vehicle].automated === true && compatible(o, mission));
+        const anyManned = operators.some((o) => o.vehicle !== 'pieton'
+          && VEHICLES[o.vehicle].automated !== true && compatible(o, mission));
+        const footPossible = mission.footCompatible && humans.length > 0;
+        if (!footPossible && !anyAutomated && (!anyManned || humans.length === 0)) {
           missionQueue.splice(m, 1);
           m--;
           for (const line of mission.lines) line.state = 'unreachable';

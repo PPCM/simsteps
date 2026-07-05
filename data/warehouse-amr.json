@@ -1,0 +1,49 @@
+{
+  "name": "Entrepôt robots SimSteps",
+  "description": "Site automatisé : allées étroites et couloirs réservés aux engins parcourus par des robots mobiles (AMR), station de charge, tampon et convoyeur vers l'atelier d'emballage",
+  "dimensions": { "width": 36, "depth": 30, "height": 5 },
+  "corridors": [
+    { "id": "C1", "label": "Couloir avant", "x": 0, "y": 3, "length": 36, "width": 1.6, "orientation": "horizontal", "access": "engins" },
+    { "id": "C2", "label": "Couloir arrière", "x": 0, "y": 27, "length": 36, "width": 1.6, "orientation": "horizontal", "access": "engins" }
+  ],
+  "aisles": [
+    { "id": "A1", "x": 6, "yStart": 6, "yEnd": 24, "bays": 12, "zone": "Robots", "width": 1.3 },
+    { "id": "A2", "x": 11, "yStart": 6, "yEnd": 24, "bays": 12, "zone": "Robots", "width": 1.3 },
+    { "id": "A3", "x": 16, "yStart": 6, "yEnd": 24, "bays": 12, "zone": "Robots", "width": 1.3 },
+    { "id": "A4", "x": 21, "yStart": 6, "yEnd": 24, "bays": 12, "zone": "Robots", "width": 1.3 },
+    { "id": "A5", "x": 26, "yStart": 6, "yEnd": 24, "bays": 12, "zone": "Robots", "width": 1.3 },
+    { "id": "A6", "x": 31, "yStart": 6, "yEnd": 24, "bays": 12, "zone": "Robots", "width": 1.3 }
+  ],
+  "racks": [
+    { "id": "R01", "aisle": "A1", "side": "gauche", "levels": 1 },
+    { "id": "R02", "aisle": "A1", "side": "droite", "levels": 1 },
+    { "id": "R03", "aisle": "A2", "side": "gauche", "levels": 1 },
+    { "id": "R04", "aisle": "A2", "side": "droite", "levels": 1 },
+    { "id": "R05", "aisle": "A3", "side": "gauche", "levels": 1 },
+    { "id": "R06", "aisle": "A3", "side": "droite", "levels": 1 },
+    { "id": "R07", "aisle": "A4", "side": "gauche", "levels": 1 },
+    { "id": "R08", "aisle": "A4", "side": "droite", "levels": 1 },
+    { "id": "R09", "aisle": "A5", "side": "gauche", "levels": 1 },
+    { "id": "R10", "aisle": "A5", "side": "droite", "levels": 1 },
+    { "id": "R11", "aisle": "A6", "side": "gauche", "levels": 1 },
+    { "id": "R12", "aisle": "A6", "side": "droite", "levels": 1 }
+  ],
+  "workshops": [
+    { "id": "AT1", "label": "Atelier emballage", "x": 6, "y": 1, "width": 4, "depth": 2 }
+  ],
+  "buffers": [
+    { "id": "TP1", "label": "Tampon robots", "x": 12, "y": 1, "width": 3, "depth": 2 }
+  ],
+  "shipping": [
+    { "id": "EXP", "label": "Expédition", "x": 17, "y": 1, "width": 5, "depth": 2 }
+  ],
+  "receiving": [
+    { "id": "REC", "label": "Réception", "x": 19, "y": 29, "width": 6, "depth": 2 }
+  ],
+  "parkings": [
+    { "id": "PK1", "label": "Station de charge", "x": 6, "y": 29, "width": 8, "depth": 2, "vehicles": ["amr", "agv"] }
+  ],
+  "conveyors": [
+    { "id": "CV1", "label": "Convoyeur emballage", "x": 8.5, "y": 1, "length": 2, "orientation": "horizontal", "throughputPerMin": 6 }
+  ]
+}
