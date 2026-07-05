@@ -133,10 +133,10 @@ Le détail des sections :
   (baies, zone, identifiants, largeur/profondeur — chaque élément est
   redimensionnable), les propriétés globales (nom, dimensions), et
   l'ajout/la suppression d'allées, d'ateliers, de zones d'expédition ou
-  de réception, de couloirs et de parkings d'agents (au moins un
-  couloir et une zone d'expédition/réception doivent rester ; les
-  parkings sont optionnels — placez-les en bordure, hors des flux,
-  proches des quais). Les couloirs sont des objets à part
+  de réception, de couloirs, de parkings d'agents et de zones tampon
+  (au moins un couloir et une zone d'expédition/réception doivent
+  rester ; parkings et tampons sont optionnels — placez les parkings en
+  bordure, hors des flux, et les tampons près des ateliers). Les couloirs sont des objets à part
   entière : position, longueur, largeur et orientation
   (horizontal/vertical, menu déroulant) modifiables, connexion
   automatique aux croisements — de quoi dessiner de vrais chemins de
@@ -153,9 +153,12 @@ Le détail des sections :
   mix B2C / cadence, et compteurs d'engins de manutention (transpalette,
   gerbeur, frontal, rétractable, VNA, préparateur — l'infobulle rappelle
   gabarit d'allée et hauteur de levée de chacun ; les engins sont rendus
-  en 3D à leur gabarit). Tout changement relance instantanément la
-  simulation (elle s'exécute dans le navigateur en quelques
-  millisecondes) ; la relecture repart de zéro.
+  en 3D à leur gabarit). Le bloc « Flux » active le réapprovisionnement
+  (stock fini, réserve aux niveaux hauts), les camions entrants et les
+  emballeurs (voir les paramètres de scénario ci-dessous). Tout
+  changement relance instantanément la simulation (elle s'exécute dans
+  le navigateur en quelques millisecondes) ; la relecture repart de
+  zéro.
 - **Enregistrer ce run en base** : fige les paramètres courants, les KPI et
   les trajets agrégés côté serveur, pour comparaison ultérieure.
 - **Affichage** : traînées de déplacement (une couleur par opérateur),
@@ -234,6 +237,9 @@ pathfinding des opérateurs utilise A* sur ce graphe.
   // atteignable le plus proche pour son gabarit et y retourne à
   // l'inactivité ; sans parking, départ à l'expédition. `vehicles`
   // (facultatif) restreint les types admis (absent = tous)
+  // Zones tampon (facultatif) : dépose du picking B2C avant emballage
+  // quand le scénario compte des emballeurs (paramètre packers)
+  "buffers": [{ "id": "TP1", "label": "Tampon emballage", "x": 14, "y": 40 }],
   "parkings": [{ "id": "PK1", "label": "Parking engins", "x": 4, "y": 40,
                  "vehicles": ["retractable", "vna"] }]
 }
@@ -268,6 +274,14 @@ Tous facultatifs (défauts entre parenthèses) — voir
 | `strategy` (`orderByOrder`) | `orderByOrder` ou `zoneWave` |
 | `slotting` (`aleatoire`) | Placement des classes de rotation ABC : `aleatoire` (rotations dispersées) ou `abc` (20 % de références « A » — 80 % des lignes — au plus près de l'expédition). À comparer via le KPI « Distance / ligne » |
 | `waveSize` (20) | Taille max d'une vague (stratégie `zoneWave`) |
+| `replenishment` (false) | Stock fini : le niveau 1 des racks devient le picking (débité par les commandes), les niveaux supérieurs la réserve (une palette par emplacement, même référence que sa colonne). Sous le seuil, une mission de réapprovisionnement prioritaire descend une palette — engin obligatoire. Commandes perdues faute de stock comptées en `stockouts` |
+| `slotCapacityUnits` (60) | Contenu d'un emplacement picking / d'une palette |
+| `replenishThresholdShare` (0.25) | Seuil de déclenchement du réappro (part de la capacité) |
+| `inboundTrucksPerDay` (0) | Camions entrants (exige `replenishment`) : chaque camion livre des palettes à quai, rangées en réserve par des missions de putaway ; réserve saturée = palettes en attente (`palletsWaiting`) |
+| `palletsPerTruck` (10) | Palettes par camion |
+| `palletHandlingSec` (30) | Prise/dépose d'une palette |
+| `packers` (0) | Emballeurs (exige des zones tampon) : les lignes B2C sont déposées au tampon, l'emballeur les ramène à l'atelier et emballe — le picking est découplé de l'emballage |
+| `packTimePerOrderSec` (60) | Emballage d'une commande au poste |
 | `speedMps` (1.2) | Vitesse de marche (m/s) |
 | `pickTimePerLineSec` (12) | Temps de prélèvement par ligne |
 | `liftTimePerLevelSec` (6) | Surcoût d'élévation par niveau de rack au-delà du premier |

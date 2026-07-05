@@ -25,6 +25,7 @@ const COLORS = {
     shipping: 0xffb14e, // expédition : ambre (accent SimSteps)
     receiving: 0x7a8fd4, // réception : bleu acier
     parking: 0xb07fd4, // stationnement des agents : violet
+    buffer: 0xa3a353, // zones tampon avant emballage : olive
   },
 };
 

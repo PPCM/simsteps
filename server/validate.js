@@ -48,6 +48,11 @@ export function validateWarehouseDefinition(def) {
     : Boolean(value && value.id));
   if (!zoneOk(def.shipping)) errors.push('« shipping » est requis (zone ou liste non vide de zones)');
   if (!zoneOk(def.receiving)) errors.push('« receiving » est requis (zone ou liste non vide de zones)');
+  // Zones tampon : liste optionnelle de zones { id … }
+  if (def.buffers !== undefined
+      && (!Array.isArray(def.buffers) || !def.buffers.every((b) => b && b.id))) {
+    errors.push('« buffers » doit être une liste de zones { id … }');
+  }
   // Parkings d'agents : liste optionnelle de zones { id, vehicles? }
   if (def.parkings !== undefined
       && (!Array.isArray(def.parkings) || !def.parkings.every((p) => p && p.id
@@ -78,6 +83,14 @@ const NUMERIC_PARAMS = {
   dropTimeSec: { min: 0, max: 3600 },
   waveSize: { min: 1, max: 10000, integer: true },
   b2bClients: { min: 1, max: 100000, integer: true },
+  // Flux (phase 4)
+  slotCapacityUnits: { min: 1, max: 100000, integer: true },
+  replenishThresholdShare: { min: 0, max: 1 },
+  inboundTrucksPerDay: { min: 0, max: 1000 },
+  palletsPerTruck: { min: 1, max: 1000, integer: true },
+  palletHandlingSec: { min: 0, max: 3600 },
+  packers: { min: 0, max: 500, integer: true },
+  packTimePerOrderSec: { min: 0, max: 3600 },
 };
 
 /**
@@ -99,6 +112,10 @@ export function validateScenarioParams(params) {
     } else if (key === 'strategy') {
       if (!STRATEGIES.has(value)) {
         errors.push(`stratégie inconnue : ${value} (disponibles : ${[...STRATEGIES.keys()].join(', ')})`);
+      }
+    } else if (key === 'replenishment') {
+      if (typeof value !== 'boolean') {
+        errors.push('« replenishment » doit être un booléen');
       }
     } else if (key === 'slotting') {
       if (!SLOTTINGS.includes(value)) {

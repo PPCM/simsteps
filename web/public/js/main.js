@@ -20,7 +20,7 @@ import { splitSettings, buildSettings, mergeProjectParams } from './projects.js'
 import {
   moveAisle, moveFacility, moveCorridor, addAisle, removeAisle, addWorkshop, removeWorkshop,
   addShipping, addReceiving, removeZone, addParking, removeParking,
-  addCorridor, removeCorridor, updateCorridor,
+  addBuffer, removeBuffer, addCorridor, removeCorridor, updateCorridor,
   updateAisle, updateFacility, updateGlobals, validateDefinition,
   duplicateDefinition, minimalDefinition, normalizeDefinition,
 } from './editor/model.js';
@@ -44,6 +44,8 @@ const els = {
   editAddAisle: $('editAddAisle'), editAddWorkshop: $('editAddWorkshop'),
   editAddShipping: $('editAddShipping'), editAddReceiving: $('editAddReceiving'),
   editAddCorridor: $('editAddCorridor'), editAddParking: $('editAddParking'),
+  editAddBuffer: $('editAddBuffer'),
+  replenishment: $('replenishment'), inboundTrucks: $('inboundTrucks'), packers: $('packers'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
   scenario: $('scenario'), opCount: $('opCount'), fleetInputs: $('fleetInputs'),
@@ -204,6 +206,9 @@ try {
       b2cShare: Number(els.b2cShare.value) / 100,
       ordersPerHour: Number(els.orderRate.value),
       slotting: els.slotting.value,
+      replenishment: els.replenishment.checked,
+      inboundTrucksPerDay: Number(els.inboundTrucks.value),
+      packers: Number(els.packers.value),
     };
   }
 
@@ -219,6 +224,9 @@ try {
     els.b2cShare.value = Math.round(params.b2cShare * 100);
     els.orderRate.value = params.ordersPerHour;
     els.slotting.value = params.slotting ?? 'aleatoire';
+    els.replenishment.checked = params.replenishment === true;
+    els.inboundTrucks.value = params.inboundTrucksPerDay ?? 0;
+    els.packers.value = params.packers ?? 0;
     refreshSliderLabels();
   }
 
@@ -352,6 +360,9 @@ try {
     input.addEventListener('change', runCurrent);
   }
   els.slotting.addEventListener('change', runCurrent);
+  for (const control of [els.replenishment, els.inboundTrucks, els.packers]) {
+    control.addEventListener('change', runCurrent);
+  }
   els.toggleTrails.addEventListener('change', () => {
     if (!sim) return;
     sim.trails.setVisible(els.toggleTrails.checked);
@@ -555,7 +566,7 @@ try {
   // Éléments neutralisés pendant l'édition
   const editLocked = [
     els.play, els.playMini, ...speedButtons, els.scenario, els.opCount, ...fleetEls.values(),
-    els.b2cShare, els.orderRate, els.slotting,
+    els.b2cShare, els.orderRate, els.slotting, els.replenishment, els.inboundTrucks, els.packers,
     els.saveRun, els.project, els.projectName, els.projectCreate, els.projectUpdate,
     els.projectDelete, els.warehouse, els.warehouseEdit, els.warehouseCreate,
     els.warehouseDuplicate, els.warehouseDelete, els.cmpA, els.cmpB, els.cmpRun,
@@ -572,6 +583,7 @@ try {
   function findFacility(def, kind, id) {
     if (kind === 'workshop') return def.workshops.find((w) => w.id === id);
     if (kind === 'parking') return (def.parkings ?? []).find((p) => p.id === id);
+    if (kind === 'buffer') return (def.buffers ?? []).find((b) => b.id === id);
     return facilityList(def[kind]).find((z) => z.id === id);
   }
 
@@ -727,6 +739,11 @@ try {
     selection = { type: 'parking', id: next.parkings[next.parkings.length - 1].id };
     applyWorkingDef(next);
   });
+  els.editAddBuffer.addEventListener('click', () => {
+    const next = addBuffer(workingDef);
+    selection = { type: 'buffer', id: next.buffers[next.buffers.length - 1].id };
+    applyWorkingDef(next);
+  });
   els.editRemoveSelection.addEventListener('click', () => {
     if (!selection) {
       renderErrors(els.editErrors, ['Aucun élément sélectionné.']);
@@ -738,6 +755,7 @@ try {
       else if (selection.type === 'aisle') next = removeAisle(workingDef, selection.id);
       else if (selection.type === 'workshop') next = removeWorkshop(workingDef, selection.id);
       else if (selection.type === 'parking') next = removeParking(workingDef, selection.id);
+      else if (selection.type === 'buffer') next = removeBuffer(workingDef, selection.id);
       else next = removeZone(workingDef, selection.type, selection.id);
       selection = null;
       applyWorkingDef(next);

@@ -97,11 +97,20 @@ KPIs.
    distance-per-line KPI in the live panel, comparison table and
    console output, slotting selector in the Piloter tab. Deferred:
    imported/custom slotting assignments.
-4. **Inbound flows and process zones** — docks with N doors, scheduled
-   trucks, putaway missions, threshold-based replenishment reserve →
-   picking, buffer/drop zones feeding the packing workshops (pickers drop
-   there, packers consume — two decoupled agent roles), staging with
-   capacity.
+4. **Inbound flows and process zones** — **done (v0.5.x)**: finite
+   stock per picking slot (rack level 1) with reserve above (one pallet
+   per slot, same reference as its column), threshold-based priority
+   replenishment missions (vehicle required, vertical move at the same
+   node), inbound trucks (`inboundTrucksPerDay`) delivering pallets put
+   away to free reserve slots (saturated reserve = pallets waiting at
+   the dock, re-placed when replenishment frees a slot), buffer zones +
+   packer role (B2C lines staged at the nearest buffer, packers carry
+   them to the workshop and pack — picking decoupled from packing), new
+   KPI counters (replenishments, putaways, stockouts, palletsWaiting).
+   All behind `replenishment` / `packers` parameters, off by default.
+   Simplified vs the original plan: docks are the existing receiving
+   zones (several zones = several doors, no door scheduling), and
+   staging capacity is not bounded — both deferred.
 5. **Advanced circulation** — one-way lanes (graph already supports
    `oneWay`), pedestrian vs vehicle lanes, edge capacity and queues, VNA
    exclusivity, obstacles.

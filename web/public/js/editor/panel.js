@@ -61,6 +61,7 @@ const TYPE_LABELS = {
   shipping: 'Expédition',
   receiving: 'Réception',
   parking: 'Parking',
+  buffer: 'Tampon',
   corridor: 'Couloir',
 };
 
@@ -165,11 +166,13 @@ export function renderSelection(container, def, selection, onChange) {
       }, onChange, 'aisle');
     }
   } else {
-    const facility = selection.type === 'workshop'
-      ? def.workshops.find((w) => w.id === selection.id)
-      : selection.type === 'parking'
-        ? (def.parkings ?? []).find((p) => p.id === selection.id)
-        : asList(def[selection.type]).find((z) => z.id === selection.id);
+    const lists = {
+      workshop: def.workshops,
+      parking: def.parkings ?? [],
+      buffer: def.buffers ?? [],
+    };
+    const facility = (lists[selection.type] ?? asList(def[selection.type]))
+      .find((z) => z.id === selection.id);
     const fields = selection.type === 'parking' ? PARKING_FIELDS : FACILITY_FIELDS;
     if (facility) renderFields(container, fields, facility, onChange, selection.type);
   }

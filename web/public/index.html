@@ -303,6 +303,20 @@
           <option value="abc">Optimisé ABC (rotations fortes près de l'expédition)</option>
         </select>
       </label>
+      <div class="field">
+        <span class="field-head"><span>Flux</span></span>
+        <label class="switch"><input type="checkbox" id="replenishment"> Réapprovisionnement (réserve → picking)</label>
+        <div class="props-grid">
+          <label class="field">
+            <span class="field-head"><span>Camions / jour</span></span>
+            <input type="number" id="inboundTrucks" min="0" max="200" step="1" value="0">
+          </label>
+          <label class="field">
+            <span class="field-head"><span>Emballeurs</span></span>
+            <input type="number" id="packers" min="0" max="20" step="1" value="0">
+          </label>
+        </div>
+      </div>
       <button class="action" id="saveRun">Enregistrer ce run en base</button>
       <p class="action-status" id="saveStatus"></p>
     </section>
@@ -370,6 +384,7 @@
           <button class="action" id="editAddReceiving">+ Réception</button>
           <button class="action" id="editAddCorridor">+ Couloir</button>
           <button class="action" id="editAddParking">+ Parking</button>
+          <button class="action" id="editAddBuffer">+ Tampon</button>
         </div>
         <button class="action" id="editRemoveSelection">Supprimer la sélection</button>
       </section>

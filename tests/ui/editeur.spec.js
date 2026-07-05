@@ -302,6 +302,17 @@ test('ajouter un parking d’agents et l’enregistrer', async ({ page, request,
   expect(definition.parkings[0].vehicles).toEqual(['retractable', 'vna']);
 });
 
+test('ajouter une zone tampon et l’enregistrer', async ({ page, request, baseURL }) => {
+  await page.locator('#editAddBuffer').click();
+  await expect(page.locator('#selProps .placeholder')).toHaveText('Tampon TP1');
+  await expect(page.locator('#editErrors li')).toHaveCount(0);
+  await page.locator('#editSave').click();
+  await expect(page.locator('#warehouseStatus')).toHaveText('Entrepôt enregistré.');
+  const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
+  expect(definition.buffers).toHaveLength(1);
+  expect(definition.buffers[0].id).toBe('TP1');
+});
+
 test('ajouter et redimensionner une zone d’expédition', async ({ page, request, baseURL }) => {
   // Ajout : la zone est créée et sélectionnée automatiquement
   await page.locator('#editAddShipping').click();

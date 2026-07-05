@@ -55,6 +55,7 @@ export function normalizeDefinition(def) {
   next.shipping = asList(next.shipping).map(zone);
   next.receiving = asList(next.receiving).map(zone);
   next.parkings = (next.parkings ?? []).map(zone);
+  next.buffers = (next.buffers ?? []).map(zone);
   next.corridors = corridorsAsList(next).map((c) => ({
     width: DEFAULT_AISLE_WIDTH, orientation: 'horizontal', label: c.id, ...c,
   }));
@@ -89,7 +90,7 @@ const VEHICLE_TYPES = ['pieton', 'transpalette', 'gerbeur', 'frontal', 'retracta
  * affichent directement leur étendue de baies (entière).
  */
 export function displayValue(kind, element, key) {
-  if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving' || kind === 'parking') {
+  if (['workshop', 'shipping', 'receiving', 'parking', 'buffer'].includes(kind)) {
     if (key === 'x') return mm(element.x - zoneHalfWidth(element));
     if (key === 'y') return mm(element.y - zoneHalfDepth(element));
   }
@@ -101,7 +102,7 @@ export function displayValue(kind, element, key) {
  * à une saisie du panneau (bord → centre pour les zones).
  */
 export function modelValue(kind, element, key, value) {
-  if (kind === 'workshop' || kind === 'shipping' || kind === 'receiving' || kind === 'parking') {
+  if (['workshop', 'shipping', 'receiving', 'parking', 'buffer'].includes(kind)) {
     if (key === 'x') return mm(value + zoneHalfWidth(element));
     if (key === 'y') return mm(value + zoneHalfDepth(element));
   }
@@ -161,6 +162,11 @@ function facilityOf(def, kind, id) {
     const parking = (def.parkings ?? []).find((p) => p.id === id);
     if (!parking) throw new Error(`Parking inconnu : ${id}`);
     return parking;
+  }
+  if (kind === 'buffer') {
+    const buffer = (def.buffers ?? []).find((b) => b.id === id);
+    if (!buffer) throw new Error(`Tampon inconnu : ${id}`);
+    return buffer;
   }
   throw new Error(`Type d'élément inconnu : ${kind}`);
 }
@@ -478,6 +484,42 @@ export function removeParking(def, parkingId) {
 }
 
 /**
+ * Ajoute une zone tampon (dépose du picking avant emballage) près de
+ * la dernière — active le rôle emballeur quand le scénario en compte.
+ * @returns {object} nouvelle définition
+ */
+export function addBuffer(def) {
+  const next = structuredClone(def);
+  const list = next.buffers ?? [];
+  const last = list[list.length - 1];
+  const id = nextId('TP', list.map((b) => b.id));
+  const width = last?.width ?? DEFAULT_ZONE_WIDTH;
+  const depth = last?.depth ?? DEFAULT_ZONE_DEPTH;
+  const x = clamp(snapEdge((last?.x ?? 10) + width + 2, width / 2), width / 2, next.dimensions.width - width / 2);
+  const y = clamp(
+    snapEdge(last?.y ?? 2, depth / 2),
+    depth / 2, next.dimensions.depth - depth / 2
+  );
+  list.push({ id, label: `Tampon ${id.slice(2)}`, x, y, width, depth });
+  next.buffers = list;
+  return next;
+}
+
+/**
+ * Supprime une zone tampon (optionnelle : zéro autorisé — la dépose
+ * B2C retourne alors directement aux ateliers).
+ * @returns {object} nouvelle définition
+ */
+export function removeBuffer(def, bufferId) {
+  if (!(def.buffers ?? []).some((b) => b.id === bufferId)) {
+    throw new Error(`Tampon inconnu : ${bufferId}`);
+  }
+  const next = structuredClone(def);
+  next.buffers = next.buffers.filter((b) => b.id !== bufferId);
+  return next;
+}
+
+/**
  * Supprime une zone d'expédition ou de réception. Refuse de supprimer
  * la dernière de son type (le moteur exige au moins une de chaque).
  * @returns {object} nouvelle définition
@@ -623,12 +665,13 @@ export function validateDefinition(def, buildWarehouse) {
   const shippings = asList(def.shipping);
   const receivings = asList(def.receiving);
   const parkings = def.parkings ?? [];
+  const buffers = def.buffers ?? [];
   if (shippings.length === 0) errors.push('au moins une zone d’expédition est requise');
   if (receivings.length === 0) errors.push('au moins une zone de réception est requise');
   checkUnique(def.aisles.map((a) => a.id), 'identifiant d’allée', errors);
   checkUnique(def.racks.map((r) => r.id), 'identifiant de rack', errors);
   checkUnique(
-    [...def.workshops, ...shippings, ...receivings, ...parkings].map((z) => z.id),
+    [...def.workshops, ...shippings, ...receivings, ...parkings, ...buffers].map((z) => z.id),
     'identifiant de zone',
     errors
   );
@@ -675,7 +718,7 @@ export function validateDefinition(def, buildWarehouse) {
       }
     }
   }
-  for (const f of [...def.workshops, ...shippings, ...receivings, ...parkings]) {
+  for (const f of [...def.workshops, ...shippings, ...receivings, ...parkings, ...buffers]) {
     if ((f.width !== undefined && !(f.width > 0)) || (f.depth !== undefined && !(f.depth > 0))) {
       errors.push(`zone ${f.id} : largeur et profondeur doivent être des nombres positifs`);
       continue;

@@ -17,6 +17,8 @@ import {
   removeWorkshop,
   addShipping,
   addParking,
+  addBuffer,
+  removeBuffer,
   removeParking,
   addReceiving,
   removeZone,
@@ -453,4 +455,17 @@ test('addParking / removeParking : zone optionnelle, zéro autorisé', () => {
   assert.deepEqual(removed.parkings, []);
   assert.deepEqual(validateDefinition(removed, buildWarehouse), []);
   assert.throws(() => removeParking(removed, 'PK1'), /Parking inconnu/);
+});
+
+test('addBuffer / removeBuffer : zone tampon optionnelle', () => {
+  const norm = normalizeDefinition(def);
+  assert.deepEqual(norm.buffers, []);
+  const added = addBuffer(norm);
+  assert.equal(added.buffers.length, 1);
+  assert.equal(added.buffers[0].id, 'TP1');
+  assert.ok(added.buffers[0].label.startsWith('Tampon'));
+  assert.deepEqual(validateDefinition(added, buildWarehouse), []);
+  const removed = removeBuffer(added, 'TP1');
+  assert.deepEqual(removed.buffers, []);
+  assert.throws(() => removeBuffer(removed, 'TP1'), /Tampon inconnu/);
 });

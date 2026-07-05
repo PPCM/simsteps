@@ -120,3 +120,21 @@ test('le paramètre fleet est validé (types connus, entiers, total ≥ 1)', () 
   assert.ok(validateScenarioParams({ fleet: { pieton: 0 } }).some((e) => e.includes('au moins un agent')));
   assert.ok(validateScenarioParams({ fleet: [2] }).some((e) => e.includes('objet')));
 });
+
+test('les paramètres de flux sont validés', () => {
+  assert.deepEqual(validateScenarioParams({
+    replenishment: true, inboundTrucksPerDay: 24, palletsPerTruck: 10,
+    packers: 2, packTimePerOrderSec: 60, slotCapacityUnits: 60,
+    replenishThresholdShare: 0.25, palletHandlingSec: 30,
+  }), []);
+  assert.ok(validateScenarioParams({ replenishment: 'oui' }).some((e) => e.includes('booléen')));
+  assert.ok(validateScenarioParams({ packers: -1 }).length > 0);
+});
+
+test('les zones tampon d’un entrepôt sont validées', () => {
+  const def = structuredClone(validWarehouse);
+  def.buffers = [{ id: 'TP1', label: 'Tampon', x: 14, y: 40 }];
+  assert.deepEqual(validateWarehouseDefinition(def), []);
+  def.buffers = [{ label: 'sans id' }];
+  assert.ok(validateWarehouseDefinition(def).some((e) => e.includes('buffers')));
+});

@@ -4,8 +4,11 @@
 // effectifs de simulation. Module sans DOM : testable sous Node.
 
 // Paramètres pilotés par les contrôles du panneau latéral (curseurs,
-// compteurs d'engins de la flotte et sélecteur de rangement)
-export const SLIDER_KEYS = ['operators', 'fleet', 'b2cShare', 'ordersPerHour', 'slotting'];
+// compteurs d'engins, rangement et contrôles de flux)
+export const SLIDER_KEYS = [
+  'operators', 'fleet', 'b2cShare', 'ordersPerHour', 'slotting',
+  'replenishment', 'inboundTrucksPerDay', 'packers',
+];
 
 /**
  * Sépare les paramétrages d'un projet : ce qui pilote les curseurs
