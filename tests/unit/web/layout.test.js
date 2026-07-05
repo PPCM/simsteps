@@ -114,11 +114,11 @@ test('gridSegments couvre exactement le sol, sans déborder', () => {
   assert.ok(gridSegments(frac).some(([x1, , x2]) => x1 === 44.5 && x2 === 44.5));
 });
 
-test('corridorBands matérialise les couloirs avant et arrière sur toute la largeur', () => {
+test('corridorBands convertit le format historique en deux bandes pleine largeur', () => {
   const bands = corridorBands(def); // couloirs à y = 4 et y = 38
   assert.equal(bands.length, 2);
-  const front = bands.find((b) => b.id === 'front');
-  const back = bands.find((b) => b.id === 'back');
+  const front = bands.find((b) => b.id === 'C1');
+  const back = bands.find((b) => b.id === 'C2');
   assert.equal(front.z, def.corridors.frontY);
   assert.equal(front.label, 'Couloir avant');
   assert.equal(back.z, def.corridors.backY);
@@ -128,4 +128,15 @@ test('corridorBands matérialise les couloirs avant et arrière sur toute la lar
     assert.equal(band.x, def.dimensions.width / 2);
     assert.ok(band.depth > 0);
   }
+});
+
+test('corridorBands rend les segments horizontaux et verticaux', () => {
+  const custom = structuredClone(def);
+  custom.corridors = [
+    { id: 'C1', label: 'Transversal', x: 4, y: 10, length: 30, width: 2, orientation: 'horizontal' },
+    { id: 'C2', label: 'Longitudinal', x: 40, y: 5, length: 20, orientation: 'vertical' },
+  ];
+  const [h, v] = corridorBands(custom);
+  assert.deepEqual({ x: h.x, z: h.z, width: h.width, depth: h.depth }, { x: 19, z: 10, width: 30, depth: 2 });
+  assert.deepEqual({ x: v.x, z: v.z, width: v.width, depth: v.depth }, { x: 40, z: 15, width: 1.4, depth: 20 });
 });

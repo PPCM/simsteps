@@ -20,6 +20,9 @@ import {
   removeZone,
   updateAisle,
   updateFacility,
+  addCorridor,
+  removeCorridor,
+  updateCorridor,
   updateGlobals,
   validateDefinition,
   duplicateDefinition,
@@ -57,10 +60,10 @@ test('moveAisle borne x à l’emprise des racks', () => {
   assert.equal(right.aisles[0].x, def.dimensions.width - 2.1);
 });
 
-test('moveAisle borne le départ contre les couloirs', () => {
+test('moveAisle borne le départ dans le sol (connexité vérifiée à part)', () => {
   const next = moveAisle(def, 'A1', { yStart: 0 });
   const aisle = next.aisles.find((a) => a.id === 'A1');
-  assert.equal(aisle.yStart, def.corridors.frontY + 1);
+  assert.equal(aisle.yStart, 1);
   assert.equal(aisle.yEnd, aisle.yStart + (35 - 7));
 });
 
@@ -154,10 +157,9 @@ test('updateFacility et updateGlobals appliquent les propriétés', () => {
   const facility = updateFacility(def, 'shipping', 'EXP', { label: 'Quai', x: 30 });
   assert.equal(facility.shipping.label, 'Quai');
   assert.equal(facility.shipping.x, 30);
-  const globals = updateGlobals(def, { name: 'Test', width: 50, frontY: 5 });
+  const globals = updateGlobals(def, { name: 'Test', width: 50 });
   assert.equal(globals.name, 'Test');
   assert.equal(globals.dimensions.width, 50);
-  assert.equal(globals.corridors.frontY, 5);
 });
 
 test('validateDefinition accepte l’entrepôt d’exemple', () => {
@@ -173,10 +175,13 @@ test('validateDefinition détecte les ids en double', () => {
   assert.ok(validateDefinition(dupRack, buildWarehouse).some((e) => e.includes('double')));
 });
 
-test('validateDefinition détecte allée hors couloirs et zone hors sol', () => {
+test('validateDefinition détecte allée sans débouché et zone hors sol', () => {
+  // Allée enjambant les deux couloirs : aucun couloir au-delà de ses
+  // extrémités → erreur de raccordement remontée par le constructeur
   const outAisle = structuredClone(def);
-  outAisle.aisles[0].yStart = 1;
-  assert.ok(validateDefinition(outAisle, buildWarehouse).some((e) => e.includes('couloirs')));
+  outAisle.aisles[0].yStart = 3;
+  outAisle.aisles[0].yEnd = 39;
+  assert.ok(validateDefinition(outAisle, buildWarehouse).some((e) => e.includes('débouche')));
   const outZone = structuredClone(def);
   outZone.shipping.x = 500;
   assert.ok(validateDefinition(outZone, buildWarehouse).some((e) => e.includes('dépasse le sol')));
@@ -306,23 +311,44 @@ test('après accrochage du drag, les coordonnées affichées sont entières', ()
   assert.equal(displayValue('aisle', dragged, 'yEnd'), 20);
 });
 
-test('moveCorridor accroche au mètre et borne entre sol et allées', () => {
-  // Couloir avant : borné par le bord du sol (1) et le débouché des allées
-  const front = moveCorridor(def, 'front', { y: 2.4 });
-  assert.equal(front.corridors.frontY, 2);
-  assert.equal(moveCorridor(def, 'front', { y: -5 }).corridors.frontY, 1);
-  // Allées de 7 à 35 : le couloir avant ne dépasse pas yStart − 1
-  assert.equal(moveCorridor(def, 'front', { y: 20 }).corridors.frontY, 6);
-  // Couloir arrière : entre yEnd + 1 et profondeur − 1
-  assert.equal(moveCorridor(def, 'back', { y: 39.6 }).corridors.backY, 40);
-  assert.equal(moveCorridor(def, 'back', { y: 10 }).corridors.backY, 36);
-  assert.equal(moveCorridor(def, 'back', { y: 100 }).corridors.backY, def.dimensions.depth - 1);
+test('moveCorridor accroche au mètre et borne le segment dans le sol', () => {
+  const norm = normalizeDefinition(def); // C1 avant (y=4), C2 arrière (y=38), pleine largeur
+  assert.equal(moveCorridor(norm, 'C1', { y: 2.4 }).corridors[0].y, 2);
+  // Bornes transversales : demi-largeur de voie contre les bords du sol
+  assert.equal(moveCorridor(norm, 'C1', { y: -5 }).corridors[0].y, 0.7);
+  assert.equal(moveCorridor(norm, 'C1', { y: 100 }).corridors[0].y, def.dimensions.depth - 0.7);
+  // Borne longitudinale : le segment pleine largeur ne peut pas sortir du sol
+  assert.equal(moveCorridor(norm, 'C1', { x: 10 }).corridors[0].x, 0);
   // Id inconnu refusé, définition d'origine non mutée
-  assert.throws(() => moveCorridor(def, 'middle', { y: 10 }), /Couloir inconnu/);
-  assert.equal(def.corridors.frontY, 4);
+  assert.throws(() => moveCorridor(norm, 'CX', { y: 10 }), /Couloir inconnu/);
+  const before = JSON.stringify(norm);
+  moveCorridor(norm, 'C1', { y: 10 });
+  assert.equal(JSON.stringify(norm), before);
 });
 
 test('moveCorridor produit une définition valide', () => {
-  const next = moveCorridor(moveCorridor(def, 'front', { y: 5 }), 'back', { y: 40 });
+  const norm = normalizeDefinition(def);
+  const next = moveCorridor(moveCorridor(norm, 'C1', { y: 5 }), 'C2', { y: 40 });
   assert.deepEqual(validateDefinition(next, buildWarehouse), []);
+});
+
+test('addCorridor / removeCorridor / updateCorridor gèrent la liste', () => {
+  const norm = normalizeDefinition(def);
+  const added = addCorridor(norm);
+  assert.equal(added.corridors.length, 3);
+  const corridor = added.corridors[2];
+  assert.equal(corridor.id, 'C3');
+  assert.equal(corridor.orientation, 'horizontal');
+  // Passage en vertical reliant les deux couloirs transversaux
+  const vertical = updateCorridor(added, 'C3', {
+    orientation: 'vertical', x: 36, y: 4, length: 34,
+  });
+  assert.deepEqual(validateDefinition(vertical, buildWarehouse), []);
+  // Suppression : retour à deux couloirs ; le dernier est protégé
+  const removed = removeCorridor(vertical, 'C3');
+  assert.equal(removed.corridors.length, 2);
+  let single = removeCorridor(removed, 'C2');
+  // C2 supprimé : les allées ne débouchent plus que côté avant (impasse autorisée)
+  assert.deepEqual(validateDefinition(single, buildWarehouse), []);
+  assert.throws(() => removeCorridor(single, 'C1'), /dernier couloir/);
 });

@@ -67,19 +67,36 @@ export function zonePatches(def) {
   ];
 }
 
+// Couloirs : objet historique { frontY, backY } (deux couloirs pleine
+// largeur) ou liste de segments — même conversion que sim/warehouse.js
+function corridorsOf(def) {
+  const corridors = def.corridors;
+  if (Array.isArray(corridors)) return corridors;
+  return [
+    { id: 'C1', label: 'Couloir avant', x: 0, y: corridors.frontY, length: def.dimensions.width, width: 1.4, orientation: 'horizontal' },
+    { id: 'C2', label: 'Couloir arrière', x: 0, y: corridors.backY, length: def.dimensions.width, width: 1.4, orientation: 'horizontal' },
+  ];
+}
+
 /**
- * Bandes des couloirs transversaux (avant/arrière) : les allées
- * débouchent dessus et les opérateurs y circulent ; les matérialiser
- * au sol rend visible la borne de déplacement des allées.
- * @returns {Array<{id: 'front'|'back', label: string, x: number, z: number, width: number, depth: number}>}
+ * Bandes des couloirs : les allées y débouchent, les opérateurs y
+ * circulent et elles se connectent entre elles à leurs croisements.
+ * @returns {Array<{id: string, label: string, x: number, z: number, width: number, depth: number}>}
+ *          x/z : centre de la bande au sol
  */
 export function corridorBands(def) {
-  const { width } = def.dimensions;
-  const band = (id, label, y) => ({ id, label, x: width / 2, z: y, width, depth: DEFAULT_AISLE_WIDTH });
-  return [
-    band('front', 'Couloir avant', def.corridors.frontY),
-    band('back', 'Couloir arrière', def.corridors.backY),
-  ];
+  return corridorsOf(def).map((c) => {
+    const lane = c.width ?? DEFAULT_AISLE_WIDTH;
+    const horizontal = c.orientation !== 'vertical';
+    return {
+      id: c.id,
+      label: c.label ?? c.id,
+      x: horizontal ? c.x + c.length / 2 : c.x,
+      z: horizontal ? c.y : c.y + c.length / 2,
+      width: horizontal ? c.length : lane,
+      depth: horizontal ? lane : c.length,
+    };
+  });
 }
 
 /**

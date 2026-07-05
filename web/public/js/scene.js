@@ -127,13 +127,8 @@ export function createWarehouseScene(canvas, definition) {
       strip.position.set(band.x, 0.025, band.z);
       corridorGroup.add(strip);
 
-      // Étiquettes posées là où rien ne se superpose dans la vue par
-      // défaut : à droite des racks, plus à l'intérieur pour l'avant
       const label = makeTextSprite(band.label, { color: '#8b95a3', worldHeight: 1 });
-      const labelX = band.id === 'front'
-        ? Math.max(band.width - 8, band.width / 2)
-        : Math.max(band.width - 4, band.width / 2);
-      label.position.set(labelX, 0.7, band.z);
+      label.position.set(band.x, 0.7, band.z);
       corridorGroup.add(label);
       labelEntries.push({ sprite: label, type: 'corridor', id: band.id });
       group.add(corridorGroup);

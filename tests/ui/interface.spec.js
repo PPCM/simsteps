@@ -56,9 +56,13 @@ test('masquer les libellés puis en révéler un au clic', async ({ page }) => {
       const v = camera.position.clone().set(wx, wy, wz).project(camera);
       return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
     };
+    const front = Array.isArray(definition.corridors)
+      ? definition.corridors.filter((c) => c.orientation !== 'vertical')
+          .sort((a, b) => a.y - b.y)[0]
+      : { x: 0, y: definition.corridors.frontY, length: definition.dimensions.width };
     return {
       rack: toScreen(aisle.x - 1.4, 1.2, (aisle.yStart + aisle.yEnd) / 2),
-      corridor: toScreen(definition.dimensions.width - 6, 0, definition.corridors.frontY),
+      corridor: toScreen(front.x + front.length - 6, 0, front.y),
     };
   });
 

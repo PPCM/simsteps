@@ -78,3 +78,36 @@ test('shipping/receiving acceptent un objet unique ou une liste', () => {
   const route = w.graph.shortestPath('EXP', 'EXP2');
   assert.ok(route && route.distance > 0, 'la seconde zone doit être raccordée aux couloirs');
 });
+
+test('un réseau de couloirs (liste) relie allées et zones, impasses comprises', () => {
+  const multi = structuredClone(spec);
+  multi.corridors = [
+    // Couloir avant pleine largeur, arrière raccourci (A6 devient une impasse)
+    { id: 'C1', label: 'Avant', x: 0, y: 4, length: 44, orientation: 'horizontal' },
+    { id: 'C2', label: 'Arrière', x: 0, y: 38, length: 30, orientation: 'horizontal' },
+    // Liaison verticale croisant le couloir avant
+    { id: 'C3', label: 'Liaison', x: 40, y: 2, length: 40, orientation: 'vertical' },
+  ];
+  const w = buildWarehouse(multi);
+  // Tout le réseau est praticable, de l'expédition à la réception
+  assert.ok(w.graph.shortestPath('EXP', 'REC'));
+  // L'allée en impasse reste desservie par son seul débouché avant
+  assert.ok(w.graph.shortestPath('EXP', 'A6:b17'));
+});
+
+test('une allée sans débouché est refusée à la construction', () => {
+  const broken = structuredClone(spec);
+  // Couloir trop court : ne croise l'axe d'aucune allée (x 0..3, allées à x ≥ 6)
+  broken.corridors = [{ id: 'C1', x: 0, y: 4, length: 3, orientation: 'horizontal' }];
+  assert.throws(() => buildWarehouse(broken), /ne débouche sur aucun couloir/);
+});
+
+test('un réseau non connexe est refusé à la construction', () => {
+  const broken = structuredClone(spec);
+  broken.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, orientation: 'horizontal' },
+    // Couloir isolé : ne croise rien, mais la réception s'y projette
+    { id: 'C2', x: 43, y: 20, length: 10, orientation: 'vertical' },
+  ];
+  assert.throws(() => buildWarehouse(broken), /non connexe/);
+});

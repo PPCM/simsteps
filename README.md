@@ -132,8 +132,13 @@ Le détail des sections :
   du sol et le débouché des allées) ; la fenêtre expose les propriétés de la sélection
   (baies, zone, identifiants, largeur/profondeur — chaque élément est
   redimensionnable), les propriétés globales (dimensions, couloirs), et
-  l'ajout/la suppression d'allées, d'ateliers et de zones d'expédition
-  ou de réception (au moins une de chaque doit rester).
+  l'ajout/la suppression d'allées, d'ateliers, de zones d'expédition ou
+  de réception et de couloirs (au moins un couloir et une zone de
+  chaque type doivent rester). Les couloirs sont des objets à part
+  entière : position, longueur, largeur et orientation
+  (horizontal/vertical, menu déroulant) modifiables, connexion
+  automatique aux croisements — de quoi dessiner de vrais chemins de
+  circulation entre les zones.
   « Enregistrer » valide et persiste la définition (modification en
   place : tous les projets qui référencent l'entrepôt la voient),
   « Annuler » restaure l'état d'entrée. Limites assumées : pas
@@ -182,7 +187,15 @@ pathfinding des opérateurs utilise A* sur ce graphe.
 {
   "name": "Mon entrepôt",
   "dimensions": { "width": 44, "depth": 42 },      // mètres au sol
-  "corridors": { "frontY": 4, "backY": 38 },       // couloirs transversaux (y)
+  // Réseau de couloirs : segments horizontaux (le long de x) ou
+  // verticaux (le long de y), partant de (x, y) sur `length` mètres.
+  // Deux couloirs qui se croisent ou se touchent sont connectés.
+  // Format historique accepté : { "frontY": 4, "backY": 38 } (deux
+  // couloirs transversaux pleine largeur).
+  "corridors": [
+    { "id": "C1", "label": "Couloir avant", "x": 0, "y": 4, "length": 44, "orientation": "horizontal" },
+    { "id": "C2", "label": "Couloir arrière", "x": 0, "y": 38, "length": 44, "orientation": "horizontal" }
+  ],
   "aisles": [
     // x : abscisse de l'allée ; yStart/yEnd : étendue ; bays : nb de baies ;
     // zone : groupe utilisé par la stratégie « vagues par zone » ;
@@ -207,12 +220,17 @@ pathfinding des opérateurs utilise A* sur ce graphe.
 }
 ```
 
-Règles : chaque rack référence une allée existante ; les ateliers, les zones
-d'expédition et de réception sont rattachés au couloir le plus proche ; les
-commandes B2B sont déposées à la zone d'expédition la plus proche du dernier
-prélèvement, les B2C à l'atelier le plus proche. Il faut au moins une zone
-d'expédition et une de réception (`shipping`/`receiving` acceptent un objet
-unique — format historique — ou une liste). L'API valide la cohérence
+Règles : chaque rack référence une allée existante ; chaque allée doit
+déboucher sur au moins un couloir horizontal au-delà d'une de ses
+extrémités (les impasses sont autorisées) ; les ateliers, les zones
+d'expédition et de réception sont raccordés par projection sur le
+couloir le plus proche ; l'ensemble du réseau de circulation doit être
+connexe (un couloir isolé ou une zone inaccessible est refusé avec un
+message explicite). Les commandes B2B sont déposées à la zone
+d'expédition la plus proche du dernier prélèvement, les B2C à l'atelier
+le plus proche. Il faut au moins un couloir, une zone d'expédition et
+une de réception (`shipping`/`receiving` acceptent un objet unique —
+format historique — ou une liste). L'API valide la cohérence
 topologique à l'import.
 
 ## Paramètres d'un scénario

@@ -9,12 +9,19 @@ const RACK_WIDTH = 1.4;
 const DEFAULT_AISLE_WIDTH = 1.4;
 const DEFAULT_ZONE_WIDTH = 4.8;
 const DEFAULT_ZONE_DEPTH = 3;
-// Marge entre le bout d'une allée et son couloir (débouché praticable)
-const CORRIDOR_MARGIN = 1;
-
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 // Zones d'expédition/réception : objet unique (format historique) ou liste
 const asList = (value) => (Array.isArray(value) ? value : [value]);
+// Couloirs : objet historique { frontY, backY } converti en deux
+// couloirs transversaux pleine largeur — même règle que sim/warehouse.js
+function corridorsAsList(def) {
+  const corridors = def.corridors;
+  if (Array.isArray(corridors)) return corridors;
+  return [
+    { id: 'C1', label: 'Couloir avant', x: 0, y: corridors.frontY, length: def.dimensions.width, width: DEFAULT_AISLE_WIDTH, orientation: 'horizontal' },
+    { id: 'C2', label: 'Couloir arrière', x: 0, y: corridors.backY, length: def.dimensions.width, width: DEFAULT_AISLE_WIDTH, orientation: 'horizontal' },
+  ];
+}
 // Demi-emprise latérale d'une allée (couloir + un rack de chaque côté),
 // arrondie au millimètre pour des bornes de drag sans bruit flottant
 const aisleHalfWidth = (aisle) =>
@@ -37,6 +44,9 @@ export function normalizeDefinition(def) {
   next.workshops = next.workshops.map(zone);
   next.shipping = asList(next.shipping).map(zone);
   next.receiving = asList(next.receiving).map(zone);
+  next.corridors = corridorsAsList(next).map((c) => ({
+    width: DEFAULT_AISLE_WIDTH, orientation: 'horizontal', label: c.id, ...c,
+  }));
   return next;
 }
 
@@ -89,10 +99,14 @@ export function clampAisleX(def, x, aisle) {
   return clamp(x, half, def.dimensions.width - half);
 }
 
-/** Borne le départ d'une allée entre les couloirs, longueur conservée. */
+/**
+ * Borne le départ d'une allée dans le sol, longueur conservée. Le
+ * raccordement aux couloirs n'est plus une borne de drag : c'est la
+ * validation de connexité du réseau qui le contrôle.
+ */
 export function clampAisleY(def, yStart, length) {
-  const min = def.corridors.frontY + CORRIDOR_MARGIN;
-  const max = def.corridors.backY - CORRIDOR_MARGIN - length;
+  const min = 1;
+  const max = def.dimensions.depth - 1 - length;
   return clamp(yStart, min, Math.max(min, max));
 }
 
@@ -151,30 +165,85 @@ export function moveFacility(def, kind, id, { x, y }) {
   return next;
 }
 
+// Retrouve un couloir dans une définition (couloirs normalisés en liste)
+function corridorOf(def, id) {
+  const corridor = corridorsAsList(def).find((c) => c.id === id);
+  if (!corridor) throw new Error(`Couloir inconnu : ${id}`);
+  return corridor;
+}
+
 /**
- * Déplace un couloir transversal (avant/arrière) : accrochage au mètre,
- * borné entre le bord du sol et le débouché des allées (les allées
- * doivent garder un débouché praticable de CORRIDOR_MARGIN).
+ * Déplace un couloir (les deux axes) : accrochage au mètre de son axe,
+ * segment borné dans le sol. Le raccordement au reste du réseau est
+ * contrôlé par la validation de connexité, pas par le drag.
  * @returns {object} nouvelle définition
  */
-export function moveCorridor(def, corridorId, { y }) {
-  if (corridorId !== 'front' && corridorId !== 'back') {
-    throw new Error(`Couloir inconnu : ${corridorId}`);
-  }
+export function moveCorridor(def, corridorId, { x, y }) {
   const next = structuredClone(def);
-  const aisleMin = Math.min(...next.aisles.map((a) => a.yStart));
-  const aisleMax = Math.max(...next.aisles.map((a) => a.yEnd));
-  if (corridorId === 'front') {
-    next.corridors.frontY = clamp(
-      snapToGrid(y), 1,
-      Math.min(aisleMin - CORRIDOR_MARGIN, next.corridors.backY - 2)
-    );
-  } else {
-    next.corridors.backY = clamp(
-      snapToGrid(y),
-      Math.max(aisleMax + CORRIDOR_MARGIN, next.corridors.frontY + 2),
-      next.dimensions.depth - 1
-    );
+  next.corridors = corridorsAsList(next);
+  const corridor = corridorOf(next, corridorId);
+  const lane = (corridor.width ?? DEFAULT_AISLE_WIDTH) / 2;
+  const horizontal = corridor.orientation !== 'vertical';
+  const { width, depth } = next.dimensions;
+  if (x !== undefined) {
+    corridor.x = horizontal
+      ? clamp(snapToGrid(x), 0, Math.max(0, width - corridor.length))
+      : clamp(snapToGrid(x), lane, width - lane);
+  }
+  if (y !== undefined) {
+    corridor.y = horizontal
+      ? clamp(snapToGrid(y), lane, depth - lane)
+      : clamp(snapToGrid(y), 0, Math.max(0, depth - corridor.length));
+  }
+  return next;
+}
+
+/**
+ * Ajoute un couloir horizontal au centre du sol.
+ * @returns {object} nouvelle définition
+ */
+export function addCorridor(def) {
+  const next = structuredClone(def);
+  next.corridors = corridorsAsList(next);
+  const id = nextId('C', next.corridors.map((c) => c.id));
+  const length = Math.min(10, next.dimensions.width);
+  next.corridors.push({
+    id,
+    label: `Couloir ${id.slice(1)}`,
+    x: snapToGrid((next.dimensions.width - length) / 2),
+    y: snapToGrid(next.dimensions.depth / 2),
+    length,
+    width: DEFAULT_AISLE_WIDTH,
+    orientation: 'horizontal',
+  });
+  return next;
+}
+
+/**
+ * Supprime un couloir. Refuse de supprimer le dernier (le réseau de
+ * circulation exige au moins un couloir).
+ * @returns {object} nouvelle définition
+ */
+export function removeCorridor(def, corridorId) {
+  const list = corridorsAsList(def);
+  if (!list.some((c) => c.id === corridorId)) throw new Error(`Couloir inconnu : ${corridorId}`);
+  if (list.length <= 1) throw new Error('Impossible de supprimer le dernier couloir');
+  const next = structuredClone(def);
+  next.corridors = corridorsAsList(next).filter((c) => c.id !== corridorId);
+  return next;
+}
+
+/**
+ * Met à jour les propriétés d'un couloir (id, label, x, y, length,
+ * width, orientation).
+ * @returns {object} nouvelle définition
+ */
+export function updateCorridor(def, corridorId, props) {
+  const next = structuredClone(def);
+  next.corridors = corridorsAsList(next);
+  const corridor = corridorOf(next, corridorId);
+  for (const key of ['id', 'label', 'x', 'y', 'length', 'width', 'orientation']) {
+    if (props[key] !== undefined) corridor[key] = props[key];
   }
   return next;
 }
@@ -199,7 +268,7 @@ export function addAisle(def) {
   const id = nextId('A', next.aisles.map((a) => a.id));
   const aisle = last
     ? { id, x: clampAisleX(next, last.x + 5, last), yStart: last.yStart, yEnd: last.yEnd, bays: last.bays, zone: last.zone, width: last.width ?? DEFAULT_AISLE_WIDTH }
-    : { id, x: clampAisleX(next, 5), yStart: next.corridors.frontY + 3, yEnd: next.corridors.backY - 3, bays: 5, zone: 'Z1', width: DEFAULT_AISLE_WIDTH };
+    : { id, x: clampAisleX(next, 5), yStart: 3, yEnd: Math.max(5, next.dimensions.depth - 3), bays: 5, zone: 'Z1', width: DEFAULT_AISLE_WIDTH };
   next.aisles.push(aisle);
   const rackIds = next.racks.map((r) => r.id);
   const levels = next.racks[next.racks.length - 1]?.levels ?? 1;
@@ -237,7 +306,7 @@ export function addWorkshop(def) {
   const depth = last?.depth ?? DEFAULT_ZONE_DEPTH;
   const x = clamp(snapEdge((last?.x ?? 4) + 6, width / 2), width / 2, next.dimensions.width - width / 2);
   const y = clamp(
-    snapEdge(last?.y ?? next.corridors.frontY - 2, depth / 2),
+    snapEdge(last?.y ?? 2, depth / 2),
     depth / 2, next.dimensions.depth - depth / 2
   );
   next.workshops.push({ id, label: `Atelier ${n}`, x, y, width, depth });
@@ -261,7 +330,7 @@ function addZone(def, kind) {
   const depth = last?.depth ?? DEFAULT_ZONE_DEPTH;
   const x = clamp(snapEdge((last?.x ?? 4) + width + 2, width / 2), width / 2, next.dimensions.width - width / 2);
   const y = clamp(
-    snapEdge(last?.y ?? next.corridors.frontY - 2, depth / 2),
+    snapEdge(last?.y ?? 2, depth / 2),
     depth / 2, next.dimensions.depth - depth / 2
   );
   list.push({ id, label: `${label} ${id.slice(prefix.length)}`, x, y, width, depth });
@@ -354,8 +423,9 @@ export function updateFacility(def, kind, id, props) {
 }
 
 /**
- * Met à jour les propriétés globales (name, description, dimensions,
- * corridors).
+ * Met à jour les propriétés globales (name, description, dimensions).
+ * Les couloirs sont des objets à part entière et se modifient via
+ * moveCorridor / updateCorridor.
  * @returns {object} nouvelle définition
  */
 export function updateGlobals(def, props) {
@@ -364,8 +434,6 @@ export function updateGlobals(def, props) {
   if (props.description !== undefined) next.description = props.description;
   if (props.width !== undefined) next.dimensions.width = props.width;
   if (props.depth !== undefined) next.dimensions.depth = props.depth;
-  if (props.frontY !== undefined) next.corridors.frontY = props.frontY;
-  if (props.backY !== undefined) next.corridors.backY = props.backY;
   return next;
 }
 
@@ -395,9 +463,24 @@ export function validateDefinition(def, buildWarehouse) {
     errors.push('les dimensions doivent être des nombres positifs');
     return errors;
   }
-  const { frontY, backY } = def.corridors ?? {};
-  if (!(frontY > 0) || !(backY > frontY) || !(backY < depth)) {
-    errors.push('les couloirs doivent vérifier 0 < avant < arrière < profondeur');
+  const corridorsL = def.corridors ? corridorsAsList(def) : [];
+  if (corridorsL.length === 0) errors.push('au moins un couloir est requis');
+  checkUnique(corridorsL.map((c) => c.id), 'identifiant de couloir', errors);
+  for (const c of corridorsL) {
+    if (!(c.length > 0) || (c.width !== undefined && !(c.width > 0))) {
+      errors.push(`couloir ${c.id} : longueur et largeur doivent être des nombres positifs`);
+      continue;
+    }
+    if (c.orientation !== undefined && c.orientation !== 'horizontal' && c.orientation !== 'vertical') {
+      errors.push(`couloir ${c.id} : orientation « horizontal » ou « vertical » attendue`);
+      continue;
+    }
+    const lane = (c.width ?? 1.4) / 2;
+    const horizontal = c.orientation !== 'vertical';
+    const outOfFloor = horizontal
+      ? (c.x < 0 || c.x + c.length > width || c.y - lane < 0 || c.y + lane > depth)
+      : (c.y < 0 || c.y + c.length > depth || c.x - lane < 0 || c.x + lane > width);
+    if (outOfFloor) errors.push(`couloir ${c.id} : l’emprise dépasse le sol`);
   }
   const shippings = asList(def.shipping);
   const receivings = asList(def.receiving);
@@ -420,8 +503,8 @@ export function validateDefinition(def, buildWarehouse) {
     if (!(aisle.yStart < aisle.yEnd)) {
       errors.push(`allée ${aisle.id} : yStart doit être inférieur à yEnd`);
     }
-    if (aisle.yStart <= frontY || aisle.yEnd >= backY) {
-      errors.push(`allée ${aisle.id} : l’allée doit rester entre les couloirs`);
+    if (aisle.yStart < 0 || aisle.yEnd > depth) {
+      errors.push(`allée ${aisle.id} : l’allée doit rester dans le sol`);
     }
     if (aisle.x < 0 || aisle.x > width) {
       errors.push(`allée ${aisle.id} : x hors du sol`);
@@ -467,7 +550,10 @@ export function minimalDefinition() {
     name: 'Nouvel entrepôt',
     description: 'Entrepôt créé depuis l’éditeur',
     dimensions: { width: 20, depth: 20 },
-    corridors: { frontY: 3, backY: 17 },
+    corridors: [
+      { id: 'C1', label: 'Couloir avant', x: 0, y: 3, length: 20, width: 1.4, orientation: 'horizontal' },
+      { id: 'C2', label: 'Couloir arrière', x: 0, y: 17, length: 20, width: 1.4, orientation: 'horizontal' },
+    ],
     aisles: [{ id: 'A1', x: 8, yStart: 6, yEnd: 14, bays: 5, zone: 'Z1', width: 1.4 }],
     racks: [
       { id: 'R01', aisle: 'A1', side: 'gauche', levels: 1 },

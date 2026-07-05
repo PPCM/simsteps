@@ -30,8 +30,15 @@ export function validateWarehouseDefinition(def) {
   if (!Array.isArray(def.workshops) || def.workshops.length === 0) {
     errors.push('« workshops » est requis (au moins un atelier)');
   }
-  if (!def.corridors || typeof def.corridors.frontY !== 'number' || typeof def.corridors.backY !== 'number') {
-    errors.push('« corridors » est requis ({ frontY, backY })');
+  // Couloirs : objet historique { frontY, backY } ou liste non vide de
+  // segments { id, x, y, length, orientation }
+  const corridorsOk = Array.isArray(def.corridors)
+    ? def.corridors.length > 0 && def.corridors.every((c) => c && c.id
+        && typeof c.x === 'number' && typeof c.y === 'number' && typeof c.length === 'number')
+    : Boolean(def.corridors
+        && typeof def.corridors.frontY === 'number' && typeof def.corridors.backY === 'number');
+  if (!corridorsOk) {
+    errors.push('« corridors » est requis ({ frontY, backY } ou liste non vide de couloirs { id, x, y, length })');
   }
   // Une zone { id … } (format historique) ou une liste non vide de zones
   const zoneOk = (value) => (Array.isArray(value)

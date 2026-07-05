@@ -133,37 +133,53 @@ test('modifier l’entrepôt ne recadre pas la caméra', async ({ page }) => {
   for (let i = 0; i < 3; i++) expect(afterExit[i]).toBeCloseTo(before[i], 1);
 });
 
-test('glisser un couloir le déplace au mètre, entre le sol et les allées', async ({ page, request, baseURL }) => {
+test('glisser un couloir le déplace au mètre, borné dans le sol', async ({ page, request, baseURL }) => {
   const { definition } = await (await request.get(`${baseURL}/api/warehouses/${testWarehouse.id}`)).json();
-  // Point écran de la bande du couloir avant, à droite des racks
-  const point = await page.evaluate((def) => {
+  // Couloir horizontal le plus en avant (formats historique et liste)
+  const front = Array.isArray(definition.corridors)
+    ? definition.corridors.filter((c) => c.orientation !== 'vertical')
+        .sort((a, b) => a.y - b.y)[0]
+    : { x: 0, y: definition.corridors.frontY, length: definition.dimensions.width };
+  // Cible : 2 m plus bas, sans dépasser le débouché des allées (un
+  // couloir au milieu des baies déconnecterait le réseau)
+  const targetY = Math.min(front.y + 2, Math.min(...definition.aisles.map((a) => a.yStart)) - 1);
+  const points = await page.evaluate(({ c, targetY }) => {
     const { camera } = window.simstepsDebug;
     const rect = document.getElementById('scene').getBoundingClientRect();
-    const v = camera.position.clone()
-      .set(def.dimensions.width - 6, 0, def.corridors.frontY).project(camera);
-    return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
-  }, definition);
+    const toScreen = (wx, wz) => {
+      const v = camera.position.clone().set(wx, 0, wz).project(camera);
+      return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
+    };
+    return { from: toScreen(c.x + c.length - 6, c.y), to: toScreen(c.x + c.length - 6, targetY) };
+  }, { c: front, targetY });
+  const point = points.from;
 
-  // Sélection au clic : le panneau montre le couloir et sa position
+  // Sélection au clic : le panneau montre le couloir et ses propriétés
   await page.mouse.click(point.x, point.y);
-  await expect(page.locator('#selProps .placeholder')).toHaveText('Couloir avant');
+  await expect(page.locator('#selProps .placeholder')).toHaveText(/^Couloir C/);
 
-  // Glisser vers le bord avant (haut de l'écran) : accrochage au mètre,
-  // borné à 1 m du bord du sol
+  // Le panneau de sélection grandit et la fenêtre d'édition peut alors
+  // recouvrir le point de drag : on la replie le temps du geste
+  await page.locator('#editPanel .win-toggle').click();
+
+  // Glisser jusqu'à la cible projetée : déterministe quel que soit le
+  // cadrage de la caméra
   await page.mouse.move(point.x, point.y);
   await page.mouse.down();
-  for (let i = 1; i <= 6; i++) {
-    await page.mouse.move(point.x, point.y - i * 15);
+  for (let i = 1; i <= 4; i++) {
+    await page.mouse.move(
+      point.x + (points.to.x - point.x) * i / 4,
+      point.y + (points.to.y - point.y) * i / 4
+    );
   }
   await page.mouse.up();
-  const y = Number(await page.locator('#selProps input').first().inputValue());
-  expect(Number.isInteger(y)).toBe(true);
-  expect(y).toBeGreaterThanOrEqual(1);
-  expect(y).toBeLessThan(definition.corridors.frontY);
-  // Le champ global « Couloir avant (y) » suit le drag
-  await expect(page.locator('#globalProps input').nth(3)).toHaveValue(String(y));
+  // Champs : id, label, x, y, longueur, largeur (l'orientation est un menu)
+  const y = Number(await page.locator('#selProps input').nth(3).inputValue());
+  expect(y).toBe(targetY);
   await expect(page.locator('#editErrors li')).toHaveCount(0);
 
+  // Redéplie la fenêtre d'édition pour sortir proprement
+  await page.locator('#editPanel .win-toggle').click();
   await page.locator('#editCancel').click();
 });
 

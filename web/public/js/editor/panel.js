@@ -31,12 +31,16 @@ const GLOBAL_FIELDS = [
   ['name', 'Nom', 'text'],
   ['width', 'Largeur (x)', 'number'],
   ['depth', 'Profondeur (y)', 'number'],
-  ['frontY', 'Couloir avant (y)', 'number'],
-  ['backY', 'Couloir arrière (y)', 'number'],
 ];
 
 const CORRIDOR_FIELDS = [
-  ['y', 'Position (y)', 'number'],
+  ['id', 'Identifiant', 'text'],
+  ['label', 'Libellé', 'text'],
+  ['x', 'x', 'number'],
+  ['y', 'y', 'number'],
+  ['length', 'Longueur', 'number'],
+  ['width', 'Largeur', 'number'],
+  ['orientation', 'Orientation', 'select', ['horizontal', 'vertical']],
 ];
 
 const TYPE_LABELS = {
@@ -44,24 +48,34 @@ const TYPE_LABELS = {
   workshop: 'Atelier',
   shipping: 'Expédition',
   receiving: 'Réception',
+  corridor: 'Couloir',
 };
 
 // Construit une grille de champs ; onChange reçoit { clé: valeur } au
 // changement d'un champ (les nombres invalides sont ignorés). `kind`
-// active la conversion bord ↔ modèle sur les coordonnées.
+// active la conversion bord ↔ modèle sur les coordonnées. Le type
+// « select » attend la liste des choix en quatrième position.
 function renderFields(container, fields, values, onChange, kind = null) {
   const grid = document.createElement('div');
   grid.className = 'props-grid';
-  for (const [key, labelText, type] of fields) {
+  for (const [key, labelText, type, options] of fields) {
     const label = document.createElement('label');
     label.className = 'field';
     const head = document.createElement('span');
     head.className = 'field-head';
     head.innerHTML = `<span>${labelText}</span>`;
-    const input = document.createElement('input');
-    input.type = type;
-    if (type === 'number') input.step = 'any';
-    input.value = (kind ? displayValue(kind, values, key) : values[key]) ?? '';
+    const current = (kind ? displayValue(kind, values, key) : values[key]) ?? '';
+    let input;
+    if (type === 'select') {
+      input = document.createElement('select');
+      for (const option of options) input.append(new Option(option, option));
+      input.value = current;
+    } else {
+      input = document.createElement('input');
+      input.type = type;
+      if (type === 'number') input.step = 'any';
+      input.value = current;
+    }
     input.addEventListener('change', () => {
       const value = type === 'number' ? Number(input.value) : input.value;
       if (type === 'number' && Number.isNaN(value)) return;
@@ -91,16 +105,12 @@ export function renderSelection(container, def, selection, onChange) {
   }
   const title = document.createElement('p');
   title.className = 'placeholder';
-  if (selection.type === 'corridor') {
-    title.textContent = selection.id === 'front' ? 'Couloir avant' : 'Couloir arrière';
-    container.append(title);
-    const y = def.corridors[selection.id === 'front' ? 'frontY' : 'backY'];
-    renderFields(container, CORRIDOR_FIELDS, { y }, onChange);
-    return;
-  }
   title.textContent = `${TYPE_LABELS[selection.type]} ${selection.id}`;
   container.append(title);
-  if (selection.type === 'aisle') {
+  if (selection.type === 'corridor') {
+    const corridor = asList(def.corridors).find((c) => c.id === selection.id);
+    if (corridor) renderFields(container, CORRIDOR_FIELDS, corridor, onChange);
+  } else if (selection.type === 'aisle') {
     const aisle = def.aisles.find((a) => a.id === selection.id);
     if (aisle) renderFields(container, AISLE_FIELDS, aisle, onChange, 'aisle');
   } else {
@@ -123,8 +133,6 @@ export function renderGlobals(container, def, onChange) {
     name: def.name,
     width: def.dimensions.width,
     depth: def.dimensions.depth,
-    frontY: def.corridors.frontY,
-    backY: def.corridors.backY,
   }, onChange);
 }
 

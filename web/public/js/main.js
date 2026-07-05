@@ -18,7 +18,7 @@ import { slotCount } from './layout.js';
 import { splitSettings, buildSettings, mergeProjectParams } from './projects.js';
 import {
   moveAisle, moveFacility, moveCorridor, addAisle, removeAisle, addWorkshop, removeWorkshop,
-  addShipping, addReceiving, removeZone,
+  addShipping, addReceiving, removeZone, addCorridor, removeCorridor, updateCorridor,
   updateAisle, updateFacility, updateGlobals, validateDefinition,
   duplicateDefinition, minimalDefinition, normalizeDefinition,
 } from './editor/model.js';
@@ -41,6 +41,7 @@ const els = {
   editPanel: $('editPanel'), selProps: $('selProps'), globalProps: $('globalProps'),
   editAddAisle: $('editAddAisle'), editAddWorkshop: $('editAddWorkshop'),
   editAddShipping: $('editAddShipping'), editAddReceiving: $('editAddReceiving'),
+  editAddCorridor: $('editAddCorridor'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
   scenario: $('scenario'), opCount: $('opCount'), b2cShare: $('b2cShare'), orderRate: $('orderRate'),
@@ -518,17 +519,10 @@ try {
   function renderSelectionPanel() {
     renderSelection(els.selProps, workingDef, selection, (props) => {
       let next;
-      if (selection.type === 'corridor') {
-        // La position d'un couloir vit dans les propriétés globales
-        next = updateGlobals(workingDef, selection.id === 'front'
-          ? { frontY: props.y }
-          : { backY: props.y });
-      } else {
-        next = selection.type === 'aisle'
-          ? updateAisle(workingDef, selection.id, props)
-          : updateFacility(workingDef, selection.type, selection.id, props);
-        if (props.id !== undefined) selection = { ...selection, id: props.id };
-      }
+      if (selection.type === 'corridor') next = updateCorridor(workingDef, selection.id, props);
+      else if (selection.type === 'aisle') next = updateAisle(workingDef, selection.id, props);
+      else next = updateFacility(workingDef, selection.type, selection.id, props);
+      if (props.id !== undefined) selection = { ...selection, id: props.id };
       applyWorkingDef(next);
     });
   }
@@ -570,10 +564,11 @@ try {
     // Aperçu du drag : mêmes accrochage et bornes que le commit
     constrainDelta(type, id, delta) {
       if (type === 'corridor') {
-        const key = id === 'front' ? 'frontY' : 'backY';
-        const y0 = workingDef.corridors[key];
-        const moved = moveCorridor(workingDef, id, { y: y0 + delta.dz });
-        return { dx: 0, dz: moved.corridors[key] - y0 };
+        const corridor = workingDef.corridors.find((c) => c.id === id);
+        const moved = moveCorridor(workingDef, id, {
+          x: corridor.x + delta.dx, y: corridor.y + delta.dz,
+        }).corridors.find((c) => c.id === id);
+        return { dx: moved.x - corridor.x, dz: moved.y - corridor.y };
       }
       if (type === 'aisle') {
         const aisle = workingDef.aisles.find((a) => a.id === id);
@@ -591,8 +586,10 @@ try {
     },
     onMoved(type, id, delta) {
       if (type === 'corridor') {
-        const y0 = workingDef.corridors[id === 'front' ? 'frontY' : 'backY'];
-        applyWorkingDef(moveCorridor(workingDef, id, { y: y0 + delta.dz }));
+        const corridor = workingDef.corridors.find((c) => c.id === id);
+        applyWorkingDef(moveCorridor(workingDef, id, {
+          x: corridor.x + delta.dx, y: corridor.y + delta.dz,
+        }));
         return;
       }
       if (type === 'aisle') {
@@ -657,6 +654,11 @@ try {
     selection = { type: 'receiving', id: next.receiving[next.receiving.length - 1].id };
     applyWorkingDef(next);
   });
+  els.editAddCorridor.addEventListener('click', () => {
+    const next = addCorridor(workingDef);
+    selection = { type: 'corridor', id: next.corridors[next.corridors.length - 1].id };
+    applyWorkingDef(next);
+  });
   els.editRemoveSelection.addEventListener('click', () => {
     if (!selection) {
       renderErrors(els.editErrors, ['Aucun élément sélectionné.']);
@@ -664,8 +666,8 @@ try {
     }
     try {
       let next;
-      if (selection.type === 'corridor') throw new Error('Les couloirs ne peuvent pas être supprimés.');
-      if (selection.type === 'aisle') next = removeAisle(workingDef, selection.id);
+      if (selection.type === 'corridor') next = removeCorridor(workingDef, selection.id);
+      else if (selection.type === 'aisle') next = removeAisle(workingDef, selection.id);
       else if (selection.type === 'workshop') next = removeWorkshop(workingDef, selection.id);
       else next = removeZone(workingDef, selection.type, selection.id);
       selection = null;
