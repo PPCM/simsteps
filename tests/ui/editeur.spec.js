@@ -183,6 +183,47 @@ test('glisser un couloir le déplace au mètre, borné dans le sol', async ({ pa
   await page.locator('#editCancel').click();
 });
 
+test('un réseau invalide reste visible, signalé et non enregistrable', async ({ page }) => {
+  // Nouveau couloir, déplacé par champs près de la réception : elle s'y
+  // raccorde et devient inaccessible → réseau non connexe. La scène doit
+  // suivre le modèle (bande à la nouvelle position) malgré l'erreur.
+  await page.locator('#editAddCorridor').click();
+  await expect(page.locator('#selProps .placeholder')).toHaveText(/^Couloir C/);
+  const setField = async (label, value) => {
+    const input = page.locator('#selProps .field', { hasText: label }).first().locator('input, select');
+    await input.fill(String(value));
+    await input.blur();
+  };
+  await setField('x', 33); // hors de l'axe de toute allée : aucun débouché
+  await setField('y', 39); // à 1 m de la réception, qui s'y raccroche
+
+  const bandOf = (id) => page.evaluate((cid) => {
+    let found = null;
+    window.simstepsDebug.scene.traverse((o) => {
+      if (o.parent?.userData?.type === 'corridor' && o.parent.userData.id === cid
+          && o.geometry?.parameters?.width !== undefined) {
+        found = { x: o.position.x, z: o.position.z };
+      }
+    });
+    return found;
+  }, id);
+
+  // La bande suit le modèle même si le réseau est cassé
+  const band = await bandOf('C3');
+  expect(band.z).toBe(39);
+  const errors = page.locator('#editErrors li');
+  await expect(page.locator('#editSave')).toBeDisabled();
+  await expect(errors.first()).toContainText('non connexe');
+
+  // Reconnexion : le couloir couvre l'axe d'une allée et lui offre un
+  // débouché — l'erreur disparaît, Enregistrer revient
+  await setField('x', 20);
+  await expect(errors).toHaveCount(0);
+  await expect(page.locator('#editSave')).toBeEnabled();
+
+  await page.locator('#editCancel').click();
+});
+
 test('changer la taille du sol recadre la caméra sur le nouveau terrain', async ({ page, request, baseURL }) => {
   const before = await page.evaluate(() => window.simstepsDebug.camera.position.toArray());
 

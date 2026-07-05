@@ -152,8 +152,8 @@ try {
   const sceneApi = createWarehouseScene(canvas, definition);
   const { camera, scene, renderer, controls } = sceneApi;
   // Poignée de débogage et de tests UI (lecture seule : caméra,
-  // contrôles, état des libellés)
-  window.simstepsDebug = { camera, controls, labelStats: sceneApi.labelStats };
+  // contrôles, état des libellés, scène)
+  window.simstepsDebug = { camera, controls, labelStats: sceneApi.labelStats, scene };
 
   // --- État de la relecture ---
   let sim = null; // run courant : timeline, KPI, couches 3D
@@ -535,14 +535,18 @@ try {
     });
   }
 
-  // Applique une définition de travail : validation, reconstruction de
-  // la scène si valide (sinon la scène garde le dernier état valide)
+  // Applique une définition de travail : validation puis reconstruction
+  // de la scène. La scène suit le modèle même quand le réseau de
+  // circulation est invalide (l'erreur s'affiche, Enregistrer se
+  // bloque) : seules les erreurs géométriques — qui rendraient le plan
+  // inconstructible — figent la scène sur le dernier état sain.
   function applyWorkingDef(next, { recenter = false } = {}) {
     workingDef = next;
     const errors = validateDefinition(workingDef, buildWarehouse);
     renderErrors(els.editErrors, errors);
     els.editSave.disabled = errors.length > 0;
-    if (errors.length === 0) {
+    const renderable = errors.every((e) => e.startsWith('définition incohérente'));
+    if (renderable) {
       // Pas de recadrage hors redimensionnement du sol : l'orientation
       // choisie pendant l'édition est conservée
       sceneApi.setDefinition(workingDef, { recenter });

@@ -273,15 +273,41 @@ export function removeCorridor(def, corridorId) {
 
 /**
  * Met à jour les propriétés d'un couloir (id, label, x, y, length,
- * width, orientation).
+ * width, orientation). Une bascule d'orientation pivote le segment
+ * autour de son centre ; tout changement de géométrie (orientation,
+ * longueur, largeur) re-borne le segment dans le sol.
  * @returns {object} nouvelle définition
  */
 export function updateCorridor(def, corridorId, props) {
   const next = structuredClone(def);
   next.corridors = corridorsAsList(next);
   const corridor = corridorOf(next, corridorId);
+  const wasHorizontal = corridor.orientation !== 'vertical';
   for (const key of ['id', 'label', 'x', 'y', 'length', 'width', 'orientation']) {
     if (props[key] !== undefined) corridor[key] = props[key];
+  }
+  const horizontal = corridor.orientation !== 'vertical';
+  if (horizontal !== wasHorizontal) {
+    // Pivot autour du centre du segment
+    const half = corridor.length / 2;
+    if (horizontal) {
+      corridor.x = mm(corridor.x - half);
+      corridor.y = mm(corridor.y + half);
+    } else {
+      corridor.x = mm(corridor.x + half);
+      corridor.y = mm(corridor.y - half);
+    }
+  }
+  if (props.orientation !== undefined || props.length !== undefined || props.width !== undefined) {
+    const lane = (corridor.width ?? DEFAULT_AISLE_WIDTH) / 2;
+    const { width, depth } = next.dimensions;
+    if (horizontal) {
+      corridor.x = clamp(corridor.x, 0, Math.max(0, width - corridor.length));
+      corridor.y = clamp(corridor.y, lane, depth - lane);
+    } else {
+      corridor.x = clamp(corridor.x, lane, width - lane);
+      corridor.y = clamp(corridor.y, 0, Math.max(0, depth - corridor.length));
+    }
   }
   return next;
 }

@@ -380,3 +380,28 @@ test('le magnétisme exige que la jonction touche l’étendue de l’autre coul
   assert.equal(moveCorridor(inSpan, 'C3', { y: 5 }).corridors[2].y, 4);
   assert.ok(norm.corridors.length === 2); // fixture intacte
 });
+
+test('la bascule d’orientation pivote au centre et reste dans le sol', () => {
+  const norm = normalizeDefinition(def);
+  // C3 horizontal (17..27, y = 21) → vertical : pivot autour de (22, 21)
+  const added = addCorridor(norm);
+  const flipped = updateCorridor(added, 'C3', { orientation: 'vertical' });
+  const c = flipped.corridors[2];
+  assert.deepEqual({ x: c.x, y: c.y }, { x: 22, y: 16 });
+  // Près du bord : le segment re-borné ne sort pas du sol
+  const nearEdge = updateCorridor(added, 'C3', { x: 0, y: 41 });
+  const flippedEdge = updateCorridor(nearEdge, 'C3', { orientation: 'vertical' }).corridors[2];
+  assert.ok(flippedEdge.y >= 0);
+  assert.ok(flippedEdge.y + flippedEdge.length <= def.dimensions.depth);
+  // Une bascule aller-retour sans autre changement revient au départ
+  const back = updateCorridor(flipped, 'C3', { orientation: 'horizontal' }).corridors[2];
+  assert.deepEqual({ x: back.x, y: back.y }, { x: 17, y: 21 });
+});
+
+test('changer la longueur re-borne le segment dans le sol', () => {
+  const norm = normalizeDefinition(def);
+  const added = updateCorridor(addCorridor(norm), 'C3', { x: 30 }); // 30..40
+  const longer = updateCorridor(added, 'C3', { length: 30 }).corridors[2];
+  assert.equal(longer.length, 30);
+  assert.ok(longer.x + longer.length <= def.dimensions.width);
+});
