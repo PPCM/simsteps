@@ -1,6 +1,7 @@
-// Insertion des données d'exemple au premier démarrage : un entrepôt,
-// les deux scénarios de référence et un projet les regroupant. Ne fait
-// rien si la base contient déjà au moins un entrepôt.
+// Insertion des données d'exemple au premier démarrage : l'entrepôt
+// historique, l'entrepôt de démonstration des flux, les scénarios de
+// référence et un projet. Ne fait rien si la base contient déjà au
+// moins un entrepôt.
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -20,9 +21,16 @@ export async function seedIfEmpty(pool, dataDir) {
     'INSERT INTO warehouses (name, definition) VALUES ($1, $2) RETURNING id',
     [warehouse.name, warehouse]
   );
+  // Entrepôt de démonstration des flux (racks en hauteur, flotte,
+  // parkings, tampon, obstacles, voie réservée)
+  const fluxWarehouse = JSON.parse(await readFile(join(dataDir, 'warehouse-flux.json'), 'utf8'));
+  await pool.query(
+    'INSERT INTO warehouses (name, definition) VALUES ($1, $2)',
+    [fluxWarehouse.name, fluxWarehouse]
+  );
 
   const scenarioIds = [];
-  for (const file of ['scenario-example.json', 'scenario-waves.json']) {
+  for (const file of ['scenario-example.json', 'scenario-waves.json', 'scenario-flux.json']) {
     const scenario = JSON.parse(await readFile(join(dataDir, file), 'utf8'));
     const result = await pool.query(
       'INSERT INTO scenarios (name, params) VALUES ($1, $2) RETURNING id',

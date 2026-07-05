@@ -138,3 +138,15 @@ test('les zones tampon d’un entrepôt sont validées', () => {
   def.buffers = [{ label: 'sans id' }];
   assert.ok(validateWarehouseDefinition(def).some((e) => e.includes('buffers')));
 });
+
+test('les données de démonstration des flux sont valides', async () => {
+  const def = JSON.parse(
+    await readFile(new URL('../../../data/warehouse-flux.json', import.meta.url), 'utf8')
+  );
+  assert.deepEqual(validateWarehouseDefinition(def), []);
+  const { name, ...params } = JSON.parse(
+    await readFile(new URL('../../../data/scenario-flux.json', import.meta.url), 'utf8')
+  );
+  assert.equal(typeof name, 'string');
+  assert.deepEqual(validateScenarioParams(params), []);
+});

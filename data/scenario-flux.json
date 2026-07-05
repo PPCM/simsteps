@@ -1,0 +1,25 @@
+{
+  "name": "Flux complet — flotte mixte",
+  "seed": 7,
+  "durationHours": 2,
+  "operators": 4,
+  "fleet": {
+    "pieton": 5,
+    "retractable": 2,
+    "vna": 2
+  },
+  "ordersPerHour": 25,
+  "b2cShare": 0.8,
+  "strategy": "orderByOrder",
+  "slotting": "abc",
+  "replenishment": true,
+  "slotCapacityUnits": 45,
+  "inboundTrucksPerDay": 24,
+  "palletsPerTruck": 8,
+  "packers": 2,
+  "speedMps": 1.2,
+  "pickTimePerLineSec": 12,
+  "liftTimePerLevelSec": 6,
+  "dropTimeSec": 20,
+  "b2bClients": 8
+}
