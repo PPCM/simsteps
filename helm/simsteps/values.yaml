@@ -11,7 +11,7 @@ image:
   # .github/workflows/docker-publish.yml) ; construisible aussi en local
   # avec le Dockerfile du dépôt (docker build -t simsteps .)
   repository: ppcm/simsteps
-  tag: "0.7.0"
+  tag: "0.8.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
