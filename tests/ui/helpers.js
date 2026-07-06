@@ -62,14 +62,14 @@ export async function selectionFields(page) {
 
 /**
  * Crée un entrepôt jetable (nom unique) via l'API, à partir du gabarit
- * historique data/warehouse-example.json : les tests d'édition et de
+ * historique demo/warehouse-example.json : les tests d'édition et de
  * runs travaillent dessus avec une géométrie connue, quel que soit le
  * contenu de la base. Ses runs et projets partent en CASCADE avec lui.
  * @returns {Promise<{id: number, name: string}>}
  */
 export async function createTestWarehouse(request, baseURL) {
   const definition = JSON.parse(
-    await readFile(new URL('../../data/warehouse-example.json', import.meta.url), 'utf8')
+    await readFile(new URL('../../demo/warehouse-example.json', import.meta.url), 'utf8')
   );
   definition.name = uniqueName('Entrepôt');
   const response = await request.post(`${baseURL}/api/warehouses`, { data: definition });

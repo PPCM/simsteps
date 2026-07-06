@@ -8,8 +8,8 @@ import { runSimulation } from './engine.js';
 import { getStrategy } from './strategies.js';
 import { formatKpis } from './kpi.js';
 
-const scenarioPath = process.argv[2] ?? 'data/scenario-example.json';
-const warehousePath = process.argv[3] ?? 'data/warehouse-example.json';
+const scenarioPath = process.argv[2] ?? 'demo/scenario-example.json';
+const warehousePath = process.argv[3] ?? 'demo/warehouse-example.json';
 
 const scenario = JSON.parse(await readFile(scenarioPath, 'utf8'));
 const warehouseSpec = JSON.parse(await readFile(warehousePath, 'utf8'));

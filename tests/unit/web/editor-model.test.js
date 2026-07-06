@@ -43,7 +43,7 @@ import {
 } from '../../../web/public/js/editor/model.js';
 
 const def = JSON.parse(
-  await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
+  await readFile(new URL('../../../demo/warehouse-example.json', import.meta.url), 'utf8')
 );
 
 test('snapToGrid arrondit au mètre', () => {

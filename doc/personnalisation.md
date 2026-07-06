@@ -5,7 +5,7 @@ ajouter une stratégie de picking.
 
 ## Décrire son propre entrepôt (JSON)
 
-Un entrepôt est un document JSON (voir `data/warehouse-example.json`),
+Un entrepôt est un document JSON (voir `demo/warehouse-example.json`),
 importable via `POST /api/warehouses`. La circulation est reconstruite en
 graphe (nœuds de baie le long des allées, deux couloirs transversaux) et le
 pathfinding des opérateurs utilise A* sur ce graphe.
@@ -92,7 +92,7 @@ topologique à l'import.
 ## Paramètres d'un scénario
 
 Tous facultatifs (défauts entre parenthèses) — voir
-`data/scenario-example.json` :
+`demo/scenario-example.json` :
 
 | Paramètre | Rôle |
 |---|---|

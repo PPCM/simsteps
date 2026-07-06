@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { buildApp } from '../../../server/app.js';
 
 const warehouseDefinition = JSON.parse(
-  await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
+  await readFile(new URL('../../../demo/warehouse-example.json', import.meta.url), 'utf8')
 );
 
 // Pool factice paramétrable : chaque handler est un couple [fragment SQL,

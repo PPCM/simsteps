@@ -2,7 +2,7 @@
 // deux entrepôts (flux complet et site robotisé), leurs scénarios et
 // un projet pour chacun. Ne fait rien si la base contient déjà au
 // moins un entrepôt. L'entrepôt d'exemple historique
-// (data/warehouse-example.json) reste un gabarit pour la CLI et les
+// (demo/warehouse-example.json) reste un gabarit pour la CLI et les
 // tests, mais n'est plus semé.
 
 import { readFile } from 'node:fs/promises';

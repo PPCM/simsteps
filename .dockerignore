@@ -10,3 +10,4 @@ docker-compose.yml
 Dockerfile
 CLAUDE.md
 CLAUDE.local.md
+data

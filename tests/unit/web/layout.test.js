@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { floorSize, rackBoxes, zonePatches, aisleLabels, slotCount, gridSegments, corridorBands, corridorJunctions, obstacleBoxes, conveyorBelts } from '../../../web/public/js/layout.js';
 
 const def = JSON.parse(
-  await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
+  await readFile(new URL('../../../demo/warehouse-example.json', import.meta.url), 'utf8')
 );
 
 test('floorSize reprend les dimensions de la définition', () => {

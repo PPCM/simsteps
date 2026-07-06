@@ -9,3 +9,4 @@ helm/simsteps/charts/
 test-results/
 playwright-report/
 prompt/
+data/

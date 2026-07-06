@@ -33,7 +33,7 @@ npm run test:ui             # tests UI Playwright (navigateur réel contre la pi
                             # npx playwright install chromium)
 npm run test:e2e            # alias de test:ui (test:e2e:headed, test:e2e:ui)
 npm run sim                 # simulation en console (KPI, sans base ni 3D)
-npm run sim data/scenario-waves.json   # autre scénario
+npm run sim demo/scenario-waves.json   # autre scénario
 ```
 
 Les tests UI travaillent sur des entrepôts et projets jetables (noms
@@ -78,7 +78,9 @@ sim/      moteur de simulation (pur : sans DOM ni base, testable, aussi
 server/   API Fastify + accès PostgreSQL
 web/      rendu 3D Three.js + interface (aucune étape de build)
 db/       migrations SQL versionnées + seed
-data/     entrepôt et scénarios d'exemple (JSON)
+demo/     entrepôts et scénarios de démonstration (JSON, source du seed)
+data/     dossier de travail (gitignoré, monté en volume dans Docker) :
+          démos copiées au premier démarrage + fichiers de l'utilisateur
 helm/     chart Helm (Kubernetes)
 tests/    tests unitaires (node --test, sans base) et tests UI Playwright (tests/ui/)
 ```

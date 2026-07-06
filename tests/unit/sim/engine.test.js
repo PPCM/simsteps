@@ -6,7 +6,7 @@ import { buildWarehouse } from '../../../sim/warehouse.js';
 import { runSimulation, DEFAULT_SCENARIO } from '../../../sim/engine.js';
 
 const spec = JSON.parse(
-  await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
+  await readFile(new URL('../../../demo/warehouse-example.json', import.meta.url), 'utf8')
 );
 const warehouse = buildWarehouse(spec);
 

@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { buildWarehouse } from '../../../sim/warehouse.js';
 
 const spec = JSON.parse(
-  await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
+  await readFile(new URL('../../../demo/warehouse-example.json', import.meta.url), 'utf8')
 );
 
 test('l’entrepôt d’exemple respecte le cahier des charges', () => {

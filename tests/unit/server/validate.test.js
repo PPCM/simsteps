@@ -9,7 +9,7 @@ import {
 } from '../../../server/validate.js';
 
 const validWarehouse = JSON.parse(
-  await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
+  await readFile(new URL('../../../demo/warehouse-example.json', import.meta.url), 'utf8')
 );
 
 test('l’entrepôt d’exemple est accepté', () => {
@@ -141,11 +141,11 @@ test('les zones tampon d’un entrepôt sont validées', () => {
 
 test('les données de démonstration des flux sont valides', async () => {
   const def = JSON.parse(
-    await readFile(new URL('../../../data/warehouse-flux.json', import.meta.url), 'utf8')
+    await readFile(new URL('../../../demo/warehouse-flux.json', import.meta.url), 'utf8')
   );
   assert.deepEqual(validateWarehouseDefinition(def), []);
   const { name, ...params } = JSON.parse(
-    await readFile(new URL('../../../data/scenario-flux.json', import.meta.url), 'utf8')
+    await readFile(new URL('../../../demo/scenario-flux.json', import.meta.url), 'utf8')
   );
   assert.equal(typeof name, 'string');
   assert.deepEqual(validateScenarioParams(params), []);

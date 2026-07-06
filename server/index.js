@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { createPool, waitForDb } from './db.js';
 import { runMigrations } from '../db/migrate.js';
 import { seedIfEmpty } from '../db/seed.js';
+import { ensureDataDir } from './dataDir.js';
 import { buildApp } from './app.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -20,7 +21,12 @@ const migrationsDir = fileURLToPath(new URL('../db/migrations/', import.meta.url
 const applied = await runMigrations(pool, migrationsDir);
 if (applied.length > 0) console.log(`Migrations appliquées : ${applied.join(', ')}`);
 
+// data/ est le dossier de travail (monté en volume) : les démos de
+// demo/ y sont copiées si absentes, sans écraser les fichiers existants
+const demoDir = fileURLToPath(new URL('../demo/', import.meta.url));
 const dataDir = fileURLToPath(new URL('../data/', import.meta.url));
+const copied = await ensureDataDir(demoDir, dataDir);
+if (copied.length > 0) console.log(`Fichiers de démonstration copiés dans data/ : ${copied.join(', ')}`);
 if (await seedIfEmpty(pool, dataDir)) console.log('Données d’exemple insérées (seed)');
 
 const webRoot = fileURLToPath(new URL('../web/public/', import.meta.url));

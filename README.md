@@ -52,8 +52,9 @@ emplacements — palettier, allées VNA, réserve en hauteur, camions,
 emballeurs — avec sa flotte de sept types d'agents conduits, du piéton
 au VNA, sans engin automatisé) et « Robots mobiles » (site automatisé
 parcouru par des AMR avec station de charge et convoyeur).
-L'entrepôt d'exemple historique reste disponible en gabarit dans
-`data/warehouse-example.json` (CLI et tests).
+Les fichiers de démonstration (entrepôts et scénarios JSON) sont
+livrés dans `demo/` et copiés au premier démarrage dans le dossier de
+travail persistant `data/` (voir la persistance ci-dessous).
 
 ## Configuration et persistance
 
@@ -67,16 +68,24 @@ Variables d'environnement de l'application (toutes facultatives) :
 
 Persistance des données :
 
-- **Docker Compose** : la base vit dans le volume nommé `pgdata` — les
-  entrepôts, scénarios, projets et runs survivent aux redémarrages et
-  aux mises à jour d'image (`docker compose pull`). Pour repartir de
-  zéro (les données de démonstration sont réinsérées au démarrage
-  suivant) : `docker compose down -v`.
-- **Kubernetes (Helm)** : le sous-chart PostgreSQL Bitnami provisionne
-  un PersistentVolumeClaim (persistance activée par défaut, réglable
-  via les valeurs `postgresql.*` du sous-chart). Avec une base externe
-  (`database.externalUrl` ou `database.existingSecret`), la
-  persistance relève de cette base.
+| Données | Docker Compose | Kubernetes (Helm) |
+|---|---|---|
+| **Base** — entrepôts, scénarios, projets, runs | Volume nommé `pgdata` : survit aux redémarrages et aux mises à jour d'image (`docker compose pull`) | PersistentVolumeClaim du sous-chart PostgreSQL Bitnami (persistance activée par défaut, valeurs `postgresql.*`) ; avec une base externe, la persistance relève de cette base |
+| **Fichiers `data/`** — copies des démonstrations et vos propres fichiers JSON | Volume nommé `appdata` monté sur `/app/data` : vos ajouts et modifications survivent | Non persistant par défaut : les démos manquantes sont recopiées depuis `demo/` à chaque démarrage de pod (les vraies données vivent en base) |
+
+Le dossier `data/` est le **dossier de travail** : au premier démarrage,
+l'application y copie les fichiers de démonstration depuis `demo/`
+(livré avec l'application) **sans jamais écraser un fichier existant**
+— vous pouvez donc modifier vos copies ou y déposer vos propres JSON.
+Pour restaurer une démonstration d'origine :
+
+```bash
+docker compose exec app cp demo/warehouse-flux.json data/
+```
+
+Pour repartir entièrement de zéro (base et fichiers — les
+démonstrations sont réinsérées au démarrage suivant) :
+`docker compose down -v`.
 
 ## Déploiement Kubernetes (Helm)
 

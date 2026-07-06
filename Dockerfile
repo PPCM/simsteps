@@ -13,8 +13,11 @@ COPY package.json ./
 COPY sim ./sim
 COPY server ./server
 COPY db ./db
-COPY data ./data
+COPY demo ./demo
 COPY web ./web
+# data/ : dossier de travail (volume) — créé ici avec le bon
+# propriétaire pour que l'application puisse y copier les démos
+RUN mkdir data && chown node:node data
 USER node
 EXPOSE 3000
 CMD ["node", "server/index.js"]

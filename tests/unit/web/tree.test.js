@@ -6,7 +6,7 @@ import { buildTree } from '../../../web/public/js/editor/tree.js';
 import { normalizeDefinition, addParking, addBuffer } from '../../../web/public/js/editor/model.js';
 
 const def = normalizeDefinition(JSON.parse(
-  await readFile(new URL('../../../data/warehouse-example.json', import.meta.url), 'utf8')
+  await readFile(new URL('../../../demo/warehouse-example.json', import.meta.url), 'utf8')
 ));
 
 test('les groupes obligatoires sont présents avec tous leurs éléments', () => {
