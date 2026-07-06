@@ -33,6 +33,7 @@ import { createHistory } from './editor/history.js';
 import { kpiSummaryText } from './panels.js';
 import { setupWindow, setupTabs } from './windows.js';
 import { renderMarkdown } from './markdown.js';
+import { parseImportedJson, exportFilename } from './transfer.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -44,6 +45,10 @@ const els = {
   warehouse: $('warehouse'), warehouseEdit: $('warehouseEdit'),
   warehouseCreate: $('warehouseCreate'), warehouseDuplicate: $('warehouseDuplicate'),
   warehouseDelete: $('warehouseDelete'), warehouseStatus: $('warehouseStatus'),
+  warehouseImport: $('warehouseImport'), warehouseExport: $('warehouseExport'),
+  warehouseFile: $('warehouseFile'),
+  scenarioImport: $('scenarioImport'), scenarioExport: $('scenarioExport'),
+  scenarioFile: $('scenarioFile'), scenarioStatus: $('scenarioStatus'),
   editChrome: $('editChrome'), editTree: $('editTree'),
   editTitle: $('editTitle'), editCoords: $('editCoords'), editValidity: $('editValidity'),
   editDuplicate: $('editDuplicate'), editUndo: $('editUndo'), editRedo: $('editRedo'),
@@ -501,6 +506,72 @@ try {
     } catch (error) {
       setStatus(els.projectStatus, `Échec : ${error.message}`, true);
     }
+  });
+
+  // --- Import/export JSON : entrepôts et scénarios ---
+  // Téléchargement d'un document JSON sous un nom dérivé de l'élément
+  function downloadJson(value, filename) {
+    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  els.warehouseImport.addEventListener('click', () => els.warehouseFile.click());
+  els.warehouseFile.addEventListener('change', async () => {
+    const file = els.warehouseFile.files[0];
+    els.warehouseFile.value = ''; // permet de réimporter le même fichier
+    if (!file) return;
+    setStatus(els.warehouseStatus, 'Import…');
+    try {
+      const imported = parseImportedJson(await file.text());
+      const created = await sendJson('/api/warehouses', 'POST', imported);
+      warehousesList = await fetchJson('/api/warehouses');
+      refreshWarehouseOptions();
+      await loadWarehouse(created.id);
+      runCurrent();
+      await refreshCompareOptions();
+      setStatus(els.warehouseStatus, `Entrepôt « ${created.name} » importé.`);
+    } catch (error) {
+      setStatus(els.warehouseStatus, `Échec de l'import : ${error.message}`, true);
+    }
+  });
+  els.warehouseExport.addEventListener('click', () => {
+    const entry = warehousesList.find((w) => w.id === warehouseId);
+    // Le nom en base prime : c'est lui qui réapparaîtra à l'import
+    downloadJson({ ...definition, name: entry?.name ?? definition.name },
+      exportFilename(entry?.name ?? definition.name, 'entrepot'));
+    setStatus(els.warehouseStatus, 'Document JSON téléchargé.');
+  });
+
+  els.scenarioImport.addEventListener('click', () => els.scenarioFile.click());
+  els.scenarioFile.addEventListener('change', async () => {
+    const file = els.scenarioFile.files[0];
+    els.scenarioFile.value = '';
+    if (!file) return;
+    setStatus(els.scenarioStatus, 'Import…');
+    try {
+      const params = parseImportedJson(await file.text());
+      const created = await sendJson('/api/scenarios', 'POST', params);
+      scenarios.push(created);
+      els.scenario.append(new Option(created.name, created.id));
+      els.scenario.value = String(created.id);
+      syncSlidersFromScenario();
+      runCurrent();
+      await refreshCompareOptions();
+      setStatus(els.scenarioStatus, `Scénario « ${created.name} » importé.`);
+    } catch (error) {
+      setStatus(els.scenarioStatus, `Échec de l'import : ${error.message}`, true);
+    }
+  });
+  els.scenarioExport.addEventListener('click', () => {
+    const s = selectedScenario();
+    if (!s) return;
+    downloadJson({ ...s.params, name: s.name }, exportFilename(s.name, 'scenario'));
+    setStatus(els.scenarioStatus, 'Scénario JSON téléchargé.');
   });
 
   // --- Entrepôts : sélection, création, duplication, suppression ---

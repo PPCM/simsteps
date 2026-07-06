@@ -31,7 +31,11 @@ et onglet actif sont mémorisés par le navigateur) :
 - **Entrepôt** : choix de l'entrepôt affiché, création (modèle minimal),
   duplication et suppression (les runs et projets associés sont supprimés
   avec l'entrepôt). « Éditer » ouvre l'atelier d'édition (voir plus bas).
-- **Scénario** : choix du scénario de base, curseurs opérateurs à pied /
+  « Importer » charge un document d'entrepôt JSON (validé à l'import,
+  erreurs affichées en français) et « Exporter » télécharge le document
+  réimportable de l'entrepôt courant.
+- **Scénario** : choix du scénario de base — « Importer » /
+  « Exporter » échangent ses paramètres en JSON —, curseurs opérateurs à pied /
   mix B2C / cadence, et compteurs d'engins de manutention (transpalette,
   gerbeur, frontal, rétractable, VNA, préparateur — l'infobulle rappelle
   gabarit d'allée et hauteur de levée de chacun ; chaque type d'engin est

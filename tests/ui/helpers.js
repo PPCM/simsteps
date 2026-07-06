@@ -76,7 +76,7 @@ export async function createTestWarehouse(request, baseURL) {
   return response.json();
 }
 
-/** Supprime via l'API tous les projets/entrepôts dont le nom contient [test. */
+/** Supprime via l'API projets, entrepôts et scénarios dont le nom contient [test. */
 export async function cleanupTestData(request, baseURL) {
   const projects = await (await request.get(`${baseURL}/api/projects`)).json();
   for (const project of projects) {
@@ -88,6 +88,12 @@ export async function cleanupTestData(request, baseURL) {
   for (const warehouse of warehouses) {
     if (warehouse.name.includes('[test')) {
       await request.delete(`${baseURL}/api/warehouses/${warehouse.id}`);
+    }
+  }
+  const scenarios = await (await request.get(`${baseURL}/api/scenarios`)).json();
+  for (const scenario of scenarios) {
+    if (scenario.name.includes('[test')) {
+      await request.delete(`${baseURL}/api/scenarios/${scenario.id}`);
     }
   }
 }

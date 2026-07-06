@@ -384,6 +384,11 @@
         <button class="action" id="warehouseDuplicate">Dupliquer</button>
         <button class="action" id="warehouseDelete">Supprimer</button>
       </div>
+      <div class="btn-row">
+        <button class="action" id="warehouseImport" title="Importer un document d'entrepôt JSON — validé à l'import">Importer</button>
+        <button class="action" id="warehouseExport" title="Télécharger l'entrepôt courant en JSON réimportable">Exporter</button>
+      </div>
+      <input type="file" id="warehouseFile" accept=".json,application/json" hidden>
       <p class="action-status" id="warehouseStatus"></p>
     </section>
     </div>
@@ -395,6 +400,12 @@
         <span class="field-head"><span>Scénario de base</span></span>
         <select id="scenario"></select>
       </label>
+      <div class="btn-row">
+        <button class="action" id="scenarioImport" title="Importer des paramètres de scénario JSON">Importer</button>
+        <button class="action" id="scenarioExport" title="Télécharger le scénario de base en JSON réimportable">Exporter</button>
+      </div>
+      <input type="file" id="scenarioFile" accept=".json,application/json" hidden>
+      <p class="action-status" id="scenarioStatus"></p>
       <label class="field">
         <span class="field-head"><span>Opérateurs à pied</span><output id="opCountVal"></output></span>
         <input type="range" id="opCount" min="0" max="20" step="1">

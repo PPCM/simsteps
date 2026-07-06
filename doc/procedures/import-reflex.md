@@ -185,7 +185,7 @@ le module flux). Chaque paramètre se calcule depuis les extractions :
 | `b2bClients` | Extraction B | Nombre de clients B2B distincts actifs sur la période |
 | `strategy` | Organisation du site | `zoneWave` si Reflex lance des vagues par zone, sinon `orderByOrder` |
 | `waveSize` | Extraction C | Taille moyenne des vagues (lignes ou commandes par vague) |
-| `pickTimePerLineSec` | Extraction C | Médiane du temps entre deux validations de prélèvement **consécutives d'une même mission** (la médiane écarte les trajets longs et les pauses) ; à défaut, garder 12 s et recaler à l'étape 6 |
+| `pickTimePerLineSec` | Extraction C | Médiane du temps entre deux validations de prélèvement **consécutives d'une même mission** (la médiane écarte les trajets longs et les pauses) ; à défaut, garder 12 s et recaler à l'étape 5 |
 | `liftTimePerLevelSec` | — | Mesure terrain ou défaut (6 s) — ne concerne que les prélèvements au-dessus du niveau 1 |
 | `dropTimeSec` | Extraction C | Temps de dépose observé à l'expédition/atelier ; à défaut 20 s |
 | `speedMps` | — | Vitesse de marche : mesure terrain ou standard (1,2 m/s) |
@@ -200,55 +200,39 @@ le module flux). Chaque paramètre se calcule depuis les extractions :
 
 Contrôle de cohérence utile (extraction B) : le nombre moyen de lignes par
 commande B2C et B2B. SimSteps génère ses propres profils de commandes — si
-votre réel s'en écarte fortement, l'écart se verra à l'étape 6 et se
+votre réel s'en écarte fortement, l'écart se verra à l'étape 5 et se
 compense sur `ordersPerHour` (raisonner en **lignes/heure** plutôt qu'en
 commandes/heure).
 
-## Étape 4 — Valider hors ligne (sans base de données)
+## Étape 4 — Importer dans SimSteps
 
-Avant tout import, validez les deux JSON avec la CLI (aucune base requise) :
+Avec l'application démarrée (`docker compose up`, http://localhost:3000),
+tout se fait dans l'interface :
 
-```bash
-npm run sim mon-scenario.json mon-entrepot.json
-```
-
-- Une erreur de topologie (allée sans débouché, réseau non connexe,
-  emprise hors sol…) est signalée par un message en français explicite :
-  corrigez le JSON et relancez ;
-- Quand la simulation passe, les KPI s'affichent en console : premier
-  ordre de grandeur avant même l'import.
-
-## Étape 5 — Importer dans SimSteps
-
-Avec l'application démarrée (`docker compose up`, http://localhost:3000) :
-
-```bash
-# 1. L'entrepôt (le corps est la définition elle-même ; "name" est lu dedans)
-curl -X POST http://localhost:3000/api/warehouses \
-  -H 'Content-Type: application/json' \
-  -d @mon-entrepot.json
-
-# 2. Le scénario
-curl -X POST http://localhost:3000/api/scenarios \
-  -H 'Content-Type: application/json' \
-  -d @mon-scenario.json
-```
-
-Chaque appel renvoie `201` avec l'`id` créé — notez-les. Un `400` renvoie
-la liste `errors` des problèmes de validation (mêmes règles que la CLI).
-
-Ensuite, dans l'interface :
-
-1. Créez un **projet** (onglet Configurer) associant l'entrepôt et le
-   scénario importés — ou via l'API :
-   `POST /api/projects` avec `{"name": "Site Reflex", "warehouseId": <id>, "scenarioId": <id>}` ;
-2. Sélectionnez le projet : la simulation se lance et se rejoue en direct ;
-3. Ajustez la topologie au besoin dans le **mode édition 3D**
+1. Onglet **Configurer**, section Entrepôt : bouton **« Importer »** →
+   sélectionnez `mon-entrepot.json`. Le document est **validé à
+   l'import** : une erreur de topologie (allée sans débouché, réseau non
+   connexe, emprise hors sol…) s'affiche en français sous les boutons —
+   corrigez le fichier et réimportez. Quand l'import passe, l'entrepôt
+   est sélectionné et la simulation démarre dessus immédiatement ;
+2. Onglet **Piloter**, section Scénario : bouton **« Importer »** →
+   sélectionnez `mon-scenario.json`. Le scénario apparaît dans le
+   sélecteur et pilote les curseurs ;
+3. Créez un **projet** (onglet Configurer) associant l'entrepôt et le
+   scénario importés, puis sélectionnez-le : la simulation se rejoue en
+   direct ;
+4. Ajustez la topologie au besoin dans le **mode édition 3D**
    (l'entrepôt modifié est réenregistré en base) ;
-4. Exportez à tout moment le document réimportable :
-   `GET /api/warehouses/<id>`.
+5. Les boutons **« Exporter »** téléchargent à tout moment le document
+   JSON réimportable (entrepôt ou scénario).
 
-## Étape 6 — Recaler la simulation sur le réel
+Pour les techniciens, l'équivalent en ligne de commande reste
+disponible : validation hors ligne `npm run sim mon-scenario.json
+mon-entrepot.json` (sans base de données, KPI en console) et import
+`curl -X POST http://localhost:3000/api/warehouses -H 'Content-Type:
+application/json' -d @mon-entrepot.json` (idem `/api/scenarios`).
+
+## Étape 5 — Recaler la simulation sur le réel
 
 Avant de comparer des scénarios d'organisation, vérifiez que le modèle
 reproduit la situation actuelle :
@@ -274,6 +258,5 @@ reproduit la situation actuelle :
 | 1 | Extraire de Reflex (A–E) | 4–5 CSV + paramétrage | Exports Reflex / infocentre / DSI |
 | 2 | Construire l'entrepôt | `mon-entrepot.json` | Extraction A + plan coté |
 | 3 | Calibrer le scénario | `mon-scenario.json` | Extractions B–E |
-| 4 | Valider hors ligne | Simulation console OK | `npm run sim` |
-| 5 | Importer | Entrepôt + scénario + projet en base | `POST /api/warehouses`, `/api/scenarios`, `/api/projects` |
-| 6 | Recaler | Run de référence fidèle au réel (±10 %) | Fenêtre KPI / comparaison |
+| 4 | Importer (validation incluse) | Entrepôt + scénario + projet en base | Boutons « Importer » de l'interface |
+| 5 | Recaler | Run de référence fidèle au réel (±10 %) | Fenêtre KPI / comparaison |
