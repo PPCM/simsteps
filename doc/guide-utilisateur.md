@@ -51,9 +51,15 @@ et onglet actif sont mémorisés par le navigateur) :
   emballeurs (voir les [paramètres de scénario](personnalisation.md)).
   Le bloc « Circulation » active les croisements exclusifs dans les
   couloirs étroits (`corridorExclusion`, voir la section congestion
-  ci-dessous). Tout changement relance instantanément la simulation
-  (elle s'exécute dans le navigateur en quelques millisecondes) ; la
-  relecture repart de zéro.
+  ci-dessous). Le panneau repliable **« Tous les paramètres »** expose
+  le reste des [paramètres de scénario](personnalisation.md) — durée,
+  graine, stratégie, taille de vague, temps opératoires, module flux,
+  autonomie AGV — groupés, bornés, avec la formule de calibrage en
+  infobulle ; une valeur modifiée devient une surcharge du scénario de
+  base, enregistrée avec le projet. **« Enregistrer comme scénario »**
+  fige les réglages courants sous un nouveau nom. Tout changement
+  relance instantanément la simulation (elle s'exécute dans le
+  navigateur en quelques millisecondes) ; la relecture repart de zéro.
 - **Enregistrer ce run en base** : fige les paramètres courants, les KPI et
   les trajets agrégés côté serveur, pour comparaison ultérieure.
 - **Affichage** : traînées de déplacement (une couleur par opérateur),

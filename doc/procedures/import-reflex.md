@@ -173,8 +173,16 @@ centimètre dans le JSON initial.
 
 ## Étape 3 — Calibrer le scénario
 
-Partez de `demo/scenario-example.json` (ou `demo/scenario-flux.json` pour
-le module flux). Chaque paramètre se calcule depuis les extractions :
+Aucun fichier à écrire : tous les paramètres se saisissent dans
+l'interface (onglet **Piloter** — curseurs, compteurs d'engins, et le
+panneau repliable **« Tous les paramètres »** pour le reste ; chaque
+champ rappelle sa formule de calibrage en infobulle). Saisissez les
+valeurs calculées ci-dessous puis cliquez **« Enregistrer comme
+scénario »** pour les figer sous un nom. Un fichier JSON
+(`demo/scenario-example.json` comme modèle) reste une alternative pour
+préparer le scénario hors ligne et l'importer.
+
+Chaque paramètre se calcule depuis les extractions :
 
 | Paramètre SimSteps | Source Reflex | Formule |
 |---|---|---|

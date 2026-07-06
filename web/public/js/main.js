@@ -7,6 +7,7 @@
 
 import { buildWarehouse, facilityList } from '/sim/warehouse.js';
 import { runSimulation, DEFAULT_SCENARIO } from '/sim/engine.js';
+import { STRATEGIES } from '/sim/strategies.js';
 import { VEHICLES } from '/sim/vehicles.js';
 import { createWarehouseScene } from './scene.js';
 import { createRecorder } from './timeline.js';
@@ -34,6 +35,7 @@ import { kpiSummaryText } from './panels.js';
 import { setupWindow, setupTabs } from './windows.js';
 import { renderMarkdown } from './markdown.js';
 import { parseImportedJson, exportFilename } from './transfer.js';
+import { SCENARIO_FIELDS, parseFieldValue, fieldGroups } from './scenarioForm.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -49,6 +51,7 @@ const els = {
   warehouseFile: $('warehouseFile'),
   scenarioImport: $('scenarioImport'), scenarioExport: $('scenarioExport'),
   scenarioFile: $('scenarioFile'), scenarioStatus: $('scenarioStatus'),
+  scenarioSaveAs: $('scenarioSaveAs'), advancedFields: $('advancedFields'),
   editChrome: $('editChrome'), editTree: $('editTree'),
   editTitle: $('editTitle'), editCoords: $('editCoords'), editValidity: $('editValidity'),
   editDuplicate: $('editDuplicate'), editUndo: $('editUndo'), editRedo: $('editRedo'),
@@ -170,7 +173,11 @@ try {
   const { camera, scene, renderer, controls } = sceneApi;
   // Poignée de débogage et de tests UI (lecture seule : caméra,
   // contrôles, état des libellés, scène)
-  window.simstepsDebug = { camera, controls, labelStats: sceneApi.labelStats, scene };
+  window.simstepsDebug = {
+    camera, controls, labelStats: sceneApi.labelStats, scene,
+    // Paramètres effectifs du prochain run (assertions des tests UI)
+    currentParams: () => currentParams(),
+  };
 
   // --- État de la relecture ---
   let sim = null; // run courant : timeline, KPI, couches 3D
@@ -204,6 +211,60 @@ try {
     label.append(head, input);
     els.fleetInputs.append(label);
     fleetEls.set(type, input);
+  }
+
+  // --- Panneau « Tous les paramètres » : champs générés du descripteur,
+  // groupés ; chaque modification devient un extra (surcharge du
+  // scénario de base, persistée avec le projet) et relance la simulation
+  const advancedEls = new Map();
+  for (const [group, fields] of fieldGroups()) {
+    const block = document.createElement('div');
+    block.className = 'field';
+    const groupHead = document.createElement('span');
+    groupHead.className = 'field-head';
+    groupHead.innerHTML = `<span>${group}</span>`;
+    const grid = document.createElement('div');
+    grid.className = 'props-grid';
+    for (const field of fields) {
+      const label = document.createElement('label');
+      label.className = 'field';
+      if (field.help) label.title = field.help;
+      const head = document.createElement('span');
+      head.className = 'field-head';
+      head.innerHTML = `<span>${field.label}${field.unit ? ` (${field.unit})` : ''}</span>`;
+      let input;
+      if (field.type === 'enum') {
+        // Seule liste du panneau : la stratégie, alimentée par le
+        // catalogue du moteur (une stratégie ajoutée apparaît d'office)
+        input = document.createElement('select');
+        for (const strategy of STRATEGIES.values()) {
+          input.append(new Option(strategy.label, strategy.id));
+        }
+      } else {
+        input = document.createElement('input');
+        input.type = 'number';
+        input.min = String(field.min);
+        input.max = String(field.max);
+        input.step = String(field.step);
+      }
+      input.dataset.key = field.key;
+      input.addEventListener('change', () => {
+        const value = parseFieldValue(field, input.value);
+        input.value = String(value); // reflète le bornage
+        extraSettings = { ...extraSettings, [field.key]: value };
+        runCurrent();
+      });
+      label.append(head, input);
+      grid.append(label);
+      advancedEls.set(field.key, input);
+    }
+    block.append(groupHead, grid);
+    els.advancedFields.append(block);
+  }
+  function refreshAdvancedPanel(params) {
+    for (const field of SCENARIO_FIELDS) {
+      advancedEls.get(field.key).value = String(params[field.key] ?? field.default);
+    }
   }
 
   function sliderValues() {
@@ -241,6 +302,8 @@ try {
     els.inboundTrucks.value = params.inboundTrucksPerDay ?? 0;
     els.packers.value = params.packers ?? 0;
     els.corridorExclusion.checked = params.corridorExclusion === true;
+    // Le panneau détaillé suit : scénario de base surchargé des extras
+    refreshAdvancedPanel({ ...params, ...extraSettings });
     refreshSliderLabels();
   }
 
@@ -572,6 +635,25 @@ try {
     if (!s) return;
     downloadJson({ ...s.params, name: s.name }, exportFilename(s.name, 'scenario'));
     setStatus(els.scenarioStatus, 'Scénario JSON téléchargé.');
+  });
+
+  // Matérialise les réglages courants (scénario de base + extras +
+  // curseurs) en scénario nommé, sélectionné dans la foulée
+  els.scenarioSaveAs.addEventListener('click', async () => {
+    const name = window.prompt('Nom du nouveau scénario :', '');
+    if (!name || !name.trim()) return;
+    setStatus(els.scenarioStatus, 'Enregistrement…');
+    try {
+      const created = await sendJson('/api/scenarios', 'POST',
+        { ...currentParams(), name: name.trim() });
+      scenarios.push(created);
+      els.scenario.append(new Option(created.name, created.id));
+      els.scenario.value = String(created.id);
+      await refreshCompareOptions();
+      setStatus(els.scenarioStatus, `Scénario « ${created.name} » enregistré.`);
+    } catch (error) {
+      setStatus(els.scenarioStatus, `Échec : ${error.message}`, true);
+    }
   });
 
   // --- Entrepôts : sélection, création, duplication, suppression ---
