@@ -9,6 +9,7 @@ import { registerWarehouseRoutes } from './routes/warehouses.js';
 import { registerScenarioRoutes } from './routes/scenarios.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerRunRoutes } from './routes/runs.js';
+import { registerProcedureRoutes } from './routes/procedures.js';
 
 /**
  * @param {{pool: import('pg').Pool, webRoot?: string, threeRoot?: string, simRoot?: string, logger?: boolean|object}} options
@@ -16,6 +17,8 @@ import { registerRunRoutes } from './routes/runs.js';
  *        pour que le frontend importe Three.js sans étape de build.
  *        simRoot : dossier sim/, servi sous /sim — le moteur est pur et
  *        s'exécute aussi dans le navigateur pour l'animation.
+ *        proceduresRoot : dossier doc/procedures/, exposé via
+ *        /api/procedures pour l'aide du mode édition.
  *        rateLimit : limitation de débit par IP (déni de service) ;
  *        surchargable pour les tests.
  */
@@ -24,6 +27,7 @@ export async function buildApp({
   webRoot,
   threeRoot,
   simRoot,
+  proceduresRoot,
   logger = false,
   // Un chargement de page ≈ 30 requêtes (modules ES, Three.js, API) :
   // 1000/min laisse ~30 chargements par minute et par IP
@@ -48,6 +52,7 @@ export async function buildApp({
   registerScenarioRoutes(app, pool);
   registerProjectRoutes(app, pool);
   registerRunRoutes(app, pool);
+  registerProcedureRoutes(app, proceduresRoot);
 
   if (webRoot) {
     await app.register(fastifyStatic, { root: webRoot });

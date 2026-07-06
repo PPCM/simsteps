@@ -14,6 +14,8 @@ COPY sim ./sim
 COPY server ./server
 COPY db ./db
 COPY demo ./demo
+# Procédures métier affichées par l'aide du mode édition
+COPY doc/procedures ./doc/procedures
 COPY web ./web
 # data/ : dossier de travail (volume) — créé ici avec le bon
 # propriétaire pour que l'application puisse y copier les démos

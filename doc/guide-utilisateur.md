@@ -76,7 +76,12 @@ d'application de bureau l'encadre —
   de 2 m, racks compris pour une allée ; « Supprimer »), avec
   « ↶ Annuler » / « ↷ Rétablir » près du titre (historique complet de
   la session d'édition) et « Enregistrer » / « Quitter sans
-  enregistrer » à droite ;
+  enregistrer » à droite ; tout à droite du ruban, le groupe **Aide**
+  ouvre la fenêtre « Procédures » : les guides pas à pas livrés avec
+  l'application (par exemple l'[import de données Reflex
+  WMS](procedures/import-reflex.md)), rendus dans un volet à gauche de
+  la scène — cliquer un titre l'ouvre, « ← » revient à la liste, « ✕ »
+  ou Échap ferme ;
 - **dock à droite** : l'arborescence « Structure » (les éléments
   groupés par type avec leur résumé — baies et niveaux d'une allée,
   orientation et longueur d'un couloir… ; un clic sélectionne sans
@@ -94,10 +99,11 @@ d'application de bureau l'encadre —
 Raccourcis clavier (chacun rappelé dans l'infobulle de son bouton) :
 **1 à 9** ajoutent les éléments dans l'ordre du ruban (allée, couloir,
 atelier, expédition, réception, parking, tampon, obstacle, convoyeur),
+**0** ouvre ou ferme les procédures,
 **Ctrl+Z** / **Ctrl+Y** annulent et rétablissent, **Ctrl+D** duplique
 la sélection, **Suppr** la supprime, **Ctrl+S** enregistre et
-**Échap** désélectionne. Les raccourcis s'effacent pendant la saisie
-dans un champ.
+**Échap** ferme l'aide ouverte, sinon désélectionne. Les raccourcis
+s'effacent pendant la saisie dans un champ.
 
 Dans la scène : cliquer un élément le sélectionne, glisser le déplace
 par pas d'un mètre — le bord gauche/avant s'aligne sur le carroyage au

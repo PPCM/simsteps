@@ -14,6 +14,8 @@ s'applique (1000 requêtes/min par IP, statiques comprises).
 | `GET /api/runs?warehouseId=&scenarioId=&projectId=` | Liste des runs (KPI inclus) |
 | `GET /api/runs/:id` | Détail d'un run (avec trajets agrégés) |
 | `DELETE /api/runs/:id` | Suppression |
+| `GET /api/procedures` | Liste des procédures métier (`doc/procedures/*.md`) avec leur titre |
+| `GET /api/procedures/:file` | Une procédure : `{file, title, markdown}` — affichée par l'aide du mode édition |
 
 Le format du document d'entrepôt et les paramètres de scénario sont
 détaillés dans la [personnalisation](personnalisation.md).

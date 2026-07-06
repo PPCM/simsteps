@@ -32,6 +32,7 @@ import { buildTree } from './editor/tree.js';
 import { createHistory } from './editor/history.js';
 import { kpiSummaryText } from './panels.js';
 import { setupWindow, setupTabs } from './windows.js';
+import { renderMarkdown } from './markdown.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -56,6 +57,8 @@ const els = {
   corridorExclusion: $('corridorExclusion'),
   editRemoveSelection: $('editRemoveSelection'),
   editSave: $('editSave'), editCancel: $('editCancel'), editErrors: $('editErrors'),
+  editProcedures: $('editProcedures'), procWindow: $('procWindow'),
+  procBody: $('procBody'), procBack: $('procBack'), procClose: $('procClose'),
   scenario: $('scenario'), opCount: $('opCount'), fleetInputs: $('fleetInputs'),
   b2cShare: $('b2cShare'), orderRate: $('orderRate'), slotting: $('slotting'),
   opCountVal: $('opCountVal'), b2cShareVal: $('b2cShareVal'), orderRateVal: $('orderRateVal'),
@@ -577,6 +580,7 @@ try {
     els.hint.hidden = value;
     document.querySelector('.legend').hidden = value;
     els.editChrome.hidden = !value;
+    els.procWindow.hidden = true; // l'aide s'ouvre à la demande
   }
 
   function findFacility(def, kind, id) {
@@ -851,6 +855,53 @@ try {
   els.editUndo.addEventListener('click', () => applyHistoryState(editHistory.undo(workingDef)));
   els.editRedo.addEventListener('click', () => applyHistoryState(editHistory.redo(workingDef)));
 
+  // --- Aide « Procédures » : documents Markdown servis par l'API ---
+  let procedures = null; // liste mise en cache au premier affichage
+  async function showProcedureList() {
+    els.procBack.hidden = true;
+    try {
+      procedures ??= await fetchJson('/api/procedures');
+    } catch (error) {
+      els.procBody.innerHTML = `<p class="placeholder">Procédures indisponibles : ${error.message}</p>`;
+      return;
+    }
+    els.procBody.textContent = '';
+    if (procedures.length === 0) {
+      els.procBody.innerHTML = '<p class="placeholder">Aucune procédure disponible.</p>';
+      return;
+    }
+    const list = document.createElement('ul');
+    list.className = 'proc-list';
+    for (const doc of procedures) {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = doc.title;
+      button.addEventListener('click', () => showProcedure(doc.file));
+      item.appendChild(button);
+      list.appendChild(item);
+    }
+    els.procBody.appendChild(list);
+  }
+  async function showProcedure(file) {
+    try {
+      const doc = await fetchJson(`/api/procedures/${file}`);
+      els.procBody.innerHTML = renderMarkdown(doc.markdown);
+      els.procBody.scrollTop = 0;
+      els.procBack.hidden = false;
+    } catch (error) {
+      els.procBody.innerHTML = `<p class="placeholder">Procédure indisponible : ${error.message}</p>`;
+    }
+  }
+  els.editProcedures.addEventListener('click', () => {
+    els.procWindow.hidden = !els.procWindow.hidden;
+    if (!els.procWindow.hidden) showProcedureList();
+  });
+  els.procBack.addEventListener('click', showProcedureList);
+  els.procClose.addEventListener('click', () => {
+    els.procWindow.hidden = true;
+  });
+
   // Raccourcis clavier du mode édition (rappelés dans les infobulles) —
   // inactifs pendant la saisie dans un champ du dock
   const CREATION_KEYS = {
@@ -884,9 +935,18 @@ try {
       return;
     }
     if (event.key === 'Escape') {
+      // Échap ferme d'abord l'aide ouverte, puis désélectionne
+      if (!els.procWindow.hidden) {
+        els.procWindow.hidden = true;
+        return;
+      }
       selection = null;
       editorControls.setSelection(null);
       refreshEditPanels();
+      return;
+    }
+    if (event.key === '0') {
+      els.editProcedures.click();
       return;
     }
     const tool = CREATION_KEYS[event.key];

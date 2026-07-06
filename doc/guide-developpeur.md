@@ -79,6 +79,8 @@ server/   API Fastify + accès PostgreSQL
 web/      rendu 3D Three.js + interface (aucune étape de build)
 db/       migrations SQL versionnées + seed
 demo/     entrepôts et scénarios de démonstration (JSON, source du seed)
+doc/      documentation ; doc/procedures/ est aussi embarqué dans l'image
+          Docker et servi via /api/procedures (aide du mode édition)
 data/     dossier de travail (gitignoré, monté en volume dans Docker) :
           démos copiées au premier démarrage + fichiers de l'utilisateur
 helm/     chart Helm (Kubernetes)

@@ -1,5 +1,7 @@
 node_modules
 doc
+!doc/procedures
+!doc/procedures/**
 tests
 helm
 .env

@@ -108,6 +108,55 @@
     #editValidity.ok { color: var(--good); }
     #editValidity.bad { color: var(--danger); }
     .edit-hint { margin-left: auto; color: var(--ink-3); }
+    /* Fenêtre d'aide « Procédures » : dock gauche du mode édition */
+    #procWindow {
+      pointer-events: auto; width: 480px; max-width: 46vw; margin-right: auto;
+      display: flex; flex-direction: column;
+      background: var(--surface); border-right: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+    #procWindow[hidden] { display: none; }
+    .proc-head {
+      display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+      border-bottom: 1px solid var(--line); flex: none;
+    }
+    .proc-head .win-name { flex: 1; }
+    .proc-head .win-toggle { margin-left: 0; }
+    #procBody {
+      overflow-y: auto; flex: 1; padding: 12px 16px;
+      font-size: 12.5px; line-height: 1.55; color: var(--ink);
+    }
+    #procBody h1 { font-size: 15px; margin: 0 0 10px; }
+    #procBody h2 { font-size: 13px; margin: 16px 0 6px; color: var(--accent); }
+    #procBody h3 { font-size: 12.5px; margin: 12px 0 4px; }
+    #procBody p { margin: 6px 0; }
+    #procBody ul, #procBody ol { margin: 6px 0; padding-left: 20px; }
+    #procBody li { margin: 3px 0; }
+    #procBody code {
+      font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px;
+      background: rgba(127, 127, 127, .15); padding: 1px 4px;
+    }
+    #procBody pre {
+      background: rgba(127, 127, 127, .12); padding: 8px 10px;
+      overflow-x: auto; margin: 8px 0;
+    }
+    #procBody pre code { background: transparent; padding: 0; }
+    #procBody table {
+      border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 11.5px;
+    }
+    #procBody th, #procBody td {
+      border: 1px solid var(--line); padding: 4px 6px;
+      text-align: left; vertical-align: top;
+    }
+    #procBody th { color: var(--ink-2); }
+    #procBody a { color: var(--accent); }
+    .proc-list { list-style: none; margin: 0; padding: 0; }
+    .proc-list button {
+      appearance: none; display: block; width: 100%; padding: 8px 10px;
+      margin: 4px 0; background: transparent; border: 1px solid var(--line);
+      color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+    }
+    .proc-list button:hover { border-color: var(--accent); color: var(--accent); }
     .win-body { overflow-y: auto; }
     .win-body::-webkit-scrollbar { width: 8px; }
     .win-body::-webkit-scrollbar-thumb { background: var(--line); }
@@ -483,9 +532,24 @@
           </div>
           <span class="ribbon-caption">Modifier</span>
         </div>
+        <div class="ribbon-sep"></div>
+        <div class="ribbon-group">
+          <div class="ribbon-tools">
+            <button class="tool" id="editProcedures" title="Consulter les procédures — import de données, méthodes (0)"><b>?</b><small>Procédures</small></button>
+          </div>
+          <span class="ribbon-caption">Aide</span>
+        </div>
       </div>
     </div>
     <div class="edit-middle">
+      <aside id="procWindow" hidden aria-label="Procédures">
+        <div class="proc-head">
+          <button class="win-toggle" id="procBack" title="Retour à la liste des procédures" hidden>←</button>
+          <h2 class="win-name">Procédures</h2>
+          <button class="win-toggle" id="procClose" title="Fermer les procédures (Échap)">✕</button>
+        </div>
+        <div id="procBody"></div>
+      </aside>
       <aside id="editPanel" aria-label="Structure et propriétés de l'entrepôt">
         <h2 class="dock-head">Structure</h2>
         <div id="editTree"></div>
