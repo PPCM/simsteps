@@ -3,7 +3,7 @@
 // Le dossier est injecté pour rester testable sans arborescence réelle.
 
 import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 
 // Titre = premier en-tête de niveau 1 ; à défaut, le nom du fichier
 function extractTitle(markdown, file) {
@@ -39,8 +39,14 @@ export function registerProcedureRoutes(app, proceduresRoot) {
     if (!proceduresRoot || !FILE_PATTERN.test(file)) {
       return reply.code(404).send({ error: 'Procédure introuvable' });
     }
+    // Ceinture et bretelles après la regex : le chemin résolu doit
+    // rester dans le dossier des procédures
+    const resolved = resolve(proceduresRoot, file);
+    if (!resolved.startsWith(resolve(proceduresRoot) + sep)) {
+      return reply.code(404).send({ error: 'Procédure introuvable' });
+    }
     try {
-      const markdown = await readFile(join(proceduresRoot, file), 'utf8');
+      const markdown = await readFile(resolved, 'utf8');
       return { file, title: extractTitle(markdown, file), markdown };
     } catch {
       return reply.code(404).send({ error: 'Procédure introuvable' });
