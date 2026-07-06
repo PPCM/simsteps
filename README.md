@@ -30,6 +30,7 @@ scénarios d'organisation.
 | [Guide Développeur](doc/guide-developpeur.md) | Mode développement, pile Docker locale, chart Helm, commandes et tests, schéma des tables, structure du projet |
 | [API REST](doc/api-rest.md) | Les routes de l'API et leurs corps de requête |
 | [Personnalisation](doc/personnalisation.md) | Décrire son entrepôt en JSON, paramètres de scénario, ajouter une stratégie de picking |
+| [Import Reflex WMS](doc/procedures/import-reflex.md) | Construire un entrepôt et un scénario SimSteps depuis les données d'un site sous Reflex WMS : extractions, transformation, import, recalage — aussi consultable dans l'application (mode édition, bouton « Procédures ») |
 
 ## Démarrage rapide (Docker)
 
