@@ -36,6 +36,7 @@ import { setupWindow, setupTabs } from './windows.js';
 import { renderMarkdown } from './markdown.js';
 import { parseImportedJson, exportFilename } from './transfer.js';
 import { SCENARIO_FIELDS, parseFieldValue, fieldGroups } from './scenarioForm.js';
+import { createWizard } from './import/wizard.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -48,7 +49,10 @@ const els = {
   warehouseCreate: $('warehouseCreate'), warehouseDuplicate: $('warehouseDuplicate'),
   warehouseDelete: $('warehouseDelete'), warehouseStatus: $('warehouseStatus'),
   warehouseImport: $('warehouseImport'), warehouseExport: $('warehouseExport'),
-  warehouseFile: $('warehouseFile'),
+  warehouseFile: $('warehouseFile'), warehouseWizard: $('warehouseWizard'),
+  wizard: $('wizard'), wizardBody: $('wizardBody'), wizardStatus: $('wizardStatus'),
+  wizardBack: $('wizardBack'), wizardSkip: $('wizardSkip'),
+  wizardNext: $('wizardNext'), wizardClose: $('wizardClose'),
   scenarioImport: $('scenarioImport'), scenarioExport: $('scenarioExport'),
   scenarioFile: $('scenarioFile'), scenarioStatus: $('scenarioStatus'),
   scenarioSaveAs: $('scenarioSaveAs'), advancedFields: $('advancedFields'),
@@ -655,6 +659,37 @@ try {
       setStatus(els.scenarioStatus, `Échec : ${error.message}`, true);
     }
   });
+
+  // --- Assistant d'import WMS : CSV → entrepôt + scénario + projet ---
+  // À la création : tout passe par les routes existantes, le projet est
+  // appliqué et l'éditeur 3D s'ouvre pour la mise au plan
+  const wizard = createWizard({
+    wizard: els.wizard, body: els.wizardBody, status: els.wizardStatus,
+    back: els.wizardBack, skip: els.wizardSkip, next: els.wizardNext,
+    close: els.wizardClose,
+  }, async ({ definition: draft, params, name }) => {
+    const createdWarehouse = await sendJson('/api/warehouses', 'POST', draft);
+    const createdScenario = await sendJson('/api/scenarios', 'POST',
+      { ...DEFAULT_SCENARIO, ...params, name: `${name} — scénario` });
+    const createdProject = await sendJson('/api/projects', 'POST', {
+      name,
+      warehouseId: createdWarehouse.id,
+      scenarioId: createdScenario.id,
+      settings: {},
+    });
+    warehousesList = await fetchJson('/api/warehouses');
+    scenarios.push(createdScenario);
+    els.scenario.append(new Option(createdScenario.name, createdScenario.id));
+    projects = await fetchJson('/api/projects');
+    refreshProjectOptions();
+    refreshWarehouseOptions();
+    await applyProject(projects.find((p) => p.id === createdProject.id));
+    els.project.value = String(createdProject.id);
+    setStatus(els.warehouseStatus,
+      `Import réussi : ajustez les positions d'après le plan du bâtiment, puis Enregistrer.`);
+    enterEdit();
+  });
+  els.warehouseWizard.addEventListener('click', () => wizard.open());
 
   // --- Entrepôts : sélection, création, duplication, suppression ---
   els.warehouse.addEventListener('change', async () => {

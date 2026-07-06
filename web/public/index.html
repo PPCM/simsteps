@@ -264,6 +264,38 @@
     input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
     .props-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    /* Assistant d'import WMS : boîte modale au-dessus de la scène */
+    #wizard {
+      position: fixed; inset: 0; z-index: 6; display: flex;
+      align-items: center; justify-content: center;
+      background: rgba(0, 0, 0, .45);
+    }
+    #wizard[hidden] { display: none; }
+    .wizard-box {
+      width: 680px; max-width: 92vw; max-height: 86vh;
+      display: flex; flex-direction: column;
+      background: var(--surface); border: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+    .wizard-head {
+      display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .wizard-head .win-name { flex: 1; }
+    .wizard-head .win-toggle { margin-left: 0; }
+    .wizard-body { overflow-y: auto; flex: 1; padding: 14px 16px; font-size: 12.5px; }
+    .wizard-body h3 { margin: 0 0 8px; font-size: 13px; color: var(--accent); }
+    .wizard-body p { margin: 6px 0; color: var(--ink-2); }
+    .wizard-body .explain { color: var(--ink); }
+    .wizard-body table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 11.5px; }
+    .wizard-body th, .wizard-body td { border: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+    .wizard-errors { color: var(--danger); margin: 6px 0; padding-left: 18px; }
+    .wizard-foot {
+      display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+      border-top: 1px solid var(--line);
+    }
+    .wizard-foot .action-status { flex: 1; margin: 0; }
+    .wizard-foot button.action { width: auto; padding: 6px 12px; }
     /* Panneau replié « Tous les paramètres » du scénario */
     #scenarioAdvanced { margin: 4px 0 10px; }
     #scenarioAdvanced summary {
@@ -397,6 +429,7 @@
       <div class="btn-row">
         <button class="action" id="warehouseImport" title="Importer un document d'entrepôt JSON — validé à l'import">Importer</button>
         <button class="action" id="warehouseExport" title="Télécharger l'entrepôt courant en JSON réimportable">Exporter</button>
+        <button class="action" id="warehouseWizard" title="Assistant : construire entrepôt et scénario depuis les CSV d'un WMS (Reflex…)">Importer depuis un WMS</button>
       </div>
       <input type="file" id="warehouseFile" accept=".json,application/json" hidden>
       <p class="action-status" id="warehouseStatus"></p>
@@ -592,6 +625,22 @@
       <span class="mono">Accrochage : 1 m</span>
       <span id="editValidity" class="mono ok">✓ Plan valide</span>
       <span class="edit-hint">Glisser un élément : déplacer · Clic dans le vide : orbite · Échap : désélectionner</span>
+    </div>
+  </div>
+
+  <div id="wizard" hidden>
+    <div class="wizard-box" role="dialog" aria-label="Assistant d'import WMS">
+      <div class="wizard-head">
+        <h2 class="win-name" id="wizardTitle">Importer depuis un WMS</h2>
+        <button class="win-toggle" id="wizardClose" title="Fermer l'assistant">✕</button>
+      </div>
+      <div class="wizard-body" id="wizardBody"></div>
+      <div class="wizard-foot">
+        <button class="action" id="wizardBack">← Retour</button>
+        <p class="action-status" id="wizardStatus"></p>
+        <button class="action" id="wizardSkip">Passer</button>
+        <button class="action primary" id="wizardNext">Suivant</button>
+      </div>
     </div>
   </div>
 

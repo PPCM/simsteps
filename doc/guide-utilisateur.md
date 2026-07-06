@@ -33,7 +33,13 @@ et onglet actif sont mémorisés par le navigateur) :
   avec l'entrepôt). « Éditer » ouvre l'atelier d'édition (voir plus bas).
   « Importer » charge un document d'entrepôt JSON (validé à l'import,
   erreurs affichées en français) et « Exporter » télécharge le document
-  réimportable de l'entrepôt courant.
+  réimportable de l'entrepôt courant. « Importer depuis un WMS » ouvre
+  un assistant qui lit les CSV extraits d'un WMS (Reflex…) — référentiel
+  des emplacements, historiques de commandes, missions et réceptions —,
+  propose la correspondance des colonnes, explique chaque valeur
+  calculée, puis crée d'un coup l'entrepôt provisoire, le scénario
+  calibré et le projet, et ouvre l'éditeur 3D pour la mise au plan (voir
+  la [procédure d'import Reflex](procedures/import-reflex.md)).
 - **Scénario** : choix du scénario de base — « Importer » /
   « Exporter » échangent ses paramètres en JSON —, curseurs opérateurs à pied /
   mix B2C / cadence, et compteurs d'engins de manutention (transpalette,
