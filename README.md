@@ -17,8 +17,12 @@ scénarios d'organisation.
   zone — et une interface simple pour en ajouter.
 - **Historique et comparaison** : entrepôts, scénarios et runs (KPI +
   trajets agrégés) conservés pour consultation et comparaison dans le temps.
-- **KPI en direct** : commandes/h, lignes/h, distance moyenne, taux
-  d'occupation, temps de cycle, commandes en attente.
+- **KPI en direct** : commandes/h, lignes/h, lignes/h/opérateur, distance
+  moyenne, taux d'occupation, temps de cycle, commandes en attente.
+- **Import depuis un WMS** : un assistant lit les CSV extraits du WMS
+  (Reflex…) — emplacements, commandes, missions, réceptions — et crée
+  l'entrepôt, le scénario calibré et le projet ; le **recalage assisté**
+  ajuste ensuite la simulation sur la productivité réellement observée.
 
 ---
 
