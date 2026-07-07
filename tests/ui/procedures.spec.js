@@ -27,8 +27,10 @@ test('le ruban ouvre la liste des procédures puis une procédure rendue', async
   await page.locator('#editProcedures').click();
   await expect(page.locator('#procWindow')).toBeVisible();
 
-  // La liste contient la procédure Reflex livrée avec l'application
-  const entry = page.locator('.proc-list button', { hasText: 'Reflex WMS' });
+  // La liste contient les procédures livrées avec l'application
+  // (import Reflex et spécification des extractions pour la DSI)
+  await expect(page.locator('.proc-list button', { hasText: 'Extractions Reflex WMS' })).toBeVisible();
+  const entry = page.locator('.proc-list button', { hasText: 'Importer des données Reflex WMS' });
   await expect(entry).toBeVisible();
 
   // Ouverture : Markdown rendu (titre, section, tableau), bouton retour

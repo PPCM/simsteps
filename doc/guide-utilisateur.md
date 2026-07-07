@@ -72,7 +72,15 @@ et onglet actif sont mémorisés par le navigateur) :
   heatmap de fréquentation au sol, et masquage des libellés 3D — quand
   ils sont masqués, un clic sur un élément (allée, atelier, zone,
   couloir) révèle le sien, un clic dans le vide le cache.
-- **Indicateurs en direct** : les KPI évoluent pendant la relecture.
+- **Indicateurs en direct** : les KPI évoluent pendant la relecture
+  (dont « Lignes / h / op. », la productivité par agent).
+- **Recalage** : saisissez la productivité réelle observée dans votre
+  WMS (lignes/heure/opérateur) et « Calibrer » retrouve le temps de
+  prélèvement par ligne qui la reproduit à ±5 % (quelques runs
+  déterministes) ; « Appliquer » reporte la valeur dans le scénario.
+  Si la cible est inatteignable ou si la productivité simulée ne dépend
+  pas du temps de prélèvement (opérateurs sous-chargés), un message
+  explique quoi ajuster.
 - **Comparaison** : deux sources au choix (réglages actuels, scénarios,
   runs enregistrés) et tableau des écarts, colorés selon le sens de
   l'amélioration. Avec un projet actif, seuls les runs du projet sont

@@ -26,6 +26,8 @@ test('computeKpis agrège correctement un état final', () => {
   assert.equal(kpis.ordersPerHour, 2);
   assert.equal(kpis.linesPicked, 4);
   assert.equal(kpis.linesPerHour, 4);
+  // 4 lignes / 1 h / 2 opérateurs
+  assert.equal(kpis.linesPerHourPerOperator, 2);
   assert.equal(kpis.totalDistanceM, 1500);
   assert.equal(kpis.avgDistancePerOperatorM, 750);
   // (1800 + 900) / (2 × 3600)
@@ -43,6 +45,7 @@ test('computeKpis reste défini sans commande terminée ni opérateur', () => {
   assert.equal(kpis.avgCycleTimeSec, null);
   assert.equal(kpis.occupancyRate, 0);
   assert.equal(kpis.avgDistancePerOperatorM, 0);
+  assert.equal(kpis.linesPerHourPerOperator, 0);
 });
 
 test('formatKpis produit un tableau lisible en français', () => {

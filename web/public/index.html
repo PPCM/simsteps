@@ -522,12 +522,26 @@
         <dt>Commandes traitées</dt><dd id="kpi-orders">—</dd>
         <dt>Commandes / h</dt><dd id="kpi-oph">—</dd>
         <dt>Lignes / h</dt><dd id="kpi-lph">—</dd>
+        <dt>Lignes / h / op.</dt><dd id="kpi-lphop">—</dd>
         <dt>Distance moy. / op.</dt><dd id="kpi-dist">—</dd>
         <dt>Distance / ligne</dt><dd id="kpi-distline">—</dd>
         <dt>Occupation</dt><dd id="kpi-occ">—</dd>
         <dt>Cycle moyen</dt><dd id="kpi-cycle">—</dd>
         <dt>En attente</dt><dd id="kpi-pending">—</dd>
       </dl>
+    </section>
+
+    <section>
+      <h2>Recalage</h2>
+      <label class="field">
+        <span class="field-head"><span>Lignes / h / opérateur observées (WMS)</span></span>
+        <input type="number" id="calibrateTarget" min="0.1" step="0.1" placeholder="ex. 42">
+      </label>
+      <div class="btn-row">
+        <button class="action" id="calibrateRun" title="Retrouver le temps de prélèvement qui reproduit la productivité observée">Calibrer</button>
+        <button class="action" id="calibrateApply" disabled title="Appliquer la valeur trouvée au scénario courant">Appliquer</button>
+      </div>
+      <p class="action-status" id="calibrateStatus"></p>
     </section>
 
     <section>

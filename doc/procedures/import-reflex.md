@@ -115,21 +115,29 @@ pour préparer ces valeurs hors ligne (boutons « Importer » /
 ## Étape 4 — Recaler la simulation sur le réel
 
 Avant de comparer des scénarios d'organisation, vérifiez que le modèle
-reproduit la situation actuelle :
+reproduit la situation actuelle. La fenêtre **Indicateurs** a une
+section **« Recalage »** qui automatise l'essentiel :
 
-1. Lancez un run sur la configuration « telle quelle » (effectifs et
-   organisation actuels) ;
-2. Comparez les KPI simulés aux chiffres Reflex de la période :
+1. Configurez la situation « telle quelle » (effectifs et organisation
+   actuels) ;
+2. Relevez dans Reflex la productivité réelle de la période :
    **lignes préparées par heure et par opérateur** (le meilleur
-   indicateur, robuste aux différences de profil de commandes),
-   commandes servies, taux d'occupation des opérateurs ;
-3. Écart > ~10 % : ajustez dans l'ordre `pickTimePerLineSec` (l'effet
-   le plus fort), puis `dropTimeSec` et `speedMps` — et vérifiez
-   `b2cShare` en raisonnant en lignes/heure ;
-4. Une fois recalé, **figez l'entrepôt, le scénario et la graine** : ce
-   run devient la référence, et les variantes (effectifs, `zoneWave`,
-   slotting ABC, flotte d'engins…) se comparent dans la fenêtre KPI
-   (section Comparaison) et via les runs enregistrés.
+   indicateur, robuste aux différences de profil de commandes) ;
+3. Saisissez cette valeur dans « Lignes / h / opérateur observées » et
+   cliquez **« Calibrer »** : l'application itère sur le temps de
+   prélèvement par ligne (la simulation est déterministe et
+   instantanée) jusqu'à reproduire la productivité observée à ±5 %,
+   puis affiche la valeur trouvée — **« Appliquer »** la reporte dans
+   le scénario (rien n'est modifié sans ce clic) ;
+4. Deux messages possibles au lieu d'un résultat : *cible
+   inatteignable* (vérifiez effectifs, part B2C, cadence — raisonnez en
+   lignes/heure) ou *productivité indépendante du temps de prélèvement*
+   (les opérateurs sont sous-chargés et suivent la demande : le
+   recalage n'a de sens qu'en charge) ;
+5. Une fois recalé, **figez l'entrepôt, le scénario et la graine**
+   (« Mettre à jour » le projet) : ce run devient la référence, et les
+   variantes (effectifs, `zoneWave`, slotting ABC, flotte d'engins…) se
+   comparent dans la section Comparaison et via les runs enregistrés.
 
 ## Récapitulatif
 
@@ -139,7 +147,7 @@ reproduit la situation actuelle :
 | 1 | Assistant d'import | Entrepôt provisoire + scénario calibré + projet | « Importer depuis un WMS » |
 | 2 | Mise au plan | Topologie fidèle au bâtiment | Éditeur 3D + plan coté |
 | 3 | Compléter le scénario | Paramètres d'organisation saisis | Panneau « Tous les paramètres » |
-| 4 | Recaler | Run de référence fidèle au réel (±10 %) | Fenêtre KPI / comparaison |
+| 4 | Recaler | Run de référence fidèle au réel (±5 %) | Section « Recalage » de la fenêtre Indicateurs |
 
 ## Pour les techniciens
 

@@ -76,6 +76,22 @@ export async function createTestWarehouse(request, baseURL) {
   return response.json();
 }
 
+/**
+ * Crée un scénario jetable (nom unique) via l'API, à partir du gabarit
+ * demo/scenario-example.json : les tests qui dépendent des paramètres
+ * (pas de réappro, stratégie simple) le sélectionnent au lieu de subir
+ * le premier scénario de la base.
+ * @returns {Promise<{id: number, name: string, params: object}>}
+ */
+export async function createTestScenario(request, baseURL) {
+  const params = JSON.parse(
+    await readFile(new URL('../../demo/scenario-example.json', import.meta.url), 'utf8')
+  );
+  params.name = uniqueName('Scénario');
+  const response = await request.post(`${baseURL}/api/scenarios`, { data: params });
+  return response.json();
+}
+
 /** Supprime via l'API projets, entrepôts et scénarios dont le nom contient [test. */
 export async function cleanupTestData(request, baseURL) {
   const projects = await (await request.get(`${baseURL}/api/projects`)).json();

@@ -37,6 +37,7 @@ import { renderMarkdown } from './markdown.js';
 import { parseImportedJson, exportFilename } from './transfer.js';
 import { SCENARIO_FIELDS, parseFieldValue, fieldGroups } from './scenarioForm.js';
 import { createWizard } from './import/wizard.js';
+import { calibrate } from './calibrate.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -78,6 +79,8 @@ const els = {
   toggleLabels: $('toggleLabels'),
   saveRun: $('saveRun'), saveStatus: $('saveStatus'),
   cmpA: $('cmpA'), cmpB: $('cmpB'), cmpRun: $('cmpRun'), cmpStatus: $('cmpStatus'), cmpTable: $('cmpTable'),
+  calibrateTarget: $('calibrateTarget'), calibrateRun: $('calibrateRun'),
+  calibrateApply: $('calibrateApply'), calibrateStatus: $('calibrateStatus'),
 };
 
 // Fenêtres flottantes (drag, repli, mémorisation) et onglets — branchés
@@ -179,8 +182,10 @@ try {
   // contrôles, état des libellés, scène)
   window.simstepsDebug = {
     camera, controls, labelStats: sceneApi.labelStats, scene,
-    // Paramètres effectifs du prochain run (assertions des tests UI)
+    // Paramètres effectifs du prochain run et KPI du run courant
+    // (assertions des tests UI)
     currentParams: () => currentParams(),
+    kpis: () => sim?.kpis ?? null,
   };
 
   // --- État de la relecture ---
@@ -390,6 +395,7 @@ try {
     $('kpi-orders').textContent = `${intFr.format(k.ordersCompleted)} / ${intFr.format(k.ordersCreated)}`;
     $('kpi-oph').textContent = numFr.format(k.ordersPerHour);
     $('kpi-lph').textContent = numFr.format(k.linesPerHour);
+    $('kpi-lphop').textContent = numFr.format(k.linesPerHourPerOperator ?? 0);
     $('kpi-dist').textContent = `${intFr.format(k.avgDistancePerOperatorM)} m`;
     $('kpi-distline').textContent = k.distancePerLineM !== null && k.distancePerLineM !== undefined
       ? `${numFr.format(k.distancePerLineM)} m` : '—';
@@ -658,6 +664,64 @@ try {
     } catch (error) {
       setStatus(els.scenarioStatus, `Échec : ${error.message}`, true);
     }
+  });
+
+  // --- Recalage assisté : retrouver le temps de prélèvement qui
+  // reproduit la productivité observée (lignes/heure/opérateur) ---
+  let calibration = null;
+  const pickField = SCENARIO_FIELDS.find((f) => f.key === 'pickTimePerLineSec');
+  els.calibrateRun.addEventListener('click', async () => {
+    const target = Number(els.calibrateTarget.value.replace(',', '.'));
+    if (!Number.isFinite(target) || target <= 0) {
+      setStatus(els.calibrateStatus, 'Saisissez la productivité observée (lignes/h/opérateur).', true);
+      return;
+    }
+    els.calibrateRun.disabled = true;
+    els.calibrateApply.disabled = true;
+    calibration = null;
+    setStatus(els.calibrateStatus, 'Calibrage en cours…');
+    try {
+      const base = { ...DEFAULT_SCENARIO, ...currentParams() };
+      // La simulation est déterministe et tient en quelques millisecondes :
+      // chaque itération est un run complet avec la graine courante
+      const runKpi = (pickTime) =>
+        runSimulation(warehouse, { ...base, pickTimePerLineSec: pickTime }).kpis.linesPerHourPerOperator;
+      const result = await calibrate(runKpi, target, { min: pickField.min, max: pickField.max });
+      if (result.converged) {
+        calibration = result;
+        els.calibrateApply.disabled = false;
+        setStatus(els.calibrateStatus,
+          `Prélèvement par ligne : ${result.value} s → ${numFr.format(result.achieved)} lignes/h/op. `
+          + `(${result.iterations} runs). Cliquez « Appliquer » pour reporter la valeur.`);
+      } else if (result.flat) {
+        setStatus(els.calibrateStatus,
+          'La productivité simulée ne dépend presque pas du temps de prélèvement ici : '
+          + `les opérateurs sont sous-chargés et suivent la demande (${numFr.format(result.achieved)} lignes/h/op. `
+          + 'quelle que soit la valeur). Augmentez la cadence ou réduisez l\'effectif avant de recaler.', true);
+      } else {
+        setStatus(els.calibrateStatus,
+          `Cible inatteignable entre ${pickField.min} et ${pickField.max} s `
+          + `(au mieux ${numFr.format(result.achieved)} avec ${result.value} s). `
+          + 'Vérifiez les effectifs, la part B2C et la cadence — raisonnez en lignes/heure.', true);
+      }
+    } catch (error) {
+      setStatus(els.calibrateStatus, `Échec du calibrage : ${error.message}`, true);
+    } finally {
+      els.calibrateRun.disabled = false;
+    }
+  });
+  els.calibrateApply.addEventListener('click', () => {
+    if (calibration === null) return;
+    extraSettings = { ...extraSettings, pickTimePerLineSec: calibration.value };
+    refreshAdvancedPanel({
+      ...DEFAULT_SCENARIO,
+      ...(selectedScenario()?.params ?? {}),
+      ...extraSettings,
+    });
+    runCurrent();
+    els.calibrateApply.disabled = true;
+    setStatus(els.calibrateStatus,
+      'Valeur appliquée (surcharge du scénario) — « Mettre à jour » le projet pour la conserver.');
   });
 
   // --- Assistant d'import WMS : CSV → entrepôt + scénario + projet ---

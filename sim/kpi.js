@@ -21,6 +21,8 @@ export function computeKpis({ orders, operators, durationSec }) {
     ordersPerHour: completed.length / hours,
     linesPicked,
     linesPerHour: linesPicked / hours,
+    // Productivité par agent : l'indicateur de recalage sur le réel
+    linesPerHourPerOperator: operators.length > 0 ? linesPicked / hours / operators.length : 0,
     totalDistanceM: totalDistance,
     avgDistancePerOperatorM: operators.length > 0 ? totalDistance / operators.length : 0,
     // L'indicateur du rangement : combien de mètres coûte une ligne ?
@@ -43,6 +45,7 @@ export function formatKpis(kpis) {
     ['Commandes traitées', String(kpis.ordersCompleted)],
     ['Commandes traitées / h', kpis.ordersPerHour.toFixed(1)],
     ['Lignes prélevées / h', kpis.linesPerHour.toFixed(1)],
+    ['Lignes / h / opérateur', kpis.linesPerHourPerOperator.toFixed(1)],
     ['Distance moyenne / opérateur', `${kpis.avgDistancePerOperatorM.toFixed(0)} m`],
     ['Distance par ligne', kpis.distancePerLineM !== null ? `${kpis.distancePerLineM.toFixed(1)} m` : '—'],
     ['Taux d’occupation des opérateurs', `${(kpis.occupancyRate * 100).toFixed(1)} %`],
