@@ -243,16 +243,25 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     }
   }
 
+  // Capacités du piéton de référence, calculées d'emblée : elles servent
+  // au choix des parkings (un engin conduit doit être joignable à pied)
+  // puis à la faisabilité des missions à pied
+  const walkerReach = graph.reachableFrom(warehouse.shippingNodeId, VEHICLES.pieton.aisleWidthM, 'pietons');
+
   // Stationnement : chaque entité démarre au parking atteignable le
   // plus proche de l'expédition qui admet son type d'engin (à défaut,
-  // l'expédition) et y retournera à l'inactivité
+  // l'expédition) et y retournera à l'inactivité. Un engin conduit ne
+  // stationne jamais hors de portée des piétons : son conducteur vient
+  // à pied, un parking injoignable le neutraliserait définitivement.
   for (const op of operators) {
     if (op.role === 'packer') continue; // point d'appel : son atelier
+    const manned = op.vehicle !== 'pieton' && VEHICLES[op.vehicle].automated !== true;
     const reach = reachOf(op);
     let best = null;
     for (const parking of warehouse.parkings) {
       if (parking.vehicles !== undefined && !parking.vehicles.includes(op.vehicle)) continue;
       if (!reach.has(parking.nodeId)) continue;
+      if (manned && !walkerReach.has(parking.nodeId)) continue;
       const d = graph.distance(warehouse.shippingNodeId, parking.nodeId);
       if (best === null || d < best.d) best = { nodeId: parking.nodeId, d };
     }
@@ -270,9 +279,8 @@ export function runSimulation(warehouse, scenarioInput, hooks = {}) {
     return mission.nodes.every((nodeId) => reach.has(nodeId));
   }
 
-  // Capacités du piéton de référence : décide si une mission est
-  // faisable à pied (sinon elle exige un engin, donc un conducteur)
-  const walkerReach = graph.reachableFrom(warehouse.shippingNodeId, VEHICLES.pieton.aisleWidthM, 'pietons');
+  // Décide si une mission est faisable à pied (sinon elle exige un
+  // engin, donc un conducteur)
   function footCompatible(requiredLiftM, nodes) {
     return requiredLiftM <= VEHICLES.pieton.liftM + 1e-9
       && nodes.every((nodeId) => walkerReach.has(nodeId));

@@ -264,6 +264,34 @@ test('sans parking, comportement historique (départ à l’expédition)', () =>
   for (const op of operators) assert.equal(op.startNodeId, warehouse.shippingNodeId);
 });
 
+test('un engin conduit ne stationne pas sur un parking injoignable à pied', () => {
+  const tall = structuredClone(spec);
+  tall.racks = tall.racks.map((r) => ({ ...r, levels: 3 }));
+  tall.aisles = tall.aisles.map((a) => ({ ...a, width: 2 }));
+  tall.corridors = [
+    { id: 'C1', x: 0, y: 4, length: 44, width: 3, orientation: 'horizontal' },
+    { id: 'C2', x: 0, y: 38, length: 44, width: 3, orientation: 'horizontal' },
+    // Liaison réservée aux engins : les piétons n'y entrent jamais
+    { id: 'C3', x: 40, y: 4, length: 34, width: 3, orientation: 'vertical', access: 'engins' },
+  ];
+  tall.parkings = [
+    // PKE, ouvert à tous, se raccorde à la voie engins — plus proche de
+    // l'expédition que PK1, mais aucun conducteur ne peut s'y rendre
+    { id: 'PKE', label: 'Parking voie engins', x: 42, y: 20 },
+    { id: 'PK1', label: 'Parking mixte', x: 4, y: 40 },
+  ];
+  const { kpis, operators } = runSimulation(
+    buildWarehouse(tall),
+    { ...BASE, seed: 7, ordersPerHour: 10, fleet: { pieton: 1, preparateur: 1 } }
+  );
+  const machine = operators.find((o) => o.vehicle === 'preparateur');
+  // L'engin conduit ignore PKE et se gare là où un conducteur peut venir
+  assert.equal(machine.startNodeId, 'PK1');
+  // La flotte reste opérante : l'engin travaille, des commandes sortent
+  assert.ok(machine.linesPicked > 0);
+  assert.ok(kpis.ordersCompleted > 0);
+});
+
 // --- Phase 4 : stock, réapprovisionnement, flux entrants ---
 
 // Entrepôt à 3 niveaux (réserve aux niveaux 2-3) praticable par un
