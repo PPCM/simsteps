@@ -10,3 +10,6 @@ test-results/
 playwright-report/
 prompt/
 data/
+
+# Spécification OpenAPI Reflex WMS (référence locale, propre au site)
+/api-reflex/
